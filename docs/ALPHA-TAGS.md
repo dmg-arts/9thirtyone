@@ -1,15 +1,15 @@
-# Alpha tags, archived
+# The alpha releases
 
-Twelve annotated tags marked the alpha releases between 21 and 24 August 2026. They were
-never pushed: the repository was renamed out from under them — `my-pwa` → `9thirtyone` —
-and the tags stayed behind on one machine while the remote moved on. Only
-`v1.0.0-beta.1` and `v1.0.1-beta.1` exist on the remote.
+Twelve annotated tags marked the alpha releases between 21 and 24 August 2026. All twelve
+are on the remote, alongside the two beta tags.
 
-Rather than publish twelve alpha refs to a public repository, they are recorded here. This
-file is the archive; the tags themselves are expendable.
+This file is not a rescue: nothing here is at risk. It exists because a tag is a poor place
+to record *why* a release mattered. `git tag -l` gives twelve names and a one-line message
+each; it does not tell you that four of them are a single movement, or what that movement
+was for. The table below does.
 
 **The commit SHAs are the durable part.** Every one is reachable from `main`, so
-`git show <sha>` works whether or not the tag still exists anywhere.
+`git show <sha>` works whether or not a tag still exists anywhere.
 
 ## The releases
 
@@ -60,7 +60,7 @@ Full SHAs, if the short ones ever collide:
 2ae3aec45312474a6e18615f4ba73ab01ea86ce2  v0.11.0-alpha
 ```
 
-## Recreating them, if a real tag is ever wanted
+## Recreating them, if the tags are ever lost
 
 ```bash
 # one of them
@@ -81,5 +81,5 @@ git tag -a v0.10.0-alpha 030a496 -m "Anonymised export"
 git tag -a v0.11.0-alpha 2ae3aec -m "By-instructor review"
 ```
 
-The local clone still carries all twelve as real tags at the time of writing. If they are
-ever pruned, this file is what they were.
+All twelve exist as real tags locally and on the remote at the time of writing. If they
+are ever pruned from both, this file is what they were.

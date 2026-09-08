@@ -573,9 +573,11 @@ index.html              app shell; resolves theme before first paint
 manifest.json           PWA manifest
 service-worker.js       precached shell, network-first navigation, never caches Drive
 serve.py                dev server (http, or --https for phones)
-tools/make_icons.py     icon generator, standard library only
-tools/docs/             regenerates the PDF guide and the PPTX deck
-docs/                   the generated guide and deck
+tools/make_icons.mjs    icon generator, no dependencies
+tools/docs/             regenerates the five PDFs from the running app
+tools/demo/             the demo detachment, as an importable backup bundle
+tools/tuning/           the 600-item synthetic corpus the lexicons were tuned on
+docs/                   the generated PDFs, WHY.md, STYLE.md, ALPHA-TAGS.md
 css/styles.css          design system: tokens, themes, color-vision palettes
 js/
   app.js                bootstrap, routes, app bar, PWA plumbing

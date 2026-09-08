@@ -1,0 +1,2839 @@
+{
+  "format": "nine31-bundle",
+  "schemaVersion": 4,
+  "appVersion": "1.0.1-beta.1",
+  "exportedAt": "2026-09-08T21:03:37.727Z",
+  "org": {
+    "schemaVersion": 4,
+    "appVersion": "1.0.1-beta.1",
+    "orgName": "AFROTC Detachment 025",
+    "createdAt": "2026-09-08T21:03:37.590Z",
+    "updatedAt": "2026-09-08T21:03:37.590Z"
+  },
+  "shared": {
+    "schemaVersion": 4,
+    "allowAnonymous": true,
+    "requireStudentName": true,
+    "updatedAt": "2026-09-08T21:03:37.590Z"
+  },
+  "roster": {
+    "schemaVersion": 4,
+    "students": [],
+    "updatedAt": "2026-09-08T21:03:37.591Z"
+  },
+  "users": {
+    "schemaVersion": 4,
+    "users": [
+      {
+        "id": "usr_mtt534rs9duus2",
+        "email": "david.mark.gaspar@gmail.com",
+        "username": "david.gaspar",
+        "name": "David Gaspar",
+        "roles": [
+          "instructor",
+          "cadre",
+          "commander",
+          "admin"
+        ],
+        "asClass": "",
+        "section": "",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.611Z",
+        "updatedAt": "2026-09-08T21:03:37.687Z"
+      },
+      {
+        "id": "usr_mtt5prwtjavdza",
+        "email": "ana.lindqvist@det025.edu",
+        "username": "lindqvist.ana",
+        "name": "Lindqvist, Ana",
+        "roles": [
+          "instructor"
+        ],
+        "asClass": "",
+        "section": "",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.613Z",
+        "updatedAt": "2026-09-08T21:03:37.613Z"
+      },
+      {
+        "id": "usr_mtt5prwu15h3ci",
+        "email": "ray.donnelly@det025.edu",
+        "username": "donnelly.ray",
+        "name": "Donnelly, Ray",
+        "roles": [
+          "instructor"
+        ],
+        "asClass": "",
+        "section": "",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.614Z",
+        "updatedAt": "2026-09-08T21:03:37.614Z"
+      },
+      {
+        "id": "usr_mtt5prwv9r0uzq",
+        "email": "tess.varga@det025.edu",
+        "username": "varga.tess",
+        "name": "Varga, Tess",
+        "roles": [
+          "instructor"
+        ],
+        "asClass": "",
+        "section": "",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.615Z",
+        "updatedAt": "2026-09-08T21:03:37.615Z"
+      },
+      {
+        "id": "usr_mtt5prwvygfqhl",
+        "email": "noor.haddad@det025.edu",
+        "username": "haddad.noor",
+        "name": "Haddad, Noor",
+        "roles": [
+          "instructor"
+        ],
+        "asClass": "",
+        "section": "",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.615Z",
+        "updatedAt": "2026-09-08T21:03:37.616Z"
+      },
+      {
+        "id": "usr_mtt5prwwpyub8k",
+        "email": "sam.okafor@det025.edu",
+        "username": "okafor.sam",
+        "name": "Okafor, Sam",
+        "roles": [
+          "cadre",
+          "instructor"
+        ],
+        "asClass": "",
+        "section": "",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.616Z",
+        "updatedAt": "2026-09-08T21:03:37.616Z"
+      },
+      {
+        "id": "usr_mtt5prwx85lxjf",
+        "email": "jean.moreau@det025.edu",
+        "username": "moreau.jean",
+        "name": "Moreau, Jean",
+        "roles": [
+          "cadre",
+          "instructor"
+        ],
+        "asClass": "",
+        "section": "",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.617Z",
+        "updatedAt": "2026-09-08T21:03:37.617Z"
+      },
+      {
+        "id": "usr_mtt5prwymffc0s",
+        "email": "maria.reyes@det025.edu",
+        "username": "reyes.maria",
+        "name": "Reyes, Maria",
+        "roles": [
+          "commander",
+          "cadre",
+          "instructor"
+        ],
+        "asClass": "",
+        "section": "",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.618Z",
+        "updatedAt": "2026-09-08T21:03:37.618Z"
+      },
+      {
+        "id": "usr_mtt5prwzcqp4ze",
+        "email": "dee.novak@det025.edu",
+        "username": "novak.dee",
+        "name": "Novak, Dee",
+        "roles": [
+          "admin"
+        ],
+        "asClass": "",
+        "section": "",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.619Z",
+        "updatedAt": "2026-09-08T21:03:37.619Z"
+      },
+      {
+        "id": "usr_mtt5prx05uscoq",
+        "email": "mia.alvarez0@gmail.com",
+        "username": "alvarez.mia",
+        "name": "Alvarez, Mia",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.620Z",
+        "updatedAt": "2026-09-08T21:03:37.620Z"
+      },
+      {
+        "id": "usr_mtt5prx0xjlpi4",
+        "email": "rae.brooks1@gmail.com",
+        "username": "brooks.rae",
+        "name": "Brooks, Rae",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.620Z",
+        "updatedAt": "2026-09-08T21:03:37.620Z"
+      },
+      {
+        "id": "usr_mtt5prx13t3hz0",
+        "email": "zoe.chen2@gmail.com",
+        "username": "chen.zoe",
+        "name": "Chen, Zoe",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.621Z",
+        "updatedAt": "2026-09-08T21:03:37.621Z"
+      },
+      {
+        "id": "usr_mtt5prx2orbic7",
+        "email": "uma.diaz3@gmail.com",
+        "username": "diaz.uma",
+        "name": "Diaz, Uma",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.622Z",
+        "updatedAt": "2026-09-08T21:03:37.622Z"
+      },
+      {
+        "id": "usr_mtt5prx3vgivfo",
+        "email": "dara.ellis4@gmail.com",
+        "username": "ellis.dara",
+        "name": "Ellis, Dara",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.623Z",
+        "updatedAt": "2026-09-08T21:03:37.623Z"
+      },
+      {
+        "id": "usr_mtt5prx4alv9mm",
+        "email": "kai.ford5@gmail.com",
+        "username": "ford.kai",
+        "name": "Ford, Kai",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.624Z",
+        "updatedAt": "2026-09-08T21:03:37.624Z"
+      },
+      {
+        "id": "usr_mtt5prx5fxa24l",
+        "email": "suri.grant6@gmail.com",
+        "username": "grant.suri",
+        "name": "Grant, Suri",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.625Z",
+        "updatedAt": "2026-09-08T21:03:37.625Z"
+      },
+      {
+        "id": "usr_mtt5prx5k89i8h",
+        "email": "jo.hall7@gmail.com",
+        "username": "hall.jo",
+        "name": "Hall, Jo",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.625Z",
+        "updatedAt": "2026-09-08T21:03:37.625Z"
+      },
+      {
+        "id": "usr_mtt5prx66nhxzz",
+        "email": "raj.iqbal8@gmail.com",
+        "username": "iqbal.raj",
+        "name": "Iqbal, Raj",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.626Z",
+        "updatedAt": "2026-09-08T21:03:37.626Z"
+      },
+      {
+        "id": "usr_mtt5prx7nxexut",
+        "email": "pia.jensen9@gmail.com",
+        "username": "jensen.pia",
+        "name": "Jensen, Pia",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.627Z",
+        "updatedAt": "2026-09-08T21:03:37.627Z"
+      },
+      {
+        "id": "usr_mtt5prx7em9jpv",
+        "email": "yuki.kowalski10@gmail.com",
+        "username": "kowalski.yuki",
+        "name": "Kowalski, Yuki",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.627Z",
+        "updatedAt": "2026-09-08T21:03:37.627Z"
+      },
+      {
+        "id": "usr_mtt5prx89xp72x",
+        "email": "hugo.lopez11@gmail.com",
+        "username": "lopez.hugo",
+        "name": "Lopez, Hugo",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.628Z",
+        "updatedAt": "2026-09-08T21:03:37.628Z"
+      },
+      {
+        "id": "usr_mtt5prx9o6ijjj",
+        "email": "otto.moreau12@gmail.com",
+        "username": "moreau.otto",
+        "name": "Moreau, Otto",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.629Z",
+        "updatedAt": "2026-09-08T21:03:37.629Z"
+      },
+      {
+        "id": "usr_mtt5prx90aii35",
+        "email": "dan.nakamura13@gmail.com",
+        "username": "nakamura.dan",
+        "name": "Nakamura, Dan",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS100",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.629Z",
+        "updatedAt": "2026-09-08T21:03:37.629Z"
+      },
+      {
+        "id": "usr_mtt5prxag1grox",
+        "email": "nur.osei14@gmail.com",
+        "username": "osei.nur",
+        "name": "Osei, Nur",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.630Z",
+        "updatedAt": "2026-09-08T21:03:37.630Z"
+      },
+      {
+        "id": "usr_mtt5prxbjvmyln",
+        "email": "ivan.petrov15@gmail.com",
+        "username": "petrov.ivan",
+        "name": "Petrov, Ivan",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.631Z",
+        "updatedAt": "2026-09-08T21:03:37.631Z"
+      },
+      {
+        "id": "usr_mtt5prxbj0c66e",
+        "email": "vic.quinn16@gmail.com",
+        "username": "quinn.vic",
+        "name": "Quinn, Vic",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.631Z",
+        "updatedAt": "2026-09-08T21:03:37.631Z"
+      },
+      {
+        "id": "usr_mtt5prxcb5anmk",
+        "email": "esme.rossi17@gmail.com",
+        "username": "rossi.esme",
+        "name": "Rossi, Esme",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.632Z",
+        "updatedAt": "2026-09-08T21:03:37.632Z"
+      },
+      {
+        "id": "usr_mtt5prxdiq86qm",
+        "email": "lena.silva18@gmail.com",
+        "username": "silva.lena",
+        "name": "Silva, Lena",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.633Z",
+        "updatedAt": "2026-09-08T21:03:37.633Z"
+      },
+      {
+        "id": "usr_mtt5prxe0mgfuc",
+        "email": "theo.tanaka19@gmail.com",
+        "username": "tanaka.theo",
+        "name": "Tanaka, Theo",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.634Z",
+        "updatedAt": "2026-09-08T21:03:37.634Z"
+      },
+      {
+        "id": "usr_mtt5prxe3bpk3t",
+        "email": "kim.ubaldi20@gmail.com",
+        "username": "ubaldi.kim",
+        "name": "Ubaldi, Kim",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.634Z",
+        "updatedAt": "2026-09-08T21:03:37.634Z"
+      },
+      {
+        "id": "usr_mtt5prxf3jo376",
+        "email": "ana.vargas21@gmail.com",
+        "username": "vargas.ana",
+        "name": "Vargas, Ana",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.635Z",
+        "updatedAt": "2026-09-08T21:03:37.635Z"
+      },
+      {
+        "id": "usr_mtt5prxg6l468x",
+        "email": "sean.whitfield22@gmail.com",
+        "username": "whitfield.sean",
+        "name": "Whitfield, Sean",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.636Z",
+        "updatedAt": "2026-09-08T21:03:37.636Z"
+      },
+      {
+        "id": "usr_mtt5prxh85pc03",
+        "email": "zara.xu23@gmail.com",
+        "username": "xu.zara",
+        "name": "Xu, Zara",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.637Z",
+        "updatedAt": "2026-09-08T21:03:37.637Z"
+      },
+      {
+        "id": "usr_mtt5prxi55aqza",
+        "email": "ines.yates24@gmail.com",
+        "username": "yates.ines",
+        "name": "Yates, Ines",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.638Z",
+        "updatedAt": "2026-09-08T21:03:37.638Z"
+      },
+      {
+        "id": "usr_mtt5prxixkoaa2",
+        "email": "perry.zhao25@gmail.com",
+        "username": "zhao.perry",
+        "name": "Zhao, Perry",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.638Z",
+        "updatedAt": "2026-09-08T21:03:37.638Z"
+      },
+      {
+        "id": "usr_mtt5prxjy6poc3",
+        "email": "li.abbott26@gmail.com",
+        "username": "abbott.li",
+        "name": "Abbott, Li",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS200",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.639Z",
+        "updatedAt": "2026-09-08T21:03:37.639Z"
+      },
+      {
+        "id": "usr_mtt5prxknha83e",
+        "email": "tom.byrne27@gmail.com",
+        "username": "byrne.tom",
+        "name": "Byrne, Tom",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS300",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.640Z",
+        "updatedAt": "2026-09-08T21:03:37.640Z"
+      },
+      {
+        "id": "usr_mtt5prxllm5csm",
+        "email": "mae.costa28@gmail.com",
+        "username": "costa.mae",
+        "name": "Costa, Mae",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS300",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.641Z",
+        "updatedAt": "2026-09-08T21:03:37.641Z"
+      },
+      {
+        "id": "usr_mtt5prxmsvu6ie",
+        "email": "wren.duarte29@gmail.com",
+        "username": "duarte.wren",
+        "name": "Duarte, Wren",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS300",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.642Z",
+        "updatedAt": "2026-09-08T21:03:37.642Z"
+      },
+      {
+        "id": "usr_mtt5prxmtd2xh4",
+        "email": "finn.erikson30@gmail.com",
+        "username": "erikson.finn",
+        "name": "Erikson, Finn",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS300",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.642Z",
+        "updatedAt": "2026-09-08T21:03:37.642Z"
+      },
+      {
+        "id": "usr_mtt5prxna6u03w",
+        "email": "milo.faulkner31@gmail.com",
+        "username": "faulkner.milo",
+        "name": "Faulkner, Milo",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS300",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.643Z",
+        "updatedAt": "2026-09-08T21:03:37.643Z"
+      },
+      {
+        "id": "usr_mtt5prxojr6qz0",
+        "email": "vera.gallagher32@gmail.com",
+        "username": "gallagher.vera",
+        "name": "Gallagher, Vera",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS300",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.644Z",
+        "updatedAt": "2026-09-08T21:03:37.644Z"
+      },
+      {
+        "id": "usr_mtt5prxpnfip1d",
+        "email": "ade.haddad33@gmail.com",
+        "username": "haddad.ade",
+        "name": "Haddad, Ade",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS300",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.645Z",
+        "updatedAt": "2026-09-08T21:03:37.645Z"
+      },
+      {
+        "id": "usr_mtt5prxqdlfjmj",
+        "email": "ben.ito34@gmail.com",
+        "username": "ito.ben",
+        "name": "Ito, Ben",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS300",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.646Z",
+        "updatedAt": "2026-09-08T21:03:37.646Z"
+      },
+      {
+        "id": "usr_mtt5prxq9dokr4",
+        "email": "tess.joubert35@gmail.com",
+        "username": "joubert.tess",
+        "name": "Joubert, Tess",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS300",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.646Z",
+        "updatedAt": "2026-09-08T21:03:37.646Z"
+      },
+      {
+        "id": "usr_mtt5prxr9awugn",
+        "email": "cole.keller36@gmail.com",
+        "username": "keller.cole",
+        "name": "Keller, Cole",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS300",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.647Z",
+        "updatedAt": "2026-09-08T21:03:37.647Z"
+      },
+      {
+        "id": "usr_mtt5prxswnkhom",
+        "email": "jude.lindgren37@gmail.com",
+        "username": "lindgren.jude",
+        "name": "Lindgren, Jude",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS300",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.648Z",
+        "updatedAt": "2026-09-08T21:03:37.648Z"
+      },
+      {
+        "id": "usr_mtt5prxtwjgx48",
+        "email": "rosa.mbeki38@gmail.com",
+        "username": "mbeki.rosa",
+        "name": "Mbeki, Rosa",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS400",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.649Z",
+        "updatedAt": "2026-09-08T21:03:37.649Z"
+      },
+      {
+        "id": "usr_mtt5prxuu3b3hs",
+        "email": "sam.novak39@gmail.com",
+        "username": "novak.sam",
+        "name": "Novak, Sam",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS400",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.650Z",
+        "updatedAt": "2026-09-08T21:03:37.650Z"
+      },
+      {
+        "id": "usr_mtt5prxul5c28e",
+        "email": "eve.okonkwo40@gmail.com",
+        "username": "okonkwo.eve",
+        "name": "Okonkwo, Eve",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS400",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.650Z",
+        "updatedAt": "2026-09-08T21:03:37.650Z"
+      },
+      {
+        "id": "usr_mtt5prxvvxs4ap",
+        "email": "omar.pereira41@gmail.com",
+        "username": "pereira.omar",
+        "name": "Pereira, Omar",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS400",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.651Z",
+        "updatedAt": "2026-09-08T21:03:37.651Z"
+      },
+      {
+        "id": "usr_mtt5prxwrqanj5",
+        "email": "xan.ramos42@gmail.com",
+        "username": "ramos.xan",
+        "name": "Ramos, Xan",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS400",
+        "section": "Alpha",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.652Z",
+        "updatedAt": "2026-09-08T21:03:37.652Z"
+      },
+      {
+        "id": "usr_mtt5prxxwx4r7p",
+        "email": "gia.sinclair43@gmail.com",
+        "username": "sinclair.gia",
+        "name": "Sinclair, Gia",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS400",
+        "section": "Bravo",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.653Z",
+        "updatedAt": "2026-09-08T21:03:37.653Z"
+      },
+      {
+        "id": "usr_mtt5prxyvn39eo",
+        "email": "nina.toledo44@gmail.com",
+        "username": "toledo.nina",
+        "name": "Toledo, Nina",
+        "roles": [
+          "student"
+        ],
+        "asClass": "AS400",
+        "section": "Charlie",
+        "active": true,
+        "createdAt": "2026-09-08T21:03:37.654Z",
+        "updatedAt": "2026-09-08T21:03:37.654Z"
+      }
+    ],
+    "updatedAt": "2026-09-08T21:03:37.688Z",
+    "rev": 55
+  },
+  "forms": [
+    {
+      "schemaVersion": 4,
+      "id": "form_instructor_default",
+      "name": "Instructor Feedback (standard)",
+      "description": "End-of-block feedback from cadets on an instructor or AS class.",
+      "subject": "instructor",
+      "sections": [
+        {
+          "title": "Instruction",
+          "description": "Rate the instruction you received this block.",
+          "items": [
+            {
+              "id": "q_clarity",
+              "type": "scale",
+              "label": "Material was presented clearly",
+              "help": "",
+              "required": true,
+              "min": 1,
+              "max": 5,
+              "minLabel": "Needs work",
+              "maxLabel": "Outstanding"
+            },
+            {
+              "id": "q_prepared",
+              "type": "scale",
+              "label": "The instructor was prepared for each session",
+              "help": "",
+              "required": true,
+              "min": 1,
+              "max": 5,
+              "minLabel": "Needs work",
+              "maxLabel": "Outstanding"
+            },
+            {
+              "id": "q_engaged",
+              "type": "scale",
+              "label": "Sessions kept me engaged and involved",
+              "help": "",
+              "required": true,
+              "min": 1,
+              "max": 5,
+              "minLabel": "Needs work",
+              "maxLabel": "Outstanding"
+            },
+            {
+              "id": "q_relevance",
+              "type": "scale",
+              "label": "Content connected to my development as an officer candidate",
+              "help": "",
+              "required": true,
+              "min": 1,
+              "max": 5,
+              "minLabel": "Needs work",
+              "maxLabel": "Outstanding"
+            }
+          ]
+        },
+        {
+          "title": "Mentorship",
+          "items": [
+            {
+              "id": "q_approach",
+              "type": "scale",
+              "label": "The instructor was approachable with questions",
+              "help": "",
+              "required": true,
+              "min": 1,
+              "max": 5,
+              "minLabel": "Needs work",
+              "maxLabel": "Outstanding"
+            },
+            {
+              "id": "q_feedback",
+              "type": "scale",
+              "label": "I received useful feedback on my performance",
+              "help": "",
+              "required": true,
+              "min": 1,
+              "max": 5,
+              "minLabel": "Needs work",
+              "maxLabel": "Outstanding"
+            }
+          ]
+        },
+        {
+          "title": "Comments",
+          "items": [
+            {
+              "id": "q_best",
+              "type": "text",
+              "label": "What worked well?",
+              "required": false,
+              "rows": 3
+            },
+            {
+              "id": "q_improve",
+              "type": "text",
+              "label": "What should change next term?",
+              "required": false,
+              "rows": 3
+            },
+            {
+              "id": "q_recommend",
+              "type": "choice",
+              "label": "Would you recommend this block as taught?",
+              "required": true,
+              "options": [
+                "Yes",
+                "Yes, with changes",
+                "No"
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-08T21:03:37.591Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.591Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "form_leadership_default",
+      "name": "Cadet Leadership Feedback",
+      "description": "Peer and subordinate feedback on a cadet in a leadership billet.",
+      "subject": "cadet",
+      "sections": [
+        {
+          "title": "Performance",
+          "items": [
+            {
+              "id": "q_standards",
+              "type": "scale",
+              "label": "Enforces standards fairly and consistently",
+              "help": "",
+              "required": true,
+              "min": 1,
+              "max": 5,
+              "minLabel": "Needs work",
+              "maxLabel": "Outstanding"
+            },
+            {
+              "id": "q_comms",
+              "type": "scale",
+              "label": "Communicates intent clearly",
+              "help": "",
+              "required": true,
+              "min": 1,
+              "max": 5,
+              "minLabel": "Needs work",
+              "maxLabel": "Outstanding"
+            },
+            {
+              "id": "q_example",
+              "type": "scale",
+              "label": "Sets the example in bearing and effort",
+              "help": "",
+              "required": true,
+              "min": 1,
+              "max": 5,
+              "minLabel": "Needs work",
+              "maxLabel": "Outstanding"
+            },
+            {
+              "id": "q_decisions",
+              "type": "scale",
+              "label": "Makes timely decisions under pressure",
+              "help": "",
+              "required": true,
+              "min": 1,
+              "max": 5,
+              "minLabel": "Needs work",
+              "maxLabel": "Outstanding"
+            },
+            {
+              "id": "q_care",
+              "type": "scale",
+              "label": "Looks out for the people in the flight",
+              "help": "",
+              "required": true,
+              "min": 1,
+              "max": 5,
+              "minLabel": "Needs work",
+              "maxLabel": "Outstanding"
+            }
+          ]
+        },
+        {
+          "title": "Development",
+          "items": [
+            {
+              "id": "q_strength",
+              "type": "text",
+              "label": "Greatest strength as a leader",
+              "required": false,
+              "rows": 2
+            },
+            {
+              "id": "q_growth",
+              "type": "text",
+              "label": "Where should they focus next?",
+              "required": false,
+              "rows": 2
+            },
+            {
+              "id": "q_billet",
+              "type": "choice",
+              "label": "Ready for greater responsibility?",
+              "required": true,
+              "options": [
+                "Ready now",
+                "Ready with development",
+                "Not yet"
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-08T21:03:37.592Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.592Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "form_req_as100",
+      "name": "AS100 Foundations — Weeks 1–4",
+      "space": "shared",
+      "sections": [
+        {
+          "title": "AS100 Foundations — Weeks 1–4",
+          "items": [
+            {
+              "id": "q1",
+              "type": "scale",
+              "label": "Instruction was clear and well paced",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q2",
+              "type": "scale",
+              "label": "The event was well organised",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q3",
+              "type": "scale",
+              "label": "I can apply what I learned",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q4",
+              "type": "text",
+              "label": "What should change next time?",
+              "required": false,
+              "rows": 4,
+              "wordLimit": 250
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-08T21:03:37.655Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.655Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "form_req_cadre",
+      "name": "Cadre climate check — Fall term",
+      "space": "cadre",
+      "sections": [
+        {
+          "title": "Cadre climate check — Fall term",
+          "items": [
+            {
+              "id": "q1",
+              "type": "scale",
+              "label": "Instruction was clear and well paced",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q2",
+              "type": "scale",
+              "label": "The event was well organised",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q3",
+              "type": "scale",
+              "label": "I can apply what I learned",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q4",
+              "type": "text",
+              "label": "What should change next time?",
+              "required": false,
+              "rows": 4,
+              "wordLimit": 250
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-08T21:03:37.656Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.656Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "form_req_cmdr",
+      "name": "Commander's assessment — AS400 leadership",
+      "space": "commander",
+      "sections": [
+        {
+          "title": "Commander's assessment — AS400 leadership",
+          "items": [
+            {
+              "id": "q1",
+              "type": "scale",
+              "label": "Instruction was clear and well paced",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q2",
+              "type": "scale",
+              "label": "The event was well organised",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q3",
+              "type": "scale",
+              "label": "I can apply what I learned",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q4",
+              "type": "text",
+              "label": "What should change next time?",
+              "required": false,
+              "rows": 4,
+              "wordLimit": 250
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-08T21:03:37.656Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.656Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "form_req_ftx",
+      "name": "Field Training Exercise — September",
+      "space": "shared",
+      "sections": [
+        {
+          "title": "Field Training Exercise — September",
+          "items": [
+            {
+              "id": "q1",
+              "type": "scale",
+              "label": "Instruction was clear and well paced",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q2",
+              "type": "scale",
+              "label": "The event was well organised",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q3",
+              "type": "scale",
+              "label": "I can apply what I learned",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q4",
+              "type": "text",
+              "label": "What should change next time?",
+              "required": false,
+              "rows": 4,
+              "wordLimit": 250
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-08T21:03:37.655Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.655Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "form_req_llab3",
+      "name": "AS200 Leadership Lab — Drill Block 3",
+      "space": "shared",
+      "sections": [
+        {
+          "title": "AS200 Leadership Lab — Drill Block 3",
+          "items": [
+            {
+              "id": "q1",
+              "type": "scale",
+              "label": "Instruction was clear and well paced",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q2",
+              "type": "scale",
+              "label": "The event was well organised",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q3",
+              "type": "scale",
+              "label": "I can apply what I learned",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q4",
+              "type": "text",
+              "label": "What should change next time?",
+              "required": false,
+              "rows": 4,
+              "wordLimit": 250
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-08T21:03:37.654Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.654Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "form_req_spring",
+      "name": "AS200 Leadership Lab — Spring review",
+      "space": "shared",
+      "sections": [
+        {
+          "title": "AS200 Leadership Lab — Spring review",
+          "items": [
+            {
+              "id": "q1",
+              "type": "scale",
+              "label": "Instruction was clear and well paced",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q2",
+              "type": "scale",
+              "label": "The event was well organised",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q3",
+              "type": "scale",
+              "label": "I can apply what I learned",
+              "required": true,
+              "min": 1,
+              "max": 9,
+              "anchors": {
+                "1": "Detrimental",
+                "2": "Alarming",
+                "3": "Unfavorable",
+                "4": "Minor",
+                "5": "Neutral",
+                "6": "Slight",
+                "7": "Favorable",
+                "8": "Major",
+                "9": "Outstanding"
+              }
+            },
+            {
+              "id": "q4",
+              "type": "text",
+              "label": "What should change next time?",
+              "required": false,
+              "rows": 4,
+              "wordLimit": 250
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-08T21:03:37.655Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.655Z"
+    }
+  ],
+  "requests": [
+    {
+      "schemaVersion": 4,
+      "id": "req_cadre",
+      "feedbackId": "FB-2026-0014",
+      "title": "Cadre climate check — Fall term",
+      "eventName": "Cadre climate check — Fall term",
+      "formId": "form_req_cadre",
+      "space": "cadre",
+      "subject": "okafor.sam",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "anonymous": true,
+      "status": "open",
+      "assignedUsernames": [],
+      "instructions": "Answer honestly — your name is never stored with your answers.",
+      "createdAt": "2026-09-08T21:03:37.656Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.656Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "req_cmdr",
+      "feedbackId": "FB-2026-0015",
+      "title": "Commander's assessment — AS400 leadership",
+      "eventName": "Commander's assessment — AS400 leadership",
+      "formId": "form_req_cmdr",
+      "space": "commander",
+      "subject": "reyes.maria",
+      "asClass": "AS400",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "anonymous": true,
+      "status": "open",
+      "assignedUsernames": [],
+      "instructions": "Answer honestly — your name is never stored with your answers.",
+      "createdAt": "2026-09-08T21:03:37.656Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.656Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "req_spring",
+      "feedbackId": "FB-2026-0002",
+      "title": "AS200 Leadership Lab — Spring review",
+      "eventName": "AS200 Leadership Lab — Spring review",
+      "formId": "form_req_spring",
+      "space": "shared",
+      "subject": "haddad.noor",
+      "asClass": "AS200",
+      "schoolYear": "2025-2026",
+      "semester": "Spring",
+      "anonymous": true,
+      "status": "closed",
+      "assignedUsernames": [],
+      "instructions": "Answer honestly — your name is never stored with your answers.",
+      "createdAt": "2026-09-08T21:03:37.656Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.656Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "req_as100",
+      "feedbackId": "FB-2026-0004",
+      "title": "AS100 Foundations — Weeks 1–4",
+      "eventName": "AS100 Foundations — Weeks 1–4",
+      "formId": "form_req_as100",
+      "space": "shared",
+      "subject": "varga.tess",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "anonymous": true,
+      "status": "open",
+      "assignedUsernames": [],
+      "instructions": "Answer honestly — your name is never stored with your answers.",
+      "createdAt": "2026-09-08T21:03:37.655Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.655Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "req_ftx",
+      "feedbackId": "FB-2026-0011",
+      "title": "Field Training Exercise — September",
+      "eventName": "Field Training Exercise — September",
+      "formId": "form_req_ftx",
+      "space": "shared",
+      "subject": "donnelly.ray",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "anonymous": true,
+      "status": "open",
+      "assignedUsernames": [],
+      "instructions": "Answer honestly — your name is never stored with your answers.",
+      "createdAt": "2026-09-08T21:03:37.655Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.655Z"
+    },
+    {
+      "schemaVersion": 4,
+      "id": "req_llab3",
+      "feedbackId": "FB-2026-0007",
+      "title": "AS200 Leadership Lab — Drill Block 3",
+      "eventName": "AS200 Leadership Lab — Drill Block 3",
+      "formId": "form_req_llab3",
+      "space": "shared",
+      "subject": "lindqvist.ana",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "anonymous": true,
+      "status": "open",
+      "assignedUsernames": [],
+      "instructions": "Answer honestly — your name is never stored with your answers.",
+      "createdAt": "2026-09-08T21:03:37.655Z",
+      "rev": 1,
+      "updatedAt": "2026-09-08T21:03:37.655Z"
+    }
+  ],
+  "responses": [
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cadre",
+      "formId": "form_req_cadre",
+      "anonymous": true,
+      "space": "cadre",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 7,
+        "q3": 7,
+        "q4": "that ruck absolutely slapped, best FTX weekend hands down, cadre really ate this time"
+      },
+      "id": "res_mtt5pry79p3noq",
+      "submittedAt": "2026-09-08T21:03:37.663Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cadre",
+      "formId": "form_req_cadre",
+      "anonymous": true,
+      "space": "cadre",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 6,
+        "q2": 7,
+        "q3": 7,
+        "q4": "the saber drill routine murdered my wrist the first few tries, finally got the motion down though"
+      },
+      "id": "res_mtt5pry7cp0igp",
+      "submittedAt": "2026-09-08T21:03:37.663Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cadre",
+      "formId": "form_req_cadre",
+      "anonymous": true,
+      "space": "cadre",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 7,
+        "q3": 7,
+        "q4": "really appreciated finding out the ruck was cancelled after already being in formation for thirty minutes, top tier communication as always"
+      },
+      "id": "res_mtt5pry7zw443g",
+      "submittedAt": "2026-09-08T21:03:37.663Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cadre",
+      "formId": "form_req_cadre",
+      "anonymous": true,
+      "space": "cadre",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 7,
+        "q3": 7,
+        "q4": "i died laughing when the whole flight turned the wrong direction during the drill meet warmup"
+      },
+      "id": "res_mtt5pry836fzp6",
+      "submittedAt": "2026-09-08T21:03:37.664Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cadre",
+      "formId": "form_req_cadre",
+      "anonymous": true,
+      "space": "cadre",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 4,
+        "q2": 5,
+        "q3": 4,
+        "q4": "PT scores have generally been accurate this semester. i heard a couple cadets get their pushup counts rounded up by a friend running the count, instead of an actual accurate tally"
+      },
+      "id": "res_mtt5pry8ob9z2q",
+      "submittedAt": "2026-09-08T21:03:37.664Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cadre",
+      "formId": "form_req_cadre",
+      "anonymous": true,
+      "space": "cadre",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 7,
+        "q3": 7,
+        "q4": "Cadre annihilated our timing on the manual of arms sequence, harsh but we fixed it before the meet."
+      },
+      "id": "res_mtt5pry8p7agcl",
+      "submittedAt": "2026-09-08T21:03:37.664Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cmdr",
+      "formId": "form_req_cmdr",
+      "anonymous": true,
+      "space": "commander",
+      "asClass": "AS400",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 9,
+        "q2": 8,
+        "q3": 8,
+        "q4": "Ruck pace was reasonable and the route had good terrain variety. Communication before the event left something to be desired, and a few cadets showed up without the right gear because the packing list wasn't updated."
+      },
+      "id": "res_mtt5pry81qy3wy",
+      "submittedAt": "2026-09-08T21:03:37.664Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cmdr",
+      "formId": "form_req_cmdr",
+      "anonymous": true,
+      "space": "commander",
+      "asClass": "AS400",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 8,
+        "q3": 8,
+        "q4": "overall a fine week. the ruck was well run. the makeup exam for the missed PT test got moved twice which was frustrating since i had to rearrange my whole schedule around it"
+      },
+      "id": "res_mtt5pry8fnznry",
+      "submittedAt": "2026-09-08T21:03:37.664Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cmdr",
+      "formId": "form_req_cmdr",
+      "anonymous": true,
+      "space": "commander",
+      "asClass": "AS400",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 8,
+        "q3": 8,
+        "q4": "that ruck was an actual crime against my shoulders, the frame is not it, everything else was fine"
+      },
+      "id": "res_mtt5pry8nsc01p",
+      "submittedAt": "2026-09-08T21:03:37.664Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cmdr",
+      "formId": "form_req_cmdr",
+      "anonymous": true,
+      "space": "commander",
+      "asClass": "AS400",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 8,
+        "q3": 8,
+        "q4": "nothing says leadership development like standing in a parking lot for an hour waiting on a bus that was never coming"
+      },
+      "id": "res_mtt5pry8oc1t2j",
+      "submittedAt": "2026-09-08T21:03:37.664Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cmdr",
+      "formId": "form_req_cmdr",
+      "anonymous": true,
+      "space": "commander",
+      "asClass": "AS400",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 8,
+        "q3": 8,
+        "q4": "Half the platoon got destroyed on the road march but everyone finished together, proud of the squad."
+      },
+      "id": "res_mtt5pry8tn057j",
+      "submittedAt": "2026-09-08T21:03:37.664Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_cmdr",
+      "formId": "form_req_cmdr",
+      "anonymous": true,
+      "space": "commander",
+      "asClass": "AS400",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 8,
+        "q3": 8,
+        "q4": "good"
+      },
+      "id": "res_mtt5pry8zun3oi",
+      "submittedAt": "2026-09-08T21:03:37.664Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_spring",
+      "formId": "form_req_spring",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2025-2026",
+      "semester": "Spring",
+      "answers": {
+        "q1": 6,
+        "q2": 6,
+        "q3": 6,
+        "q4": "today's PT block was straight up insane in the best way, learned more about pacing in one session than the last month combined"
+      },
+      "id": "res_mtt5pry64545jk",
+      "submittedAt": "2026-09-08T21:03:37.662Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_spring",
+      "formId": "form_req_spring",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2025-2026",
+      "semester": "Spring",
+      "answers": {
+        "q1": 7,
+        "q2": 6,
+        "q3": 6,
+        "q4": "color guard practice absolutely destroyed my shoulder from the flag work, worth it for how clean it looked"
+      },
+      "id": "res_mtt5pry6p49lb8",
+      "submittedAt": "2026-09-08T21:03:37.662Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_spring",
+      "formId": "form_req_spring",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2025-2026",
+      "semester": "Spring",
+      "answers": {
+        "q1": 7,
+        "q2": 6,
+        "q3": 6,
+        "q4": "our routine got absolutely smoked by the judges' critique at the drill meet, brutal but we placed better next round"
+      },
+      "id": "res_mtt5pry6u9r6w4",
+      "submittedAt": "2026-09-08T21:03:37.662Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_spring",
+      "formId": "form_req_spring",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2025-2026",
+      "semester": "Spring",
+      "answers": {
+        "q1": 6,
+        "q2": 6,
+        "q3": 6,
+        "q4": "flag folding practice killed my patience the first few tries, nailed it eventually though"
+      },
+      "id": "res_mtt5pry6w1316y",
+      "submittedAt": "2026-09-08T21:03:37.662Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_spring",
+      "formId": "form_req_spring",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2025-2026",
+      "semester": "Spring",
+      "answers": {
+        "q1": 5,
+        "q2": 6,
+        "q3": 6,
+        "q4": "cadre wrecked our whole formation plan with one correction then rebuilt it way better in ten minutes"
+      },
+      "id": "res_mtt5pry6xruaeo",
+      "submittedAt": "2026-09-08T21:03:37.662Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_spring",
+      "formId": "form_req_spring",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2025-2026",
+      "semester": "Spring",
+      "answers": {
+        "q1": 6,
+        "q2": 6,
+        "q3": 6,
+        "q4": "The manual of arms guidance this semester has been genuinely clear and well structured. Feedback delivery during corrections can come across harsh though."
+      },
+      "id": "res_mtt5pry7164fif",
+      "submittedAt": "2026-09-08T21:03:37.663Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_spring",
+      "formId": "form_req_spring",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2025-2026",
+      "semester": "Spring",
+      "answers": {
+        "q1": 5,
+        "q2": 6,
+        "q3": 6,
+        "q4": "cadre wrecked our whole spacing plan for the formation, in the best way, so much cleaner now"
+      },
+      "id": "res_mtt5pry78edc36",
+      "submittedAt": "2026-09-08T21:03:37.663Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_spring",
+      "formId": "form_req_spring",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2025-2026",
+      "semester": "Spring",
+      "answers": {
+        "q1": 6,
+        "q2": 6,
+        "q3": 6,
+        "q4": "memorizing the new drill sequence was basically torture but it clicked eventually"
+      },
+      "id": "res_mtt5pry7en0x4u",
+      "submittedAt": "2026-09-08T21:03:37.663Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_spring",
+      "formId": "form_req_spring",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2025-2026",
+      "semester": "Spring",
+      "answers": {
+        "q1": 7,
+        "q2": 6,
+        "q3": 6,
+        "q4": "cadre destroyed my cadence calling critique in front of the team, in a genuinely helpful way"
+      },
+      "id": "res_mtt5pry7iwu91s",
+      "submittedAt": "2026-09-08T21:03:37.663Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_spring",
+      "formId": "form_req_spring",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2025-2026",
+      "semester": "Spring",
+      "answers": {
+        "q1": 6,
+        "q2": 6,
+        "q3": 6,
+        "q4": "loved the saber drill session today, really well taught progression. still annoyed the practice schedule changed without much notice this week"
+      },
+      "id": "res_mtt5pry7tw00g4",
+      "submittedAt": "2026-09-08T21:03:37.663Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 8,
+        "q3": 8,
+        "q4": "Sgt Alvarez wrecked us on the PT test this morning and honestly I loved every second of it"
+      },
+      "id": "res_mtt5pry405gosc",
+      "submittedAt": "2026-09-08T21:03:37.660Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 8,
+        "q3": 8,
+        "q4": "ngl that ruck almost ended me lmaooo need to hit the gym more before next month"
+      },
+      "id": "res_mtt5pry43ye5f1",
+      "submittedAt": "2026-09-08T21:03:37.660Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 8,
+        "q3": 8,
+        "q4": "the ruck felt like it took my whole soul but id do it again in a heartbeat honestly"
+      },
+      "id": "res_mtt5pry4bfnxfy",
+      "submittedAt": "2026-09-08T21:03:37.660Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 8,
+        "q3": 8,
+        "q4": "hill sprints made me want to quit army life forever lol jk it was actually a good time"
+      },
+      "id": "res_mtt5pry4bg6trl",
+      "submittedAt": "2026-09-08T21:03:37.660Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 9,
+        "q2": 8,
+        "q3": 8,
+        "q4": "PT this week was solid and the instruction on the new pace count was clear. still annoyed we didnt get the schedule until the night before though, made it hard to plan around work"
+      },
+      "id": "res_mtt5pry4ideuf5",
+      "submittedAt": "2026-09-08T21:03:37.660Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 9,
+        "q2": 8,
+        "q3": 8,
+        "q4": "getting smoked during PT this week was brutal but somehow the best part of my whole week, ready for more"
+      },
+      "id": "res_mtt5pry4yq49qq",
+      "submittedAt": "2026-09-08T21:03:37.660Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 8,
+        "q3": 8,
+        "q4": "im dead lol that ruck was no joke"
+      },
+      "id": "res_mtt5pry4zqgpty",
+      "submittedAt": "2026-09-08T21:03:37.660Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 9,
+        "q2": 8,
+        "q3": 8,
+        "q4": "ruck was tiring"
+      },
+      "id": "res_mtt5pry5eqks64",
+      "submittedAt": "2026-09-08T21:03:37.661Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 8,
+        "q3": 8,
+        "q4": "n/a"
+      },
+      "id": "res_mtt5pry5ib8gh5",
+      "submittedAt": "2026-09-08T21:03:37.661Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 8,
+        "q3": 8,
+        "q4": "idk it was a ruck"
+      },
+      "id": "res_mtt5pry5khi7ht",
+      "submittedAt": "2026-09-08T21:03:37.661Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 8,
+        "q3": 8,
+        "q4": "some good, some bad this week. cadre gave solid feedback on our ruck form. the makeup PT session for missing the original one felt kind of like a punishment even though thats not how it was supposed to be framed"
+      },
+      "id": "res_mtt5pry5wmpci2",
+      "submittedAt": "2026-09-08T21:03:37.661Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 8,
+        "q3": 8,
+        "q4": "ngl that ruck was goated, cadre route planning has been actually elite this cycle no cap"
+      },
+      "id": "res_mtt5pry623wqac",
+      "submittedAt": "2026-09-08T21:03:37.662Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_as100",
+      "formId": "form_req_as100",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS100",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 8,
+        "q3": 8,
+        "q4": "great, the packing list changed again the morning of, love that for us"
+      },
+      "id": "res_mtt5pry6jf9hn2",
+      "submittedAt": "2026-09-08T21:03:37.662Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 7,
+        "q3": 8,
+        "q4": "the six mile road march murdered my calves, 10/10 would suffer again next FTX"
+      },
+      "id": "res_mtt5pry20q6fs6",
+      "submittedAt": "2026-09-08T21:03:37.658Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 7,
+        "q3": 8,
+        "q4": "i died on that road march. 0/10 my legs. 10/10 the cadre who kept pace with us the whole way"
+      },
+      "id": "res_mtt5pry2h83osy",
+      "submittedAt": "2026-09-08T21:03:37.658Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 7,
+        "q3": 8,
+        "q4": "we got annihilated on the ruck today but the cadre kept morale high the entire route, good experience overall"
+      },
+      "id": "res_mtt5pry2wup6v1",
+      "submittedAt": "2026-09-08T21:03:37.658Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 7,
+        "q3": 8,
+        "q4": "Cadre absolutely obliterated our morale for the first two miles of the ruck but rebuilt it completely by the finish, wild turnaround."
+      },
+      "id": "res_mtt5pry31elkn4",
+      "submittedAt": "2026-09-08T21:03:37.659Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 7,
+        "q3": 8,
+        "q4": "The instruction quality on the ruck march techniques was excellent this cycle. Scheduling, however, was a complete disaster - three changes in two days left half the class unsure where to report."
+      },
+      "id": "res_mtt5pry31nex0p",
+      "submittedAt": "2026-09-08T21:03:37.659Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 7,
+        "q3": 8,
+        "q4": "Really solid ruck this time, cadre feedback was specific and useful. Only complaint is the after-action review ran forty five minutes long into everyone's next class period."
+      },
+      "id": "res_mtt5pry31o0ame",
+      "submittedAt": "2026-09-08T21:03:37.659Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 7,
+        "q3": 8,
+        "q4": "nothing"
+      },
+      "id": "res_mtt5pry33zefhq",
+      "submittedAt": "2026-09-08T21:03:37.659Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 7,
+        "q2": 7,
+        "q3": 8,
+        "q4": "The ruck route itself was genuinely well planned and the pace groups made sense, but the fact that we found out the start time changed only two hours before formation was a complete mess."
+      },
+      "id": "res_mtt5pry34edofu",
+      "submittedAt": "2026-09-08T21:03:37.659Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 7,
+        "q3": 8,
+        "q4": "genuinely good ruck. instructor was patient with the slower group which i appreciated a lot. the mileage on the handout was wrong though which threw off everyones pacing plan"
+      },
+      "id": "res_mtt5pry3bfbkei",
+      "submittedAt": "2026-09-08T21:03:37.659Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 7,
+        "q3": 8,
+        "q4": "our LT beat us in the ruck by ten minutes this morning, absolutely no mercy, respect though"
+      },
+      "id": "res_mtt5pry3fucfbd",
+      "submittedAt": "2026-09-08T21:03:37.659Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 7,
+        "q3": 8,
+        "q4": "we ran suicide sprints after PT and I have never been so tired in my life, actually a great workout"
+      },
+      "id": "res_mtt5pry3txx667",
+      "submittedAt": "2026-09-08T21:03:37.659Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 1,
+        "q2": 2,
+        "q3": 2,
+        "q4": "wow another ruck with zero water stops planned, truly cant wait for the next one"
+      },
+      "id": "res_mtt5pry45dwq09",
+      "submittedAt": "2026-09-08T21:03:37.660Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_ftx",
+      "formId": "form_req_ftx",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS300",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 7,
+        "q3": 8,
+        "q4": "no notes"
+      },
+      "id": "res_mtt5pry4pw06y5",
+      "submittedAt": "2026-09-08T21:03:37.660Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 9,
+        "q2": 8,
+        "q3": 8,
+        "q4": "the hill repeats absolutely killed me lol but Capt Reyes kept it fun the whole time"
+      },
+      "id": "res_mtt5pry01bn3of",
+      "submittedAt": "2026-09-08T21:03:37.656Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 9,
+        "q2": 8,
+        "q3": 8,
+        "q4": "that ruck absolutely destroyed me, my feet are still recovering three days later"
+      },
+      "id": "res_mtt5pry0mgdzrm",
+      "submittedAt": "2026-09-08T21:03:37.656Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 9,
+        "q2": 8,
+        "q3": 8,
+        "q4": "the pushup portion of the test was basically torture for my arms lol, worth it for the score though"
+      },
+      "id": "res_mtt5pry13fim2i",
+      "submittedAt": "2026-09-08T21:03:37.657Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 7,
+        "q3": 8,
+        "q4": "got wrecked by dehydration on the road march, drank like three bottles after and felt human again"
+      },
+      "id": "res_mtt5pry15kfcmj",
+      "submittedAt": "2026-09-08T21:03:37.657Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 9,
+        "q2": 8,
+        "q3": 8,
+        "q4": "nearly passed out on the ruck today, 100% worth it, best FTX so far"
+      },
+      "id": "res_mtt5pry17dlzik",
+      "submittedAt": "2026-09-08T21:03:37.657Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 7,
+        "q3": 8,
+        "q4": "loved the ruck itself, cadre was great the whole way. the water resupply point being wrong on the map though was honestly kind of a situation, a few people ran low before the second stop"
+      },
+      "id": "res_mtt5pry1dt58t9",
+      "submittedAt": "2026-09-08T21:03:37.657Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 2,
+        "q2": 4,
+        "q3": 3,
+        "q4": "it was fine"
+      },
+      "id": "res_mtt5pry1nobu04",
+      "submittedAt": "2026-09-08T21:03:37.657Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 8,
+        "q2": 7,
+        "q3": 8,
+        "q4": "that AM PT session was an absolute bloodbath for my quads, still cant sit down right"
+      },
+      "id": "res_mtt5pry1t5nmxc",
+      "submittedAt": "2026-09-08T21:03:37.657Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 3,
+        "q2": 4,
+        "q3": 3,
+        "q4": "the route was actually beautiful and the pace was reasonable for once. still salty about the ruck weight not matching what was on the packing list, some of us carried way more than we needed to"
+      },
+      "id": "res_mtt5pry1ucigw2",
+      "submittedAt": "2026-09-08T21:03:37.657Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 9,
+        "q2": 8,
+        "q3": 8,
+        "q4": "the actual PT block was great, learned a lot about pacing. the part where we stood around for 40 minutes waiting on transport back was not great"
+      },
+      "id": "res_mtt5pry1vrmxy7",
+      "submittedAt": "2026-09-08T21:03:37.657Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 2,
+        "q2": 4,
+        "q3": 3,
+        "q4": "liked the ruck a lot honestly, good group energy. my boots are still soaked from the creek crossing that wasnt on the route brief though lol not thrilled about that part"
+      },
+      "id": "res_mtt5pry1wt1n3y",
+      "submittedAt": "2026-09-08T21:03:37.657Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 3,
+        "q2": 4,
+        "q3": 3,
+        "q4": "👍"
+      },
+      "id": "res_mtt5pry20jmg44",
+      "submittedAt": "2026-09-08T21:03:37.658Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 3,
+        "q2": 4,
+        "q3": 3,
+        "q4": "good FTX overall. during the overnight some of the AS300s made the newer cadets stay up doing extra inventory checks until almost 0300 because someone misplaced a canteen. not sure if thats normal or if i should say something"
+      },
+      "id": "res_mtt5pry21bvooq",
+      "submittedAt": "2026-09-08T21:03:37.658Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 3,
+        "q2": 4,
+        "q3": 3,
+        "q4": "sure, 15 minutes notice for a full ruck reroute is totally reasonable, no notes"
+      },
+      "id": "res_mtt5pry22gyo84",
+      "submittedAt": "2026-09-08T21:03:37.658Z"
+    },
+    {
+      "schemaVersion": 4,
+      "requestId": "req_llab3",
+      "formId": "form_req_llab3",
+      "anonymous": true,
+      "space": "shared",
+      "asClass": "AS200",
+      "schoolYear": "2026-2027",
+      "semester": "Fall",
+      "answers": {
+        "q1": 2,
+        "q2": 4,
+        "q3": 3,
+        "q4": "oh yeah, love finding out the ruck start time changed at 0500 for a 0600 formation, really keeps things exciting"
+      },
+      "id": "res_mtt5pry2paxwyz",
+      "submittedAt": "2026-09-08T21:03:37.658Z"
+    }
+  ],
+  "receipts": {
+    "req_ftx": [
+      {
+        "username": "byrne.tom",
+        "submittedAt": "2026-09-08T21:03:37.677Z"
+      },
+      {
+        "username": "costa.mae",
+        "submittedAt": "2026-09-08T21:03:37.678Z"
+      },
+      {
+        "username": "duarte.wren",
+        "submittedAt": "2026-09-08T21:03:37.680Z"
+      },
+      {
+        "username": "erikson.finn",
+        "submittedAt": "2026-09-08T21:03:37.681Z"
+      },
+      {
+        "username": "faulkner.milo",
+        "submittedAt": "2026-09-08T21:03:37.682Z"
+      },
+      {
+        "username": "gallagher.vera",
+        "submittedAt": "2026-09-08T21:03:37.683Z"
+      },
+      {
+        "username": "haddad.ade",
+        "submittedAt": "2026-09-08T21:03:37.685Z"
+      },
+      {
+        "username": "ito.ben",
+        "submittedAt": "2026-09-08T21:03:37.686Z"
+      }
+    ],
+    "req_llab3": [
+      {
+        "username": "osei.nur",
+        "submittedAt": "2026-09-08T21:03:37.665Z"
+      },
+      {
+        "username": "petrov.ivan",
+        "submittedAt": "2026-09-08T21:03:37.666Z"
+      },
+      {
+        "username": "quinn.vic",
+        "submittedAt": "2026-09-08T21:03:37.667Z"
+      },
+      {
+        "username": "rossi.esme",
+        "submittedAt": "2026-09-08T21:03:37.668Z"
+      },
+      {
+        "username": "silva.lena",
+        "submittedAt": "2026-09-08T21:03:37.670Z"
+      },
+      {
+        "username": "tanaka.theo",
+        "submittedAt": "2026-09-08T21:03:37.671Z"
+      },
+      {
+        "username": "ubaldi.kim",
+        "submittedAt": "2026-09-08T21:03:37.672Z"
+      },
+      {
+        "username": "vargas.ana",
+        "submittedAt": "2026-09-08T21:03:37.673Z"
+      },
+      {
+        "username": "whitfield.sean",
+        "submittedAt": "2026-09-08T21:03:37.675Z"
+      },
+      {
+        "username": "xu.zara",
+        "submittedAt": "2026-09-08T21:03:37.676Z"
+      }
+    ]
+  }
+}

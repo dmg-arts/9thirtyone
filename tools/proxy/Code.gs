@@ -1714,24 +1714,39 @@ function fail(message) {
 }
 
 /* ------------------------------------------------------------------ *
- * setup helper
+ * setup check
  * ------------------------------------------------------------------ */
 
 /**
- * Run once from the editor to store configuration, instead of editing code.
- * Fill in the two values, press Run, then delete them from this function.
+ * Optional, and worth the thirty seconds.
+ *
+ * Configuration is two entries under **Project Settings -> Script Properties**,
+ * `FOLDER_ID` and `CLIENT_ID`. This function does not set them; the editor's own
+ * UI does that, and it does it without anyone having to edit code, save the file,
+ * find the function selector, or remember to clear values out afterwards.
+ *
+ * This replaced a `setUp()` that took the values as literals and stored them.
+ * That version failed silently in a way nobody could see: Run executes the last
+ * *saved* file, so pasting values and pressing Run without saving threw on the
+ * guard and wrote nothing, and the endpoint kept reporting "not configured" with
+ * no clue why. An hour went into that once. The properties UI cannot fail that
+ * way.
+ *
+ * What the UI cannot do is make Google ask for the Drive permission this script
+ * needs. Only running code that touches Drive does that — so that is what this
+ * is for. Without it the first cadet submission is where the missing
+ * authorisation surfaces.
  */
-function setUp() {
-  var FOLDER_ID = '';   // the detachment's 9ThirtyOne folder id
-  var CLIENT_ID = '';   // ends .apps.googleusercontent.com
-
-  if (!FOLDER_ID || !CLIENT_ID) {
-    throw new Error('Fill in FOLDER_ID and CLIENT_ID before running setUp().');
+function checkSetUp() {
+  var cfg = config();
+  if (!cfg.folderId || !cfg.clientId) {
+    throw new Error(
+      'Not configured. Project Settings -> Script Properties, add FOLDER_ID and '
+      + 'CLIENT_ID, then run this again.');
   }
-  PropertiesService.getScriptProperties().setProperties({
-    FOLDER_ID: FOLDER_ID,
-    CLIENT_ID: CLIENT_ID
-  });
-  DriveApp.getFolderById(FOLDER_ID);   // fails loudly now rather than at 2am
-  console.log('Configured. Deploy as a web app: execute as me, access to anyone.');
+  // Reaching Drive is the point: it validates the id *and* triggers the
+  // authorisation prompt, at a moment someone is watching.
+  var name = DriveApp.getFolderById(cfg.folderId).getName();
+  console.log('Configured and authorised. Folder: ' + name);
+  console.log('Deploy as a web app: execute as me, access to anyone.');
 }

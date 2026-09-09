@@ -152,8 +152,8 @@ export async function checkProxy(url) {
   if (!body.configured) {
     return {
       ok: false,
-      error: 'The proxy is deployed but not configured. Run setUp() in the script editor to store '
-        + 'the folder and client IDs.',
+      error: 'The proxy is deployed but not configured. In the Apps Script editor open '
+        + 'Project Settings → Script Properties and add FOLDER_ID and CLIENT_ID, then Save.',
     };
   }
   return { ok: true, version: body.version, configured: true };

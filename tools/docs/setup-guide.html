@@ -521,11 +521,32 @@
     folder. This matters: the script files everything using that account's access.</li>
     <li><strong>New project</strong>, named <code>9ThirtyOne Server</code>. Delete what is
     there and paste in <code>tools/proxy/Code.gs</code> from the app's files.</li>
-    <li><strong>Fill in the two values at the bottom</strong> of the file &mdash; your folder ID
-    and your Client ID &mdash; then run <code>setUp</code> once and clear them out again.</li>
+    <li><strong>Project Settings &rarr; Script Properties</strong> &mdash; the gear icon in the
+    left sidebar. Add these two, then <em>Save script properties</em>. The names are
+    case-sensitive.
+      <table style="margin-top:2mm">
+        <tr><th style="width:26%">Property</th><th>Value</th></tr>
+        <tr><td class="k">FOLDER_ID</td><td>Your folder's id. The wizard showed it when it
+          created the folder, and it is in Drive's address bar after
+          <code>/folders/</code>.</td></tr>
+        <tr><td class="k">CLIENT_ID</td><td><code>536562746421-uf9hu736m0bq0t41s0ck8h9fmu9ggkos.apps.googleusercontent.com</code>
+          &mdash; the same for every detachment. Copy it from here.</td></tr>
+      </table>
+    </li>
+    <li><strong>Run <code>checkSetUp</code> once</strong> from the editor. It confirms the
+    folder is reachable and, more importantly, makes Google ask for the Drive permission the
+    script needs &mdash; setting the properties by hand never prompts for it, and without it the
+    first cadet submission is where you would find out.</li>
     <li><strong>Deploy &rarr; New deployment &rarr; Web app</strong>, set to
     <em>Execute as: Me</em> and <em>Who has access: Anyone</em>, and copy the address it gives
-    you. It ends in <code>/exec</code>.</li>
+    you. It ends in <code>/exec</code>.
+      <div class="note note--warn" style="margin-top:2mm">
+        <strong class="title">"Anyone" is the one to get right</strong>
+        <p>Not <em>Anyone with a Google account</em> &mdash; the two sit next to each other in the
+        list. Cadets reach this endpoint without a Google session, so the stricter option refuses
+        every submission with an error the app can only report as <em>could not reach</em>.</p>
+      </div>
+    </li>
     <li><strong>Paste it into Settings &rarr; Submission server</strong> and press
     <em>Save and test</em>. It checks the deployment is reachable, is the right script, and is
     configured, so you find out now rather than when a cadet cannot submit.</li>

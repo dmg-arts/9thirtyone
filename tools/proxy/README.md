@@ -54,17 +54,30 @@ You need the two values from your existing setup:
 
 ## 2. Configure it
 
-1. Find the `setUp()` function at the bottom of the file.
-2. Fill in `FOLDER_ID` and `CLIENT_ID` between the quotes.
-3. Choose `setUp` in the function dropdown at the top, then **Run**.
-4. Google will ask you to authorise the script — this is your own script asking
-   for your own Drive. Review and allow. You will see the unverified-app screen
-   here too; choose **Advanced**, then continue.
-5. The log should say `Configured.` If it throws, the folder ID is wrong or the
-   account does not own that folder.
-6. **Clear the two values back out of `setUp()` and save.** They are stored in
-   Script Properties now, and leaving them in the source is untidy rather than
-   dangerous.
+1. **Project Settings** (gear, left sidebar) → **Script Properties** → **Add
+   script property**, twice. Names are case-sensitive:
+
+   | Property | Value |
+   |---|---|
+   | `FOLDER_ID` | the detachment's 9ThirtyOne folder id — in Drive's URL after `/folders/` |
+   | `CLIENT_ID` | `536562746421-uf9hu736m0bq0t41s0ck8h9fmu9ggkos.apps.googleusercontent.com` — the same for every detachment |
+
+2. **Save script properties.**
+3. Open `Code.gs`, choose `checkSetUp` in the function dropdown, and **Run** once.
+4. Google will ask you to authorise the script — your own script asking for your
+   own Drive. Review and allow.
+5. The log should say `Configured and authorised.` with the folder's name. If it
+   throws, the folder id is wrong or this account does not own that folder.
+
+> Configuration is done in the properties UI rather than by editing code, because
+> editing code failed silently: **Run executes the last _saved_ file**, so pasting
+> values and pressing Run without saving threw on a guard and stored nothing,
+> while the endpoint went on reporting "not configured" with no clue why.
+>
+> `checkSetUp` does not configure anything. It exists because the properties UI
+> cannot trigger Google's Drive authorisation prompt, and only running code that
+> touches Drive can. Skip it and the missing permission surfaces at the first
+> cadet submission instead.
 
 ## 3. Deploy it
 
@@ -204,7 +217,7 @@ will need paging if one runs for years.
 |---|---|
 | "returned a sign-in page instead of an answer" | Deployment access is not set to **Anyone**. Fix and redeploy. |
 | "That is the test URL" | You copied the `/dev` address. Use `/exec`. |
-| "deployed but not configured" | `setUp()` was never run, or it failed. |
+| "deployed but not configured" | `FOLDER_ID` / `CLIENT_ID` are not set in Project Settings → Script Properties, or are set on a *different* script project than the one this URL deploys. |
 | "is not on this detachment's roster" | Correct behaviour — add the address in Database Administration. |
 | Cadets see an empty feedback list | Their join link predates the proxy. Re-send it. |
 | A change to the script did nothing | You saved but did not redeploy a new version. |

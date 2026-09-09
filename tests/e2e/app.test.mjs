@@ -866,6 +866,93 @@ await step('cadre reads go to the proxy when one is configured, with the right a
   if (named.length) throw new Error('a read named a path instead of an action');
 });
 
+/* ---------- signing in while the proxy is on ---------- */
+
+/**
+ * The two checks above run with a session already established, which is exactly
+ * how a total lockout shipped green: they prove proxy *reads* carry a token,
+ * never that anyone can obtain one.
+ *
+ * `startSession` stores the ID token, and it runs only after the roster has
+ * approved the sign-in — so the roster read at the top of `signInWithGoogle` had
+ * nothing in sessionStorage to authenticate with, and every proxy-mode sign-in
+ * failed with "your sign-in has expired" before it had begun. The token is now
+ * passed in explicitly (see `resolveIdentity`), and these pin that.
+ *
+ * Both roles, because they resolve through different actions: `roster` is
+ * instructor-and-above, a cadet falls back to `bundle`.
+ */
+const signInUnderProxy = (email, name, role, answer) => page.evaluate(async ([e, n, r, mode]) => {
+  const state = await import('/js/state.js');
+  const original = state.connection.get().proxyUrl;
+  state.connection.set({
+    proxyUrl: 'https://script.google.com/macros/s/AKfycbTESTdeployment0123456789/exec',
+  });
+
+  const a = await import('/js/auth.js');
+  a.signOut();
+
+  const bodies = [];
+  const real = window.fetch;
+  const reply = (payload) => new Response(JSON.stringify(payload), { status: 200 });
+  // Answers as the deployed script does: a refusal is ok:false with a message,
+  // not an HTTP error, so the fallback has to read the body to know what
+  // happened.
+  window.fetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    bodies.push(body);
+    if (body.action === 'roster') {
+      return mode === 'cadre'
+        ? reply({ ok: true, users: [{
+          id: 'usr_1', email: e, username: 'capt.reyes', name: n,
+          roles: ['instructor', 'admin'], active: true,
+        }] })
+        : reply({ ok: false, error: 'That account is not allowed to do this.' });
+    }
+    if (body.action === 'bundle') {
+      return reply({ ok: true, bundle: { requests: [], submitted: [], account: {
+        id: 'usr_2', email: e, username: 'mia.alvarez', name: n,
+        roles: ['student'], asClass: 'AS200', active: true,
+      } } });
+    }
+    return reply({ ok: false, error: 'Unknown action.' });
+  };
+
+  try {
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    const account = await a.signInWithGoogle(
+      { email: e, name: n, emailVerified: true, exp }, r, 'test-id-token');
+    return { ok: true, username: account.username, roles: account.roles, bodies };
+  } catch (err) {
+    return { ok: false, error: err.message, bodies };
+  } finally {
+    window.fetch = real;
+    state.connection.set({ proxyUrl: original || '' });
+    a.signOut();
+  }
+}, [email, name, role, answer]);
+
+await step('a cadre member can sign in while the proxy is configured', async () => {
+  const result = await signInUnderProxy(ADMIN_EMAIL, 'Capt Reyes', 'instructor', 'cadre');
+  if (!result.ok) throw new Error(`sign-in deadlocked in proxy mode: ${result.error}`);
+  const roster = result.bodies.find((b) => b.action === 'roster');
+  if (!roster) throw new Error('sign-in never asked the proxy who this was');
+  if (!roster.idToken) throw new Error('the identity read went out with no token — the deadlock is back');
+});
+
+await step('a cadet signs in through the bundle when the roster refuses them', async () => {
+  const result = await signInUnderProxy(STUDENT_EMAIL, 'Mia Alvarez', 'student', 'cadet');
+  if (!result.ok) throw new Error(`cadet sign-in failed in proxy mode: ${result.error}`);
+  if (!result.roles.includes('student')) throw new Error(`roles came back as ${result.roles}`);
+  const actions = result.bodies.map((b) => b.action);
+  if (!actions.includes('bundle')) throw new Error(`never fell back to bundle — saw ${actions.join(', ')}`);
+  if (!result.bodies.every((b) => b.idToken)) throw new Error('an identity read went out with no token');
+});
+
+// The steps below expect a signed-in administrator; the two above deliberately
+// end signed out.
+await signInAs(ADMIN_EMAIL, 'Capt Reyes');
+
 /* ---------- the commander's by-instructor review ---------- */
 
 await step('the By instructor tab is offered to every panel role', async () => {

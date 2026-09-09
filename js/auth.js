@@ -23,7 +23,8 @@ import { startSession, currentUser, signOut } from './session.js';
 import { makeId, nowIso } from './util.js';
 import { AUDIT } from './audit.js';
 import {
-  loadRoster, createAccountRecord, updateAccountRecord, deleteAccountRecord, writeAudit,
+  loadRoster, resolveIdentity, usingProxy,
+  createAccountRecord, updateAccountRecord, deleteAccountRecord, writeAudit,
 } from './data-source.js';
 
 // Session handling lives in session.js so that data-source.js can reach the
@@ -289,13 +290,21 @@ export async function signInWithGoogle(profile, requiredRole = null, rawToken = 
   const email = normalizeEmail(profile?.email);
   if (!email) throw new Error('That Google account did not provide an email address.');
 
-  const account = await findByEmail(email);
+  // Not findByEmail: that reads the roster through the session, and there is no
+  // session yet — see resolveIdentity. The raw token is what proves who this is
+  // until startSession below has somewhere to put it.
+  const account = await resolveIdentity(email, rawToken);
 
   if (!account) {
     // Bootstrap: a folder with nobody on the roster yet would otherwise be
     // unreachable. Anyone who can sign in *and* reach the folder can claim it —
     // and reaching the folder is a Drive permission the det controls.
-    if (!(await hasAnyAccount())) {
+    //
+    // Direct mode only. A proxy refuses every action to an address it cannot
+    // find on the roster, so there is no first-person-through-the-door to be
+    // had — and asking anyway would fail the read rather than report the
+    // refusal that actually happened.
+    if (!usingProxy() && !(await hasAnyAccount())) {
       const founder = await createAccount({
         email,
         name: profile.name || email,

@@ -274,6 +274,48 @@ export async function loadRoster() {
   return (await db.getUsers()).users || [];
 }
 
+/**
+ * The signing-in person's own account, found with a token that is not yet in
+ * the session.
+ *
+ * Sign-in is the one read that cannot use `token()`, and the reason is circular:
+ * the ID token is stored by `startSession`, and `startSession` runs only after
+ * the roster has confirmed this person is allowed in. At the moment the roster
+ * is read there is therefore nothing in sessionStorage to read it with. Proxy
+ * mode deadlocked on exactly that — every sign-in failed with "your sign-in has
+ * expired" before it had begun, which reads like a stale credential and is in
+ * fact a credential that was never given a chance to be stored.
+ *
+ * So the token is passed in explicitly. Which action carries it depends on what
+ * the caller turns out to be, and that is not known until the answer comes back:
+ * `roster` is instructor-and-above, `bundle` is a cadet's own view. Try the
+ * cadre action, fall back to the cadet one. Both exist in every proxy already
+ * deployed, which is the point — a fix needing a redeployed script would strand
+ * the detachments this locked out.
+ *
+ * @param {string} email    the verified Google address
+ * @param {string|null} idToken  the raw token, straight from the credential
+ */
+export async function resolveIdentity(email, idToken) {
+  const target = String(email || '').trim().toLowerCase();
+  if (!target) return null;
+  const match = (users) => (users || []).find(
+    (a) => String(a.email || '').trim().toLowerCase() === target) || null;
+
+  if (!usingProxy()) return match((await db.getUsers()).users);
+  if (!idToken) throw new Error('Your sign-in has expired. Sign in again.');
+
+  try {
+    return match(await fetchRoster(proxyUrl(), idToken));
+  } catch (err) {
+    // "Not on the roster" is a real answer, not a reason to try the cadet route:
+    // retrying would turn one honest refusal into a second, less clear one.
+    // Only a refusal of the *action* means "this may be a cadet".
+    if (/not on this detachment|deactivated/i.test(err.message)) throw err;
+    return (await fetchBundle(proxyUrl(), idToken))?.account || null;
+  }
+}
+
 /** Active students only, for targeting a form and for completion tracking. */
 export async function loadStudents() {
   const roster = await loadRoster();

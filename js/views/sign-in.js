@@ -46,10 +46,16 @@ export async function renderLogin(root, role, title, onSuccess) {
   const error = el('div', { class: 'stack-sm', hidden: true });
   const hint = el('div', {});
 
+  // The "ask an administrator for the role" hint belongs under a roster refusal
+  // and nowhere else. Stapled under every failure, it sent an expired-token
+  // deadlock looking like a missing role — the screen named a cause it had no
+  // evidence for, and the real message above it was read as noise.
+  const isRosterRefusal = (message) => /roster|does not have|deactivated/i.test(message);
+
   const fail = (message) => {
     remount(error, notice('danger', 'Not signed in',
       el('p', {}, message),
-      el('p', { class: 'field__hint' }, DENIED_HELP[role])));
+      isRosterRefusal(message) ? el('p', { class: 'field__hint' }, DENIED_HELP[role]) : null));
     error.hidden = false;
   };
 

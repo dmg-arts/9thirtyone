@@ -29,7 +29,7 @@ export const GOOGLE_CLIENT_ID =
 export const APP = {
   name: '9ThirtyOne',
   shortName: '9ThirtyOne',
-  version: '1.0.2-beta.1',
+  version: '1.0.3-beta.1',
   /**
    * Bump when the on-disk record shape changes, and add a matching entry to
    * MIGRATIONS in js/migrations.js. The runner upgrades a detachment's existing

@@ -562,6 +562,22 @@
   </div>
 
   <div class="note">
+    <strong class="title">The first call after a quiet spell is slow</strong>
+    <p>Google lets an idle deployment go to sleep. The first request after some hours of
+    no use has to wake it, which takes a few seconds and occasionally long enough to give
+    up &mdash; usually the first sign-in of the day, or the first one after you deploy.
+    Everything after it is immediate, because the script is then warm.</p>
+    <p>So a sign-in that appears to do nothing, or reports that the submission service did
+    not answer in time, is worth <strong>one more attempt</strong> before you go looking for
+    a fault. Wait for it rather than pressing again: each press starts its own thirty-second
+    request instead of hurrying the one already running, so repeated pressing makes a slow
+    sign-in look like a broken one.</p>
+    <p>This is a property of Apps Script, not a misconfiguration, and there is no setting
+    that turns it off. It does not affect cadets filling in feedback during a drill period
+    &mdash; by then the script has been woken by whoever signed in first.</p>
+  </div>
+
+  <div class="note">
     <strong class="title">Full instructions live with the script</strong>
     <p><code>tools/proxy/README.md</code> covers each step with screenshots of the settings,
     what every error message means, and how to redeploy after a change &mdash; forgetting to
@@ -735,7 +751,7 @@
     <li><strong>The Drive folder is shared with nobody but you.</strong> With the server deployed, nobody else needs it.</li>
     <li><strong>The connection indicator in the header reads "ready"</strong> on a device other than the one you set up on.</li>
     <li><strong>The Drive folder contains the app's folders</strong> — open it in Drive and confirm you can see <code>config</code>, <code>users</code>, <code>forms</code> and the rest.</li>
-    <li><strong>A test cadet can sign in with their own Google account</strong> and see feedback assigned to them &mdash; on their own phone, not yours, reached by tapping a join link.</li>
+    <li><strong>A test cadet can sign in with their own Google account</strong> and see feedback assigned to them &mdash; on their own phone, not yours, reached by tapping a join link. If this is the first thing to touch the server in hours, give the first attempt time and try once more before treating it as a failure &mdash; see Part 6.</li>
     <li><strong>That cadet was never asked for access to their Google Drive.</strong> If they were, the submission server is not configured on their device — re-send the join link.</li>
     <li><strong>A test submission appears</strong> in the Instructor Panel under Responses &amp; Analysis.</li>
     <li><strong>You have exported a backup</strong> from Instructor Panel → Database → Export backup.</li>

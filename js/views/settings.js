@@ -9,7 +9,7 @@ import {
   fmtDateTime, download, modal,
   mount, remount } from '../util.js';
 import { APP, BACKENDS, ROLES, SEMESTERS, schoolYears, isDirectSignIn, setDirectSignIn } from '../config.js';
-import { settings, connection, applySettings, markSetupComplete } from '../state.js';
+import { settings, connection, applySettings, markSetupComplete, disconnectDevice } from '../state.js';
 import { hasAdmin, signOut, currentUser } from '../auth.js';
 import { db, adapters, parseFolderId } from '../storage/index.js';
 import { checkProxy } from '../storage/proxy.js';
@@ -359,12 +359,13 @@ async function storageSection(conn) {
         onclick: async () => {
           const confirmed = await confirmDialog('Disconnect this device?',
             'This device forgets where the database is and returns to setup. '
-            + 'No records are deleted — other devices keep working.',
+            + 'No records are deleted, other devices keep working, and setup will offer you '
+            + 'this same folder again rather than making a new one.',
             { confirmLabel: 'Disconnect', danger: true });
           if (!confirmed) return;
           if (connection.get().backend === BACKENDS.drive) adapters.drive.signOut();
           if (connection.get().backend === BACKENDS.folder) await adapters.folder.forget();
-          connection.reset();
+          disconnectDevice();
           signOut();
           markSetupComplete(false);
           resetSetupDraft();

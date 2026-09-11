@@ -100,6 +100,7 @@ function makeDrive() {
           parents: meta.parents || [],
           content,
           trashed: false,
+          createdTime: new Date(Date.now() + seq * 1000).toISOString(),
         });
         appCreated.add(id);          // the app made it, so the app can see it
         return { status: 200, body: { id, name: files.get(id).name } };
@@ -117,7 +118,11 @@ function makeDrive() {
           if (name && f.name !== name) return false;
           return true;
         });
-        return { status: 200, body: { files: out.map((f) => ({ id: f.id, name: f.name, modifiedTime: '2026-01-01T00:00:00Z' })) } };
+        return { status: 200, body: { files: out.map((f) => ({
+          id: f.id, name: f.name,
+          createdTime: f.createdTime || '2026-01-01T00:00:00Z',
+          modifiedTime: '2026-01-01T00:00:00Z',
+        })) } };
       }
 
       // --- get / download / update / trash --------------------------------
@@ -209,7 +214,9 @@ async function runWizardToDrive(page) {
   await page.click('details.disclosure summary');
   await page.waitForSelector('.input.mono', { timeout: 10000 });
   await page.fill('.input.mono', '123456-abcdef.apps.googleusercontent.com');
-  await page.click('button:has-text("create the folder")');
+  // The step looks for an existing folder before it makes one, so the button no
+  // longer says "create" — on a fresh fake Drive it finds nothing and creates.
+  await page.click('button:has-text("set up the folder")');
   await page.waitForTimeout(1200);
 }
 
@@ -232,6 +239,71 @@ await step('the wizard creates the folder itself, with no link to paste', async 
     if (!text.includes(root.id)) throw new Error('the folder address is not shown to the administrator');
     const cont = await page.$('button:has-text("Continue")');
     if (await cont.isDisabled()) throw new Error('Continue stayed disabled after the folder was made');
+  } finally { await ctx.close(); }
+});
+
+/**
+ * Re-running setup must not strand the detachment.
+ *
+ * `createRoot` was an unconditional create, so setup produced a new empty folder
+ * every time it was run and left the records in the previous one. The app then
+ * reported an empty roster, which reads exactly like the fault that sent someone
+ * back to setup — so the cycle repeated. Three folders turned up in one account
+ * that way, and the two empty ones looked identical to the real one from Drive.
+ */
+await step('re-running setup offers the existing folder instead of making another', async () => {
+  const { page, ctx, drive, pageErrors } = await pageWithDrive();
+  try {
+    await runWizardToDrive(page);
+    const first = drive.created().find((f) => f.name === '9ThirtyOne');
+    if (!first) throw new Error('no root folder was created the first time');
+
+    // Back to the wizard the way a stranded administrator gets there.
+    await page.evaluate(() => {
+      localStorage.removeItem('nine31.setup.complete.v1');
+      localStorage.removeItem('nine31.connection.v1');
+    });
+    await runWizardToDrive(page);
+
+    const text = await page.textContent('#view');
+    if (!/already made a folder/i.test(text)) {
+      throw new Error(`setup did not offer the existing folder: ${text.slice(0, 400)}`);
+    }
+    const roots = drive.created().filter((f) => f.name === '9ThirtyOne');
+    if (roots.length !== 1) {
+      throw new Error(`a second root was created before anyone chose: ${roots.length} exist`);
+    }
+
+    await page.click('button:has-text("Use this one")');
+    await page.waitForTimeout(1200);
+    if (pageErrors.length) throw new Error(pageErrors[0]);
+
+    const after = drive.created().filter((f) => f.name === '9ThirtyOne');
+    if (after.length !== 1) throw new Error(`adopting the folder created another: ${after.length}`);
+    if (!(await page.textContent('#view')).includes(first.id)) {
+      throw new Error('the wizard adopted a folder other than the one that existed');
+    }
+    const cont = await page.$('button:has-text("Continue")');
+    if (await cont.isDisabled()) throw new Error('Continue stayed disabled after adopting');
+  } finally { await ctx.close(); }
+});
+
+await step('a second folder is still possible, but only by asking for it', async () => {
+  const { page, ctx, drive } = await pageWithDrive();
+  try {
+    await runWizardToDrive(page);
+    await page.evaluate(() => {
+      localStorage.removeItem('nine31.setup.complete.v1');
+      localStorage.removeItem('nine31.connection.v1');
+    });
+    await runWizardToDrive(page);
+    await page.click('button:has-text("Create a new folder anyway")');
+    await page.waitForTimeout(1200);
+
+    const roots = drive.created().filter((f) => f.name === '9ThirtyOne');
+    if (roots.length !== 2) {
+      throw new Error(`an explicit second folder was not created: ${roots.length} exist`);
+    }
   } finally { await ctx.close(); }
 });
 

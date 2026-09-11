@@ -638,6 +638,56 @@ await step('creating from the Cadre Panel files it as cadre', async () => {
 
 /* ---------- join links ---------- */
 
+/* ---------- disconnecting a device ---------- */
+
+/**
+ * Disconnect forgets where the records are, not how to sign in.
+ *
+ * `connection.reset()` restored every field to its fallback, and the fallback for
+ * the Client ID is deliberately empty so that device-only installs keep the email
+ * sign-in. The cost was that a Drive install which disconnected came back with no
+ * Client ID at all, so sign-in offered no Google button and pointed at setup —
+ * which, before the wizard learned to look first, made a new empty folder.
+ */
+await step('disconnecting keeps the Client ID and forgets only the folder', async () => {
+  const kept = await page.evaluate(async () => {
+    const state = await import('/js/state.js');
+    const before = state.connection.get();
+    state.connection.set({
+      backend: 'drive',
+      clientId: 'shared-client.apps.googleusercontent.com',
+      folderId: 'folder-abc',
+      folderName: '9ThirtyOne',
+      folderUrl: 'https://drive.google.com/drive/folders/folder-abc',
+    });
+    state.disconnectDevice();
+    const after = state.connection.get();
+    state.connection.replace(before);
+    return after;
+  });
+  if (kept.clientId !== 'shared-client.apps.googleusercontent.com') {
+    throw new Error(`the Client ID was discarded: "${kept.clientId}"`);
+  }
+  for (const field of ['folderId', 'folderName', 'folderUrl']) {
+    if (kept[field]) throw new Error(`${field} survived a disconnect as "${kept[field]}"`);
+  }
+  if (kept.backend) throw new Error('the backend survived a disconnect');
+});
+
+await step('a device-only install still disconnects to an empty Client ID', async () => {
+  const after = await page.evaluate(async () => {
+    const state = await import('/js/state.js');
+    const before = state.connection.get();
+    state.connection.set({ backend: 'local', clientId: '', folderId: '' });
+    state.disconnectDevice();
+    const result = state.connection.get();
+    state.connection.replace(before);
+    return result;
+  });
+  // The invariant the email sign-in depends on: no Client ID is a real state.
+  if (after.clientId !== '') throw new Error(`a Client ID appeared from nowhere: "${after.clientId}"`);
+});
+
 /* ---------- roster import ---------- */
 
 /**
@@ -1038,6 +1088,99 @@ await step('a cadet signs in through the bundle when the roster refuses them', a
   const actions = result.bodies.map((b) => b.action);
   if (!actions.includes('bundle')) throw new Error(`never fell back to bundle — saw ${actions.join(', ')}`);
   if (!result.bodies.every((b) => b.idToken)) throw new Error('an identity read went out with no token');
+});
+
+/**
+ * A sleeping Apps Script deployment should cost a pause, not a sign-in.
+ *
+ * Reads are idempotent, so one retry is safe. The transport is deliberately not
+ * the place for it: `submitViaProxy` shares `postJson`, and retrying a
+ * submission whose first attempt succeeded but whose answer was lost would be
+ * refused as a duplicate — telling a cadet their feedback failed when it is
+ * already filed.
+ */
+await step('a first call that times out is retried once, and says so', async () => {
+  const result = await page.evaluate(async () => {
+    const state = await import('/js/state.js');
+    const original = state.connection.get().proxyUrl;
+    state.connection.set({
+      proxyUrl: 'https://script.google.com/macros/s/AKfycbTESTdeployment0123456789/exec',
+    });
+    const a = await import('/js/auth.js');
+    a.signOut();
+
+    let calls = 0;
+    const real = window.fetch;
+    window.fetch = async (url, opts) => {
+      calls++;
+      // The cold start: the first request never answers. An AbortError is what
+      // the timeout produces, and what marks a failure worth repeating.
+      if (calls === 1) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+      const body = JSON.parse(opts.body);
+      if (body.action !== 'roster') {
+        return new Response(JSON.stringify({ ok: false, error: 'Unknown action.' }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true, users: [{
+        id: 'usr_1', email: 'capt.reyes@det025.edu', username: 'capt.reyes',
+        name: 'Capt Reyes', roles: ['instructor', 'admin'], active: true,
+      }] }), { status: 200 });
+    };
+
+    let slow = 0;
+    try {
+      const exp = Math.floor(Date.now() / 1000) + 3600;
+      const account = await a.signInWithGoogle(
+        { email: 'capt.reyes@det025.edu', name: 'Capt Reyes', emailVerified: true, exp },
+        'instructor', 'test-id-token', { onSlow: () => { slow++; } });
+      return { ok: true, username: account.username, calls, slow };
+    } catch (err) {
+      return { ok: false, error: err.message, calls, slow };
+    } finally {
+      window.fetch = real;
+      state.connection.set({ proxyUrl: original || '' });
+      a.signOut();
+    }
+  });
+
+  if (!result.ok) throw new Error(`a cold start failed the sign-in: ${result.error}`);
+  if (result.calls !== 2) throw new Error(`expected exactly one retry, saw ${result.calls} calls`);
+  if (result.slow !== 1) throw new Error('the screen was never told the server was waking');
+});
+
+await step('a refusal is not retried — it is a real answer', async () => {
+  const result = await page.evaluate(async () => {
+    const state = await import('/js/state.js');
+    const original = state.connection.get().proxyUrl;
+    state.connection.set({
+      proxyUrl: 'https://script.google.com/macros/s/AKfycbTESTdeployment0123456789/exec',
+    });
+    const a = await import('/js/auth.js');
+    a.signOut();
+
+    let calls = 0;
+    const real = window.fetch;
+    window.fetch = async () => {
+      calls++;
+      return new Response(JSON.stringify({
+        ok: false, error: 'nobody@example.com is not on this detachment\'s roster.',
+      }), { status: 200 });
+    };
+    try {
+      await a.signInWithGoogle(
+        { email: 'nobody@example.com', emailVerified: true }, 'instructor', 'test-id-token');
+      return { threw: false, calls };
+    } catch (err) {
+      return { threw: true, calls, message: err.message };
+    } finally {
+      window.fetch = real;
+      state.connection.set({ proxyUrl: original || '' });
+      a.signOut();
+    }
+  });
+
+  if (!result.threw) throw new Error('a roster refusal let somebody in');
+  // One call, not two: repeating a refusal only makes the same no arrive later.
+  if (result.calls !== 1) throw new Error(`a refusal was retried: ${result.calls} calls`);
 });
 
 // The steps below expect a signed-in administrator; the two above deliberately

@@ -64,10 +64,25 @@ export async function renderLogin(root, role, title, onSuccess) {
     onSuccess(account);
   };
 
+  /**
+   * Says what is happening when the first attempt times out.
+   *
+   * People press a button again when it gives them nothing back, and the setup
+   * guide asking them not to is no substitute for the screen saying something.
+   * An idle Apps Script deployment takes a few seconds to wake, and that wait
+   * used to be indistinguishable from a dead button.
+   */
+  const waking = () => {
+    remount(error, notice('info', 'Waking your detachment\'s server',
+      el('p', {}, 'It sleeps when nobody has used it for a while, so the first sign-in of '
+        + 'the day takes a few seconds. Trying again — no need to press anything.')));
+    error.hidden = false;
+  };
+
   async function accept(profile, rawToken = null) {
     error.hidden = true;
     try {
-      finish(await signInWithGoogle(profile, role, rawToken));
+      finish(await signInWithGoogle(profile, role, rawToken, { onSlow: waking }));
     } catch (err) {
       fail(err.message);
     }
@@ -117,6 +132,13 @@ export async function renderLogin(root, role, title, onSuccess) {
       notice('warn', 'Google sign-in is not configured',
         el('p', {}, 'This installation has no Google Client ID, so nobody can sign in yet. '
           + 'Add one in Settings, or re-run setup.'),
+        // Worth saying here, because this screen is where someone who has lost a
+        // working install lands, and "re-run setup" used to be the advice that
+        // stranded them: it made a new empty folder every time. It now looks for
+        // the folder first and offers it back, so the sentence above is safe to
+        // follow.
+        el('p', {}, 'If this detachment already had a folder, setup will find it and offer to '
+          + 'use it — it will not start an empty one behind your back.'),
         el('div', { style: { marginTop: 'var(--sp-3)' } },
           el('button', { type: 'button', class: 'btn btn--sm', onclick: () => navigate('/settings') },
             icon('settings'), 'Open Settings'))),

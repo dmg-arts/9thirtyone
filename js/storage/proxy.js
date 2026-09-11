@@ -65,9 +65,22 @@ export function validateProxyUrl(url) {
   return null;
 }
 
-async function postJson(url, payload) {
+/**
+ * Marks a failure as worth trying again.
+ *
+ * The distinction that matters is transport versus answer. A refusal the script
+ * actually sent — not on the roster, not allowed, already submitted — is a real
+ * answer, and repeating it produces a slower, less clear version of the same no.
+ * Only a request that never got an answer is worth repeating.
+ */
+function transient(err) {
+  err.transient = true;
+  return err;
+}
+
+async function postJson(url, payload, { timeoutMs = TIMEOUT_MS } = {}) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -79,8 +92,11 @@ async function postJson(url, payload) {
     });
 
     if (!response.ok) {
-      throw new Error(`The submission service answered ${response.status}. `
+      const err = new Error(`The submission service answered ${response.status}. `
         + 'Its deployment may need updating.');
+      // 5xx is Apps Script having a bad moment, which a second attempt often
+      // survives. 4xx is the deployment being wrong, which it never does.
+      throw response.status >= 500 ? transient(err) : err;
     }
 
     const text = await response.text();
@@ -94,8 +110,11 @@ async function postJson(url, payload) {
     }
   } catch (err) {
     if (err.name === 'AbortError') {
-      throw new Error('The submission service did not answer in time. Check your connection.');
+      throw transient(new Error(
+        'The submission service did not answer in time. Check your connection.'));
     }
+    // fetch rejects with a TypeError when the request never reached anybody.
+    if (err instanceof TypeError) throw transient(err);
     throw err;
   } finally {
     clearTimeout(timer);
@@ -168,9 +187,9 @@ export async function checkProxy(url) {
  *
  * @returns {Promise<{account: object, requests: object[], forms: object, submitted: string[]}>}
  */
-export async function fetchBundle(url, idToken) {
+export async function fetchBundle(url, idToken, opts) {
   if (!idToken) throw new Error('Your sign-in has expired. Sign in again.');
-  const result = await postJson(url, { action: 'bundle', idToken });
+  const result = await postJson(url, { action: 'bundle', idToken }, opts);
   if (!result || result.ok !== true) {
     throw new Error(result?.error || 'Could not load your feedback.');
   }
@@ -186,9 +205,9 @@ export async function fetchBundle(url, idToken) {
  * generic "fetch this file" call would put the decision back in the browser,
  * which is exactly the arrangement being replaced.
  */
-async function ask(url, idToken, payload) {
+async function ask(url, idToken, payload, opts) {
   if (!idToken) throw new Error('Your sign-in has expired. Sign in again.');
-  const result = await postJson(url, { ...payload, idToken });
+  const result = await postJson(url, { ...payload, idToken }, opts);
   if (!result || result.ok !== true) {
     throw new Error(result?.error || 'The server refused that request.');
   }
@@ -216,8 +235,8 @@ export async function fetchAllResponses(url, idToken) {
   return (await ask(url, idToken, { action: 'allResponses' })).responses;
 }
 
-export async function fetchRoster(url, idToken) {
-  return (await ask(url, idToken, { action: 'roster' })).users;
+export async function fetchRoster(url, idToken, opts) {
+  return (await ask(url, idToken, { action: 'roster' }, opts)).users;
 }
 
 /**

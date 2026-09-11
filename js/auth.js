@@ -286,14 +286,17 @@ export async function hasAdmin() {
  * @param {string|null} requiredRole
  * @returns {Promise<Account>}
  */
-export async function signInWithGoogle(profile, requiredRole = null, rawToken = null) {
+export async function signInWithGoogle(profile, requiredRole = null, rawToken = null,
+  { onSlow = null } = {}) {
   const email = normalizeEmail(profile?.email);
   if (!email) throw new Error('That Google account did not provide an email address.');
 
   // Not findByEmail: that reads the roster through the session, and there is no
   // session yet — see resolveIdentity. The raw token is what proves who this is
   // until startSession below has somewhere to put it.
-  const account = await resolveIdentity(email, rawToken);
+  // `onSlow` fires when the first attempt times out and a second is starting, so
+  // the screen can say what is happening instead of looking dead.
+  const account = await resolveIdentity(email, rawToken, { onSlow });
 
   if (!account) {
     // Bootstrap: a folder with nobody on the roster yet would otherwise be

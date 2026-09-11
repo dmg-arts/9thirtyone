@@ -138,6 +138,34 @@ export const driveAdapter = {
     return { ok: true, folderId: created.id, folderName: created.name };
   },
 
+  /**
+   * Folders this app has already made with this name, newest first.
+   *
+   * The counterpart `createRoot` never had. Every *sub*folder is found before it
+   * is created — `ensureFolder` below does exactly that — but the root was an
+   * unconditional create, so re-running setup could not be recovery: it always
+   * produced a new empty detachment and left the real one behind. Three turned up
+   * in one account that way.
+   *
+   * A root has no parent to search inside, which is why `findChild` cannot serve
+   * here. `files.list` without a parent clause would be too broad under a wider
+   * scope, but under `drive.file` the scope does the filtering: the query can only
+   * ever return files **this app created for this account**. A folder made by hand
+   * in Drive is invisible to it, and so is another detachment's.
+   *
+   * Returns candidates rather than picking one. Two folders with this name is a
+   * question only the person setting up can answer.
+   */
+  async findRoots(name) {
+    const token = await this.authorize({ interactive: true });
+    if (!token) return { ok: false, reason: 'auth' };
+    const q = encodeURIComponent(
+      `name='${name.replace(/'/g, "\\'")}' and mimeType='${FOLDER_MIME}' and trashed=false`);
+    const page = await api(`/files?q=${q}&fields=files(id,name,createdTime)`
+      + '&orderBy=createdTime desc&pageSize=20&supportsAllDrives=true&includeItemsFromAllDrives=true');
+    return { ok: true, folders: page.files || [] };
+  },
+
   async ensureLayout(folders) {
     for (const name of folders) {
       await ensureFolder(config.rootId, name, name);

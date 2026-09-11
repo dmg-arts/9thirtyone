@@ -4,7 +4,7 @@
  */
 
 import { BACKENDS, DB_LAYOUT, FOLDER_TREE_PREVIEW, APP, GOOGLE_CLIENT_ID } from '../config.js';
-import { el, icon, field, notice, toast, spinner, clear, mount, remount } from '../util.js';
+import { el, icon, field, notice, toast, spinner, clear, mount, remount, fmtDate } from '../util.js';
 import { connection, markSetupComplete } from '../state.js';
 import { db, adapters } from '../storage/index.js';
 import { navigate } from '../router.js';
@@ -26,6 +26,7 @@ export function renderSetup(root, { rerun = false } = {}) {
       folderId: saved.folderId || '',
       folderName: saved.folderName || '',
       connected: false,
+      reused: false,
       rerun,
     };
   }
@@ -221,8 +222,8 @@ function connectDrive(body, root) {
     oninput: (e) => { draft.clientId = e.target.value.trim(); draft.connected = false; refresh(); },
   });
 
-  const createBtn = el('button', { type: 'button', class: 'btn btn--primary', onclick: doCreate },
-    icon('cloud'), 'Sign in and create the folder');
+  const createBtn = el('button', { type: 'button', class: 'btn btn--primary', onclick: doConnect },
+    icon('cloud'), 'Sign in and set up the folder');
 
   const nextBtn = el('button', {
     type: 'button', class: 'btn btn--primary', disabled: !draft.connected,
@@ -234,9 +235,14 @@ function connectDrive(body, root) {
     nextBtn.disabled = !draft.connected;
     clear(status);
     if (draft.connected) {
-      mount(status, notice('ok', `Created "${draft.folderName}" in your Drive`,
-        el('p', {}, 'Every record lives here. Its address is below — you will need it in a '
-          + 'moment for the submission server, and it is worth keeping somewhere.'),
+      mount(status, notice('ok', draft.reused
+        ? `Using "${draft.folderName}", which was already in your Drive`
+        : `Created "${draft.folderName}" in your Drive`,
+        el('p', {}, draft.reused
+          ? 'Nothing was created and nothing was overwritten — this is the folder as you left '
+            + 'it. Its address is below; you will need it for the submission server.'
+          : 'Every record lives here. Its address is below — you will need it in a '
+            + 'moment for the submission server, and it is worth keeping somewhere.'),
         el('p', { class: 'mono', style: { wordBreak: 'break-all' } }, draft.folderId),
         el('div', { class: 'row row--wrap' },
           el('a', {
@@ -253,6 +259,31 @@ function connectDrive(body, root) {
     }
   }
 
+  /** Adopts a folder this app made earlier, without creating anything. */
+  async function useExisting(folder) {
+    createBtn.disabled = true;
+    remount(status, spinner(`Opening "${folder.name}"…`));
+    try {
+      db.use(BACKENDS.drive, { clientId: draft.clientId, folderId: folder.id });
+      const result = await adapters.drive.connect({ interactive: true });
+      if (!result.ok) throw new Error(result.detail || describeConnectFailure(result.reason));
+      draft.folderId = folder.id;
+      draft.folderName = result.folderName || folder.name;
+      draft.folderInput = folder.id;
+      draft.connected = true;
+      draft.reused = true;
+      toast(`Using the existing "${draft.folderName}".`, 'ok');
+    } catch (err) {
+      draft.connected = false;
+      remount(status, notice('danger', 'Could not open that folder', el('p', {}, err.message)));
+      createBtn.disabled = false;
+      nextBtn.disabled = true;
+      return;
+    }
+    refresh();
+  }
+
+  /** Creates a new root. Only ever reached by an explicit choice. */
   async function doCreate() {
     createBtn.disabled = true;
     remount(status, spinner('Talking to Google…'));
@@ -265,6 +296,7 @@ function connectDrive(body, root) {
       draft.folderInput = draft.folderId;
       db.use(BACKENDS.drive, { clientId: draft.clientId, folderId: draft.folderId });
       draft.connected = true;
+      draft.reused = false;
       toast('Folder created in your Drive.', 'ok');
     } catch (err) {
       draft.connected = false;
@@ -274,6 +306,59 @@ function connectDrive(body, root) {
       return;
     }
     refresh();
+  }
+
+  /**
+   * Sign in, then look before creating.
+   *
+   * This step used to be a single unconditional create, which made re-running
+   * setup the one thing a stranded detachment must never do: it produced a new
+   * empty folder every time and left the records in the previous one. The app
+   * then reported an empty roster, which reads exactly like the failure that sent
+   * someone back to setup in the first place.
+   *
+   * The choice is never made automatically. Adopting a folder silently would be
+   * wrong for a det deliberately standing up a second detachment, and picking the
+   * newest would have chosen the empty one in every case that has actually gone
+   * wrong so far.
+   */
+  async function doConnect() {
+    createBtn.disabled = true;
+    remount(status, spinner('Talking to Google…'));
+    let found;
+    try {
+      db.use(BACKENDS.drive, { clientId: draft.clientId, folderId: '' });
+      found = await adapters.drive.findRoots(DB_LAYOUT.root);
+      if (!found.ok) throw new Error(describeConnectFailure(found.reason));
+    } catch (err) {
+      remount(status, notice('danger', 'Could not reach Google Drive', el('p', {}, err.message)));
+      createBtn.disabled = false;
+      return;
+    }
+
+    if (!found.folders.length) return doCreate();
+
+    remount(status, notice('warn',
+      found.folders.length === 1
+        ? 'This app has already made a folder for this account'
+        : `This app has already made ${found.folders.length} folders for this account`,
+      el('p', {}, 'Your records are in one of these. Creating another would leave them where '
+        + 'they are and start an empty detachment — so pick the one you already use, unless you '
+        + 'are deliberately setting up a second.'),
+      el('div', { class: 'stack-sm', style: { marginTop: 'var(--sp-3)' } },
+        ...found.folders.map((folder) => el('div', { class: 'row row--wrap' },
+          el('div', { style: { flex: '1 1 12rem' } },
+            el('div', { style: { fontWeight: '570' } }, folder.name),
+            el('div', { class: 'faint' }, `Created ${fmtDate(folder.createdTime)}`),
+            el('div', { class: 'faint mono', style: { wordBreak: 'break-all' } }, folder.id)),
+          el('button', {
+            type: 'button', class: 'btn btn--primary btn--sm',
+            onclick: () => useExisting(folder),
+          }, icon('check'), 'Use this one')))),
+      el('div', { class: 'row row--wrap', style: { marginTop: 'var(--sp-3)' } },
+        el('button', { type: 'button', class: 'btn btn--sm', onclick: doCreate },
+          icon('plus'), 'Create a new folder anyway'))));
+    createBtn.disabled = false;
   }
 
   mount(body,

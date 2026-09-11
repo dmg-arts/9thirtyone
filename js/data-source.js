@@ -296,7 +296,7 @@ export async function loadRoster() {
  * @param {string} email    the verified Google address
  * @param {string|null} idToken  the raw token, straight from the credential
  */
-export async function resolveIdentity(email, idToken) {
+export async function resolveIdentity(email, idToken, { onSlow = null } = {}) {
   const target = String(email || '').trim().toLowerCase();
   if (!target) return null;
   const match = (users) => (users || []).find(
@@ -305,14 +305,43 @@ export async function resolveIdentity(email, idToken) {
   if (!usingProxy()) return match((await db.getUsers()).users);
   if (!idToken) throw new Error('Your sign-in has expired. Sign in again.');
 
+  const url = proxyUrl();
+  const ask = (fn, opts) => fn(url, idToken, opts);
+
+  /**
+   * One retry, and only for a request that never got an answer.
+   *
+   * Apps Script lets an idle deployment sleep, and the first call back has to
+   * wake it — most often the first sign-in of the day, which is the worst place
+   * to spend the failure. The first attempt is given a short ceiling so a warm
+   * script is never made to wait for a cold one's budget; the second gets the
+   * full timeout, since by then the script is either waking or genuinely down.
+   *
+   * Deliberately not in `postJson`: `submitViaProxy` shares it, and a retried
+   * submission whose first attempt succeeded but whose answer was lost would be
+   * refused as a duplicate — telling a cadet their feedback failed when it is
+   * already filed. Reads have no such hazard, which is why the retry lives with
+   * the read rather than with the transport.
+   */
+  const once = async (fn) => {
+    try {
+      return await ask(fn, { timeoutMs: 10000 });
+    } catch (err) {
+      if (!err.transient) throw err;
+      if (onSlow) onSlow();
+      return ask(fn, { timeoutMs: 30000 });
+    }
+  };
+
   try {
-    return match(await fetchRoster(proxyUrl(), idToken));
+    return match(await once(fetchRoster));
   } catch (err) {
     // "Not on the roster" is a real answer, not a reason to try the cadet route:
     // retrying would turn one honest refusal into a second, less clear one.
     // Only a refusal of the *action* means "this may be a cadet".
+    if (err.transient) throw err;
     if (/not on this detachment|deactivated/i.test(err.message)) throw err;
-    return (await fetchBundle(proxyUrl(), idToken))?.account || null;
+    return (await once(fetchBundle))?.account || null;
   }
 }
 

@@ -21,9 +21,24 @@ const dataUri = (name) => {
 const iconUri = () =>
   `data:image/png;base64,${readFileSync('icons/icon-512.png').toString('base64')}`;
 
+/**
+ * The version, read rather than typed.
+ *
+ * It was written into the cover by hand and was three releases stale before
+ * anyone noticed — a guide that names the wrong version undermines every other
+ * fact in it, because a reader who spots one stale number reasonably assumes the
+ * procedures are stale too.
+ */
+const versionLabel = () => {
+  const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+  const beta = /^(\d+\.\d+\.\d+)-beta/.exec(version);
+  return beta ? `Beta ${beta[1]}` : version;
+};
+
 let html = readFileSync('tools/docs/setup-guide.html', 'utf8')
   .replace('SHOT_SETUP_STORAGE', dataUri('setup-2-storage.png'))
   .replace('SHOT_SETUP_FOLDERS', dataUri('setup-3-folders.png'))
+  .replace('APP_VERSION', versionLabel())
   .replace('APP_ICON', iconUri());
 
 const tmp = '/tmp/setup-guide.inlined.html';

@@ -121,6 +121,32 @@ export const connection = createStore(LS.connection, {
   connectedAt: null,
 });
 
+/**
+ * Forgets where the database is, without forgetting how to sign in.
+ *
+ * `connection.reset()` restores every field to its fallback, and the fallback for
+ * `clientId` is deliberately empty — see the note above. That is right for a
+ * device that never had one and wrong for a device that had the shared verified
+ * client, because the two states are indistinguishable afterwards and only the
+ * second one can be repaired. A Drive install that disconnected lost its Client
+ * ID, so sign-in offered no Google button at all and sent the person to setup,
+ * which was the one place that made things worse.
+ *
+ * Location is forgotten; identity configuration is kept. Any non-empty Client ID
+ * survives, not merely the shared one — a detachment running its own registration
+ * is stranded by exactly the same sequence, and keeping only the shared client
+ * would fix the common case while leaving that one broken.
+ *
+ * A device-only install holds no Client ID to begin with, so it still ends at
+ * empty and still gets the email sign-in that state exists to serve. Switching
+ * *to* device-only deliberately is unaffected: the wizard's finish step writes an
+ * empty Client ID for every backend but Drive.
+ */
+export function disconnectDevice() {
+  const { clientId } = connection.get();
+  connection.replace(clientId ? { clientId } : {});
+}
+
 export function isConfigured() {
   return Boolean(connection.get().backend) && localStorage.getItem(LS.setupComplete) === '1';
 }

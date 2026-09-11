@@ -1,7 +1,7 @@
 # The alpha releases
 
 Twelve annotated tags marked the alpha releases between 21 and 24 August 2026. All twelve
-are on the remote, alongside the two beta tags.
+are on the remote, alongside the beta tags listed at the end of this file.
 
 This file is not a rescue: nothing here is at risk. It exists because a tag is a poor place
 to record *why* a release mattered. `git tag -l` gives twelve names and a one-line message
@@ -83,3 +83,21 @@ git tag -a v0.11.0-alpha 2ae3aec -m "By-instructor review"
 
 All twelve exist as real tags locally and on the remote at the time of writing. If they
 are ever pruned from both, this file is what they were.
+
+---
+
+## The beta releases
+
+Tagged as they shipped, except 1.0.3 to 1.0.5, which were tagged afterwards — they went
+out as commits during a week of fixes and the tags were added once the gap was noticed.
+A file whose purpose is release provenance stopping three releases short is the kind of
+thing that only shows up when someone goes looking.
+
+| Tag | Commit | What it was |
+|---|---|---|
+| `v1.0.0-beta.1` | — | First beta: brand verified, in production, one shared Client ID for every detachment. |
+| `v1.0.1-beta.1` | — | The setup wizard matched to the written instructions. |
+| `v1.0.2-beta.1` | — | Proxy configured through Script Properties rather than by editing code. |
+| `v1.0.3-beta.1` | `86ac7a8` | Proxy mode could never sign anybody in — the roster read needed a session that sign-in had not yet created. |
+| `v1.0.4-beta.1` | `49c5e92` | Roster import reads the columns the export writes, instead of demoting every staff member to cadet. |
+| `v1.0.5-beta.1` | `37da2aa` | Setup looks for an existing folder before making another. |

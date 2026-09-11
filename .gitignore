@@ -4,7 +4,6 @@ node_modules/
 .venv/
 *.pptx
 shots/
-batches/
 *.jsonl
 # ...except the tuning corpus. It is the regression suite for every future
 # lexicon change: without it the before/after numbers cannot be reproduced and
@@ -13,7 +12,8 @@ batches/
 !tools/tuning/**/*.jsonl
 
 # Screens by perspective: a few dozen images, regenerated on demand and stale
-# the moment a view changes. The two PDFs in docs/ are committed; these are not.
+# the moment a view changes. The five PDFs in docs/ are committed; these are not.
 docs/screens/
 
-# The scripts and PLAN.md are committed; the footage is not.
+# Machine-local tool permissions. .claude/settings.json is shared; this is not.
+.claude/settings.local.json

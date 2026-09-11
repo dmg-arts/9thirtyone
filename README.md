@@ -579,7 +579,8 @@ tools/make_icons.mjs    icon generator, no dependencies
 tools/docs/             regenerates the five PDFs from the running app
 tools/demo/             the demo detachment, as an importable backup bundle
 tools/tuning/           the 600-item synthetic corpus the lexicons were tuned on
-docs/                   the generated PDFs, WHY.md, STYLE.md, ALPHA-TAGS.md
+docs/                   the five PDFs, WHY.md, STYLE.md, ALPHA-TAGS.md,
+                        ROSTER-FORMAT.md and its CSV template
 css/styles.css          design system: tokens, themes, color-vision palettes
 js/
   app.js                bootstrap, routes, app bar, PWA plumbing
@@ -602,6 +603,7 @@ js/
   qr.js                 QR encoder and SVG renderer, no dependencies
   data-source.js        one place that decides: proxy bundle, or read Drive direct
   panels.js             the two panels, and which folders each one shows
+  people-scope.js       who appears in By instructor, and whose results they see
   spaces.js             how the restricted spaces are described to people
   session.js            the signed-in session and the token proving it
   export-anon.js        the anonymised backup export
@@ -625,9 +627,11 @@ js/
     people.js           the commander's review, grouped by person
     admin.js            roster maintenance, invite links, audit, rollover
     settings.js         storage, appearance, accessibility, access, about
+about.html              what the app is, for anyone who lands on it cold
 privacy.html            the privacy policy, deployed with the app
-service-worker.js       offline shell; every module above is precached
+terms.html              terms of service
 tools/proxy/Code.gs     the submission server each detachment deploys
+tests/                  unit, proxy-behaviour, end-to-end, memory and layout suites
 ```
 
 ---

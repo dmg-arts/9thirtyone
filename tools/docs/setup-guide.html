@@ -646,12 +646,28 @@
   <h3>A whole class at once</h3>
   <ol class="steps">
     <li><strong>Prepare a CSV</strong> with a <code>name</code> column and an <code>email</code>
-    column. An optional <code>class</code> column sets their AS level.</li>
+    column. That much creates cadets, which is what a new intake needs. Optional columns:
+    <code>roles</code>, <code>class</code>, <code>section</code> and <code>username</code> &mdash;
+    the same six <em>Export CSV</em> writes, so an exported roster can be edited in a spreadsheet
+    and imported back without losing anybody&rsquo;s role.</li>
     <li><strong>Click Import roster CSV</strong> and choose the file.</li>
-    <li><strong>Fix anything it could not add.</strong> A duplicate address or a typo is listed with
-    the reason. Correct the file and import again &mdash; rows already added are skipped rather than
+    <li><strong>Fix anything it could not add.</strong> A duplicate address, a typo, an unknown role
+    or an unknown AS level is listed with the reason, and that row is left out rather than guessed
+    at. Correct the file and import again &mdash; rows already added are skipped rather than
     duplicated.</li>
   </ol>
+
+  <div class="note">
+    <strong class="title">Let an assistant do the formatting</strong>
+    <p><code>docs/ROSTER-FORMAT.md</code> states the format precisely and includes a prompt written
+    to be handed to an AI assistant along with <code>docs/roster-template.csv</code> and whatever
+    list you already have &mdash; a spreadsheet, an email, a printout you have typed up. It comes
+    back as a file you can import.</p>
+    <p><strong>One rule if you do that: never let it invent an email address.</strong> The address is
+    the identity &mdash; it is what a Google sign-in is matched against &mdash; so a plausible guess
+    creates an account the real person can never sign in to, and another one for you to find and
+    delete. The prompt tells it to leave those people out and list them separately instead.</p>
+  </div>
 
   <h3>Telling them how to get in</h3>
   <p>Adding someone to the roster does not notify them &mdash; this app sends no mail. Once they are

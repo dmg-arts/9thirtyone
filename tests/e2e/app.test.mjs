@@ -638,6 +638,97 @@ await step('creating from the Cadre Panel files it as cadre', async () => {
 
 /* ---------- join links ---------- */
 
+/* ---------- roster import ---------- */
+
+/**
+ * The columns Export CSV writes are the columns Import has to read.
+ *
+ * They were not: import took `name`, `email` and `class` and forced every row to
+ * cadet, while export wrote roles, section and username as well. So the obvious
+ * thing to do with an exported roster — open it in a spreadsheet, fix a few
+ * rows, import it back — silently demoted every instructor, cadre member and
+ * commander. Silently is the part worth pinning: nothing failed, so nothing said
+ * anything, and the roster looked complete.
+ */
+await step('an imported roster keeps the roles the file gives it', async () => {
+  await signInAs(ADMIN_EMAIL, 'Capt Reyes');
+  await page.goto(`${BASE}#/admin`, { waitUntil: 'networkidle' });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('button:has-text("Import roster CSV")', { timeout: 12000 });
+
+  const csv = [
+    'name,email,roles,class,section,username',
+    '"Vance, Nia",nia.vance@import.test,cadre instructor,CADRE,,',
+    '"Idris, Omar",omar.idris@import.test,admin,CADRE,,',
+    '"Pike, Lena",lena.pike@import.test,,AS300,Delta,',
+  ].join('\n');
+
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.click('button:has-text("Import roster CSV")'),
+  ]);
+  await chooser.setFiles({ name: 'roster.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await page.waitForTimeout(1500);
+
+  const found = await page.evaluate(async () => {
+    const ds = await import('/js/data-source.js');
+    const roster = await ds.loadRoster();
+    const pick = (email) => roster.find((a) => a.email === email) || null;
+    return {
+      vance: pick('nia.vance@import.test'),
+      idris: pick('omar.idris@import.test'),
+      pike: pick('lena.pike@import.test'),
+    };
+  });
+
+  for (const [who, account] of Object.entries(found)) {
+    if (!account) throw new Error(`${who} was never added`);
+  }
+  const roles = (a) => [...(a.roles || [])].sort().join(' ');
+  if (roles(found.vance) !== 'cadre instructor') {
+    throw new Error(`cadre instructor came back as "${roles(found.vance)}"`);
+  }
+  if (roles(found.idris) !== 'admin') {
+    throw new Error(`admin came back as "${roles(found.idris)}"`);
+  }
+  // A blank roles column still means cadet, so a plain name/email list keeps
+  // behaving the way detachments already use it.
+  if (roles(found.pike) !== 'student') {
+    throw new Error(`a blank roles column came back as "${roles(found.pike)}"`);
+  }
+  if (found.pike.section !== 'Delta') throw new Error(`section was "${found.pike.section}"`);
+  if (found.pike.asClass !== 'AS300') throw new Error(`class was "${found.pike.asClass}"`);
+});
+
+await step('a roster row naming something invalid is refused, not downgraded', async () => {
+  await page.goto(`${BASE}#/admin`, { waitUntil: 'networkidle' });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('button:has-text("Import roster CSV")', { timeout: 12000 });
+
+  const csv = [
+    'name,email,roles,class,section,username',
+    '"Quill, Ada",ada.quill@import.test,supervisor,AS100,,',
+    '"Rand, Theo",theo.rand@import.test,student,AS-100,,',
+  ].join('\n');
+
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.click('button:has-text("Import roster CSV")'),
+  ]);
+  await chooser.setFiles({ name: 'bad.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await page.waitForSelector('.modal, [role="dialog"]', { timeout: 8000 });
+  const text = await page.textContent('.modal, [role="dialog"]');
+  if (!/unknown role/i.test(text)) throw new Error(`no unknown-role reason shown: ${text.slice(0, 300)}`);
+  if (!/unknown class/i.test(text)) throw new Error(`no unknown-class reason shown: ${text.slice(0, 300)}`);
+
+  const leaked = await page.evaluate(async () => {
+    const ds = await import('/js/data-source.js');
+    const roster = await ds.loadRoster();
+    return roster.filter((a) => /ada\.quill|theo\.rand/.test(a.email || '')).map((a) => a.email);
+  });
+  if (leaked.length) throw new Error(`a refused row was added anyway: ${leaked.join(', ')}`);
+});
+
 await step('the admin console offers a join link', async () => {
   await signInAs(ADMIN_EMAIL, 'Capt Reyes');
   await page.goto(`${BASE}#/admin`, { waitUntil: 'networkidle' });

@@ -158,6 +158,16 @@ async function renderConsole(root) {
    * Needs a `name` and an `email` column — the same list the det already uses to
    * mail cadets. No passwords are generated or handed out, because there are
    * none: being on this list is what grants access.
+   *
+   * `roles`, `class`, `section` and `username` are optional, and are the other
+   * four columns Export CSV writes. They used to be ignored while Export wrote
+   * them, so exporting a roster, editing it in a spreadsheet and importing it
+   * back turned every instructor, cadre member and commander into a cadet
+   * without saying so. A file that states what somebody is has to be read as
+   * stating it, or the export is a trap rather than a backup.
+   *
+   * A row naming something invalid is skipped and reported rather than silently
+   * downgraded — a silent downgrade is the whole failure being fixed here.
    */
   async function importCsv() {
     const file = await pickFile('.csv,text/csv');
@@ -171,30 +181,69 @@ async function renderConsole(root) {
       if (nameCol < 0) throw new Error('No "name" column found.');
       if (emailCol < 0) throw new Error('No "email" column found.');
       const classCol = col('class', 'as class', 'asclass', 'as level');
+      const rolesCol = col('roles', 'role');
+      const sectionCol = col('section', 'flight');
+      const usernameCol = col('username', 'user name');
+
+      const cell = (row, index) => (index >= 0 ? (row[index] || '').trim() : '');
+      const classCodes = new Map(AS_CLASSES.map((c) => [c.code.toLowerCase(), c.code]));
+      const roleNames = new Set(Object.values(ROLES));
+
+      // Counted across the whole file rather than per row: three commanders on
+      // three separate rows is still three commanders. The proxy enforces this
+      // under a lock and is the authority, but direct mode has no such check, so
+      // without this the cap would hold only for detachments running a server.
+      let commanders = accounts.filter(
+        (a) => a.active !== false && a.roles?.includes(ROLES.commander)).length;
 
       let added = 0;
       const skipped = [];
       for (const row of rows.slice(1)) {
-        const studentName = (row[nameCol] || '').trim();
-        const address = normalizeEmail(row[emailCol] || '');
-        if (!studentName && !address) continue;
+        const personName = cell(row, nameCol);
+        const address = normalizeEmail(cell(row, emailCol));
+        if (!personName && !address) continue;
+        const who = address || personName;
         try {
+          // Split on spaces as well as commas: Export CSV joins roles with a
+          // space, so its own output has to parse without being quoted.
+          const wanted = cell(row, rolesCol).split(/[\s,;]+/).filter(Boolean)
+            .map((r) => r.toLowerCase());
+          const unknown = wanted.filter((r) => !roleNames.has(r));
+          if (unknown.length) {
+            throw new Error(`unknown role "${unknown[0]}" — use ${[...roleNames].join(', ')}`);
+          }
+          // An empty roles column still means cadet, so a det with a plain
+          // name/email list gets what it used to get.
+          const roles = wanted.length ? [...new Set(wanted)] : [ROLES.student];
+          if (roles.includes(ROLES.commander) && commanders >= MAX_COMMANDERS) {
+            throw new Error(`only ${MAX_COMMANDERS} commanders at once, and this would be one more`);
+          }
+
+          const rawClass = cell(row, classCol);
+          if (rawClass && !classCodes.has(rawClass.toLowerCase())) {
+            throw new Error(`unknown class "${rawClass}" — use `
+              + `${AS_CLASSES.map((c) => c.code).join(', ')}`);
+          }
+
           await createAccount({
             email: address,
-            name: studentName,
-            roles: [ROLES.student],
-            asClass: classCol >= 0 ? (row[classCol] || '').trim() : '',
+            name: personName,
+            roles,
+            asClass: rawClass ? classCodes.get(rawClass.toLowerCase()) : '',
+            section: cell(row, sectionCol),
+            username: cell(row, usernameCol),
           });
           added++;
+          if (roles.includes(ROLES.commander)) commanders++;
         } catch (err) {
-          skipped.push(`${address || studentName}: ${err.message}`);
+          skipped.push(`${who}: ${err.message}`);
         }
       }
 
       if (!added && !skipped.length) return toast('That file had no rows.', 'warn');
       if (skipped.length) {
         await modal({
-          title: `Added ${pluralize(added, 'cadet')}, skipped ${skipped.length}`,
+          title: `Added ${pluralize(added, 'person', 'people')}, skipped ${skipped.length}`,
           body: el('div', { class: 'stack' },
             notice('warn', 'Some rows could not be added',
               el('p', {}, 'Usually a duplicate email or a typo. Fix the file and import again — '
@@ -209,7 +258,7 @@ async function renderConsole(root) {
           actions: [{ label: 'Close', value: true, autofocus: true }],
         });
       } else {
-        toast(`Added ${pluralize(added, 'cadet')} to the roster.`, 'ok', 6000);
+        toast(`Added ${pluralize(added, 'person', 'people')} to the roster.`, 'ok', 6000);
       }
       return reload();
     } catch (err) {

@@ -8,12 +8,12 @@
   "scripts": {
     "start": "python3 serve.py",
     "test": "npm run test:unit && npm run test:proxy && node tests/e2e/run.mjs",
-    "test:unit": "node tests/unit/analysis.test.mjs && node tests/unit/identity.test.mjs && node tests/unit/join.test.mjs && node tests/unit/qr.test.mjs && node tests/unit/proxy.test.mjs && node tests/unit/shell.test.mjs && node tests/unit/spaces.test.mjs && node tests/unit/panels.test.mjs && node tests/unit/people-scope.test.mjs && node tests/unit/scope.test.mjs && node tests/unit/imports.test.mjs",
+    "test:unit": "node tests/unit/analysis.test.mjs && node tests/unit/identity.test.mjs && node tests/unit/join.test.mjs && node tests/unit/qr.test.mjs && node tests/unit/proxy.test.mjs && node tests/unit/shell.test.mjs && node tests/unit/csv.test.mjs && node tests/unit/spaces.test.mjs && node tests/unit/panels.test.mjs && node tests/unit/people-scope.test.mjs && node tests/unit/scope.test.mjs && node tests/unit/imports.test.mjs",
     "test:layout": "node tests/e2e/run.mjs tests/layout/audit.test.mjs",
     "test:e2e": "node tests/e2e/run.mjs tests/e2e/app.test.mjs tests/e2e/drive.test.mjs",
     "test:drive": "node tests/e2e/run.mjs tests/e2e/drive.test.mjs",
     "icons": "node tools/make_icons.mjs",
-    "test:memory": "node tests/memory/leaks.test.mjs",
+    "test:memory": "node tests/e2e/run.mjs tests/memory/leaks.test.mjs",
     "bench": "node tools/bench/profile.mjs",
     "test:proxy": "node tests/proxy/behaviour.test.mjs"
   },

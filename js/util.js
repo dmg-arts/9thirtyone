@@ -234,9 +234,30 @@ export function download(filename, content, mime = 'application/json') {
 }
 
 /** RFC 4180-ish CSV. `columns` is [{key, label, get?}]. */
+/**
+ * A value that a spreadsheet would run rather than read.
+ *
+ * Excel and Sheets treat a cell beginning `=`, `+`, `-` or `@` as a formula, and
+ * CSV quoting does not prevent it — the quotes are consumed on import and the
+ * formula runs. In Sheets it can reach the network (`IMPORTXML`, `HYPERLINK`).
+ *
+ * That matters here more than in most exports, because the least controlled text
+ * in this app is a cadet's free-text answer, and the person who opens the file is
+ * the cadre member the feedback is about.
+ *
+ * Numbers are exempt, including numeric strings: a scale answer of -3 is a
+ * number, and prefixing it would turn every numeric column into text.
+ */
+const NUMERIC = /^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$/;
+const looksExecutable = (s) => /^[=+\-@\t\r]/.test(s) && !NUMERIC.test(s);
+
 export function toCsv(rows, columns) {
   const escape = (v) => {
-    const s = v == null ? '' : String(v);
+    if (v == null) return '';
+    const raw = String(v);
+    // A leading apostrophe is the conventional defusing: spreadsheets read the
+    // rest as literal text and do not show the mark.
+    const s = looksExecutable(raw) ? `'${raw}` : raw;
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const header = columns.map((c) => escape(c.label ?? c.key)).join(',');

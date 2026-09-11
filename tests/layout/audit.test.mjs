@@ -2,8 +2,12 @@
  * Layout audit: drives every screen at every width and looks for the visual
  * faults that source review does not catch.
  *
- *     npm run test:layout            (checks only)
- *     npm run test:layout -- ./shots (also writes a screenshot of every screen)
+ *     npm run test:layout                    (checks only)
+ *     SHOTS=./shots npm run test:layout      (also writes a screenshot of every screen)
+ *
+ * An environment variable rather than an argument: run.mjs spawns each suite
+ * with no arguments of its own, so the documented `-- ./shots` form reached
+ * run.mjs instead and was taken as the name of a second suite to run.
  *
  * WHY THIS EXISTS
  *
@@ -36,7 +40,7 @@ import { chromium } from 'playwright';
 import { existsSync, mkdirSync } from 'node:fs';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:8123/index.html';
-const SHOTS = process.argv[2] || null;
+const SHOTS = process.env.SHOTS || process.argv[2] || null;
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 
 const CHROME = process.env.CHROME_PATH || [

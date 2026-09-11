@@ -801,13 +801,33 @@ check('a body that is not JSON is refused rather than throwing', () => {
   }
 });
 
-check('an unexpected failure does not leak a stack trace', () => {
+check('a refusal never carries a stack trace', () => {
   // The endpoint is public; an internal error message is an information gift.
+  //
+  // This used to send one submission with the answers omitted and `return` if it
+  // came back ok — which it does, because the script tolerates that. So the
+  // assertion below had never once executed. Several refusals are provoked
+  // instead, and the test fails if none of them is a refusal, so it cannot go
+  // quietly vacuous a second time.
   const proxy = detachment();
-  const out = proxy.post({ action: 'submit', idToken: as('cadet'), requestId: 'req_shared' });
-  if (out.ok) return;                       // answers omitted is tolerated
-  if (/\bat \w+ \(|Error:|\.gs:\d/.test(out.error)) {
-    throw new Error(`a stack trace reached the caller: ${out.error}`);
+  const refusals = [
+    proxy.post({ action: 'submit', idToken: as('cadet'), answers: { q1: 1 } }),
+    proxy.post({ action: 'submit', idToken: as('cadet'), requestId: 'req_nope', answers: { q1: 1 } }),
+    proxy.post({ action: 'nonsense', idToken: as('cadet') }),
+    proxy.post({ action: 'roster', idToken: as('cadet') }),
+    proxy.post({ action: 'roster', idToken: 'tok-forged' }),
+  ];
+
+  const refused = refusals.filter((out) => out && out.ok === false);
+  if (refused.length !== refusals.length) {
+    throw new Error(`only ${refused.length} of ${refusals.length} were refused — `
+      + 'this check is only worth anything if it has refusals to inspect');
+  }
+  for (const out of refused) {
+    if (/\bat \w+ \(|Error:|\.gs:\d/.test(out.error)) {
+      throw new Error(`a stack trace reached the caller: ${out.error}`);
+    }
+    if (!out.error) throw new Error('a refusal came back with no reason at all');
   }
 });
 

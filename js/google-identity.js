@@ -85,10 +85,23 @@ export function decodeIdToken(credential, clientId) {
   if (clientId && claims.aud !== clientId) {
     throw new Error('That sign-in was for a different application.');
   }
-  if (Number(claims.exp) * 1000 < Date.now()) {
+  // Both of the next two checks are written the way the proxy writes them
+  // (`verifyIdToken` in tools/proxy/Code.gs), because a client that accepts a
+  // token the server will refuse sends somebody through sign-in only to fail at
+  // their first read, blaming the server for their account.
+  const exp = Number(claims.exp);
+  if (!Number.isFinite(exp)) {
+    // Not merely tidiness: NaN compares false against everything, so a token
+    // with no exp at all used to read as "not expired".
+    throw new Error('That sign-in has no expiry and cannot be trusted.');
+  }
+  if (exp * 1000 < Date.now()) {
     throw new Error('That sign-in has expired. Try again.');
   }
-  if (claims.email_verified === false) {
+  // Compared as a string. Google sends this as a JSON boolean here and as the
+  // string "true" through tokeninfo, and `=== false` caught neither "false" nor
+  // an omitted claim.
+  if (String(claims.email_verified) !== 'true') {
     throw new Error('That Google account has not verified its email address.');
   }
   if (!claims.email) throw new Error('That Google account did not return an email address.');
@@ -96,7 +109,10 @@ export function decodeIdToken(credential, clientId) {
   const email = String(claims.email).trim().toLowerCase();
   return {
     email,
-    emailVerified: claims.email_verified !== false,
+    // Always true by the time we get here — the check above refused anything
+    // else — but carried so callers do not re-derive it with the loose test the
+    // gate used to use.
+    emailVerified: true,
     // Some accounts carry no display name. Falling back to the normalised email
     // keeps the roster from recording a mixed-case address as someone's name.
     name: claims.name || email,

@@ -93,7 +93,7 @@ const run = (file) => new Promise((done) => {
 /**
  * Which suites to run, all sharing this one server.
  *
- * Named on the command line, or all three by default. The layout audit is in
+ * Named on the command line, or all four by default. The layout audit is in
  * here because it needs a server exactly as much as the others do and used to
  * be invoked directly — so `npm test` passed only on a machine that happened to
  * have one running already, and failed on a clean checkout at the last step.
@@ -103,7 +103,8 @@ const run = (file) => new Promise((done) => {
  */
 const SUITES = process.argv.slice(2).length
   ? process.argv.slice(2)
-  : ['tests/e2e/app.test.mjs', 'tests/e2e/drive.test.mjs', 'tests/layout/audit.test.mjs'];
+  : ['tests/e2e/app.test.mjs', 'tests/e2e/drive.test.mjs', 'tests/memory/leaks.test.mjs',
+     'tests/layout/audit.test.mjs'];
 
 let failed = 0;
 for (const file of SUITES) {

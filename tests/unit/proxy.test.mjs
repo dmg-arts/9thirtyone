@@ -159,11 +159,17 @@ check('maintenance is refused in proxy mode rather than attempted', () => {
   // Backup, restore and wipe act on the whole folder. The proxy exposes no
   // action for any of them on purpose: an endpoint that could empty a
   // detachment on request is not one worth having.
-  if (!/export function canDoMaintenance/.test(DATA)) {
-    throw new Error('no maintenance guard exists');
+  // Not merely that the guard exists — that it is the negation of proxy mode.
+  // Checking only for the declaration would pass a body of `return true`.
+  // The behavioural half runs in the browser suite, which can set a proxy URL
+  // and call it; see "maintenance disappears once a proxy is configured".
+  if (!/export function canDoMaintenance\(\)\s*\{\s*return !usingProxy\(\);/.test(DATA)) {
+    throw new Error('canDoMaintenance is not defined as the negation of usingProxy');
   }
+  // Scoped to the action table. Matched against the whole file, any two-space
+  // indented line beginning "Export" — a comment would do — failed the build.
   for (const action of ['wipe', 'import', 'export', 'reindex', 'migrate']) {
-    if (new RegExp(`^\\s{2}${action}`, 'mi').test(SOURCE)) {
+    if (new RegExp(`^\\s{2}${action}\\s*:`, 'mi').test(ACTIONS_BLOCK)) {
       throw new Error(`the proxy exposes a ${action} action`);
     }
   }

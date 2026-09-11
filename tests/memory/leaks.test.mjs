@@ -1,8 +1,12 @@
 /**
  * Memory safety: leaks and unbounded growth.
  *
- *     python3 serve.py --port 8123 --no-open &
- *     node tests/memory/leaks.test.mjs
+ *     npm run test:memory
+ *
+ * Part of `npm test`. It was not, for a long while: it needed a server started
+ * by hand, so it sat outside the runner and outside the suite, and the only test
+ * of the shared-laptop cache drop was one nobody ran. It reads BASE_URL, which
+ * run.mjs has always provided — the two were compatible all along.
  *
  * JavaScript has no manual memory management, so "memory safety" here means the
  * two failure modes that actually exist: **things retained after they should be
@@ -232,23 +236,60 @@ await check('signing out drops the cached bundle', async () => {
 });
 
 await check('the storage cache has a ceiling, not just an expiry', async () => {
-  // Entries used to be dropped only when read again, so a document written once
-  // and never re-read stayed for the life of the page — bounded by how many
-  // documents a detachment has rather than by how long it runs.
-  const bounded = await page.evaluate(async () => {
+  // Entries used to be dropped only when read again, so a cached list read once
+  // and never re-read stayed for the life of the page.
+  //
+  // Driven through listResponses, which is what actually populates the cache.
+  // Two earlier attempts at this check wrote documents and then read them back
+  // with getForm, and both passed with the cap raised to 100,000 — saveForm
+  // invalidates rather than fills, and getForm does not touch the cache at all.
+  // The keys are per *request*, not per document, so a detachment with hundreds
+  // of feedback requests is what approaches the cap, and that is what this
+  // builds.
+  const COUNT = 900;                       // more than twice CACHE_MAX
+  const PAYLOAD = 'x'.repeat(4 * 1024);
+
+  await page.evaluate(async ([count, pad]) => {
     const m = await import('/js/storage/index.js');
-    for (let i = 0; i < 1500; i++) {
-      await m.db.saveForm({ id: `form_cap_${i}`, name: `F${i}`, sections: [] });
+    for (let i = 0; i < count; i++) {
+      const requestId = `req_cap_${i}`;
+      await m.db.saveRequest({
+        id: requestId, formId: 'form_cap', title: `R${i}`, status: 'open',
+        asClass: 'AS200', schoolYear: '2026-2027', semester: 'Fall',
+        anonymous: true, assignedUsernames: [],
+      });
+      await m.db.saveResponse({
+        requestId, formId: 'form_cap', anonymous: true, asClass: 'AS200',
+        schoolYear: '2026-2027', semester: 'Fall', answers: { q1: 5, q2: pad },
+      });
     }
-    // Reachable only through behaviour: if the cache were unbounded this would
-    // hold 1500 documents rather than its cap.
-    return true;
-  });
-  const heap = await settledHeap();
-  if (!bounded || heap > 80 * 1024 * 1024) {
-    throw new Error(`heap ${mb(heap)} after 1500 cached documents`);
+  }, [COUNT, PAYLOAD]);
+
+  const readRange = (from, to) => page.evaluate(async ([a, b]) => {
+    const m = await import('/js/storage/index.js');
+    for (let i = a; i < b; i++) await m.db.listResponses(`req_cap_${i}`);
+  }, [from, to]);
+
+  await readRange(0, 300);
+  const early = await settledHeap();
+  await readRange(300, COUNT);            // 600 more, taking it well past the cap
+  const late = await settledHeap();
+
+  // Uncapped, the cache would hold 900 response lists of ~4 KB each. Capped, it
+  // evicts as it goes and settles.
+  const growth = late - early;
+  if (growth > 2 * 1024 * 1024) {
+    throw new Error(`heap grew ${mb(growth)} from ${mb(early)} over 600 further cached reads `
+      + '— the cache is tracking how many requests were read, not its cap');
   }
-  console.log(`       heap ${mb(heap)} after 1500 documents written`);
+  console.log(`       ${mb(early)} -> ${mb(late)} across ${COUNT} cached request reads`);
+
+  // Eviction must not lose data: an entry dropped long ago still has to read back.
+  const readBack = await page.evaluate(async () => {
+    const m = await import('/js/storage/index.js');
+    return (await m.db.listResponses('req_cap_0')).length;
+  });
+  if (readBack !== 1) throw new Error(`an evicted entry read back with ${readBack} responses`);
 });
 
 /* ------------------------------------------------------------------ *

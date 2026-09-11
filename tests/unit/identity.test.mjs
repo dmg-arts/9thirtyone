@@ -105,6 +105,22 @@ refuses('a token from another issuer is refused',
 refuses('an unverified email is refused',
   valid({ email_verified: false }), /not verified/i);
 
+/*
+ * Both of these are accepted today, and both are refused by the proxy.
+ *
+ * That asymmetry is the reason to pin them here rather than shrug: the server is
+ * the boundary that holds, so neither is a way in — but a client that accepts a
+ * token the server will reject sends somebody through sign-in only to fail at
+ * their first read, with a message about the server rather than their account.
+ */
+refuses('email_verified as the string "false" is refused, not coerced',
+  valid({ email_verified: 'false' }), /not verified/i);
+
+refuses('a token with no expiry is refused rather than treated as fresh',
+  // Number(undefined) is NaN, and every comparison with NaN is false — so an
+  // omitted exp read as "not expired" rather than as missing.
+  valid({ exp: undefined }), /expir/i);
+
 check('a token with no email is refused', () => {
   const claims = valid();
   delete claims.email;

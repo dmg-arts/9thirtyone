@@ -1007,6 +1007,39 @@ await step('cadre reads go to the proxy when one is configured, with the right a
   if (named.length) throw new Error('a read named a path instead of an action');
 });
 
+await step('maintenance disappears once a proxy is configured', async () => {
+  // The unit suite pins how canDoMaintenance is written; this pins what it does.
+  // Backup, restore, import and wipe act on the whole folder, and in proxy mode
+  // this device has no storage adapter to act with — the proxy deliberately
+  // exposes no action for any of them.
+  const result = await page.evaluate(async () => {
+    const state = await import('/js/state.js');
+    const ds = await import('/js/data-source.js');
+    const original = state.connection.get().proxyUrl;
+
+    // fetch is stubbed for the duration. Setting a proxy URL notifies the
+    // connection store's subscribers, and anything that refreshes the header
+    // then health-checks that address for real — a request to a Google
+    // deployment that does not exist, waited out at full timeout, every time.
+    const real = window.fetch;
+    window.fetch = async () => new Response('{}', { status: 200 });
+    try {
+      const withoutProxy = ds.canDoMaintenance();
+      state.connection.set({
+        proxyUrl: 'https://script.google.com/macros/s/AKfycbTESTdeployment0123456789/exec',
+      });
+      const withProxy = ds.canDoMaintenance();
+      state.connection.set({ proxyUrl: original || '' });
+      return { withoutProxy, withProxy, restored: ds.canDoMaintenance() };
+    } finally {
+      window.fetch = real;
+    }
+  });
+  if (!result.withoutProxy) throw new Error('maintenance was refused without a proxy configured');
+  if (result.withProxy) throw new Error('maintenance stayed available in proxy mode');
+  if (!result.restored) throw new Error('the check did not restore the connection');
+});
+
 /* ---------- signing in while the proxy is on ---------- */
 
 /**
@@ -1578,6 +1611,9 @@ await step('CSV export cannot be used to bypass the threshold', async () => {
     for (const blob of rows) captured += await blob.text();
     return captured;
   });
+  // An export that produced nothing at all would also not contain the canary, so
+  // the absence check is only meaningful once there is a file to check.
+  if (!csv.length) throw new Error('the export produced no file, so nothing was tested');
   if (csv.includes('CANARY-SECRET-COMMENT')) throw new Error('WITHHELD DATA LEAKED VIA CSV EXPORT');
 });
 
@@ -2282,16 +2318,26 @@ await step('an admin can delete it, but only with a recorded reason', async () =
   if (!/FLAGGED/.test(logged.summary)) throw new Error('the record does not note it was flagged');
   console.log(`       recorded: "${logged.summary}" by ${logged.actor.username}`);
 });
-await step('mobile: anchored scale does not overflow', async () => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${BASE}#/student`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(600);
-  const over = await page.evaluate(() =>
-    document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  if (over > 1) throw new Error(`${over}px overflow`);
-});
-if (shots) await page.screenshot({ path: `${shots}/m4-mobile.png`, fullPage: true });
+const DESKTOP = { width: 1180, height: 950 };
 
+await step('mobile: anchored scale does not overflow', async () => {
+  // Restored in a finally, not after the assertion. This step used to leave the
+  // viewport at phone width on its way out, and nothing set it back until the
+  // very last step of the file — so every check in between, including all four
+  // access-toggle ones, silently ran on a 390px screen. A responsive rule that
+  // hid any of those controls would have read as the control being broken.
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${BASE}#/student`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(600);
+    const over = await page.evaluate(() =>
+      document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (over > 1) throw new Error(`${over}px overflow`);
+    if (shots) await page.screenshot({ path: `${shots}/m4-mobile.png`, fullPage: true });
+  } finally {
+    await page.setViewportSize(DESKTOP);
+  }
+});
 /* ---------- signing in without Google ---------- */
 
 /** The access toggle specifically, not the first checkbox on the page. */
@@ -2329,17 +2375,24 @@ await step('the access flag grants no roles by itself', async () => {
 });
 
 await step('with the flag on, the panels still refuse a signed-out visitor', async () => {
-  for (const path of ['/instructor', '/cadre', '/admin']) {
-    await page.goto(`${BASE}#${path}`, { waitUntil: 'networkidle' });
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(700);
-    const text = await page.textContent('#view');
-    // The sign-in gate, not the panel.
-    if (/Feedback requests|Restricted space|Invite people/.test(text)) {
-      throw new Error(`${path} opened without a sign-in`);
+  // The flag is cleared in a finally. Left as the last statement of the step, an
+  // assertion failure above it skipped the cleanup — and because step() catches,
+  // the run continued with direct sign-in still enabled, turning one failure
+  // into a cascade of unrelated ones.
+  try {
+    for (const path of ['/instructor', '/cadre', '/admin']) {
+      await page.goto(`${BASE}#${path}`, { waitUntil: 'networkidle' });
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForTimeout(700);
+      const text = await page.textContent('#view');
+      // The sign-in gate, not the panel.
+      if (/Feedback requests|Restricted space|Invite people/.test(text)) {
+        throw new Error(`${path} opened without a sign-in`);
+      }
     }
+  } finally {
+    await setFlag(false);
   }
-  await setFlag(false);
 });
 
 await step('a passer-by cannot switch it on once the detachment has an admin', async () => {
@@ -2409,8 +2462,11 @@ await step('the email sign-in still honours the roster', async () => {
     const account = await a.signInAsDeveloper('capt.reyes@det025.edu');
     return account.roles;
   });
-  if (!roles.includes('admin')) throw new Error(`got roles ${roles.join(',')} for a real account`);
-  await setFlag(false);
+  try {
+    if (!roles.includes('admin')) throw new Error(`got roles ${roles.join(',')} for a real account`);
+  } finally {
+    await setFlag(false);
+  }
 });
 
 /* ---------- every route renders ---------- */
@@ -2427,7 +2483,7 @@ await step('the email sign-in still honours the roster', async () => {
  * explode, which is the failure that actually reached a user.
  */
 await step('every route renders without throwing', async () => {
-  await page.setViewportSize({ width: 1180, height: 950 });
+  await page.setViewportSize(DESKTOP);
   await signInAs(ADMIN_EMAIL);
 
   // Routes taking an id are visited with one that does not exist: a page that

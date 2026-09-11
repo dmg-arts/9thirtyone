@@ -22,7 +22,6 @@ export function renderSetup(root, { rerun = false } = {}) {
       orgName: saved.orgName || '',
       backend: saved.backend || null,
       clientId: saved.clientId || GOOGLE_CLIENT_ID,
-      folderInput: saved.folderUrl || saved.folderId || '',
       folderId: saved.folderId || '',
       folderName: saved.folderName || '',
       connected: false,
@@ -72,17 +71,6 @@ function stepper() {
     if (i < STEPS.length - 1) mount(wrap, el('div', { class: 'step__bar' }));
   });
   return wrap;
-}
-
-function footer(root, { backLabel = 'Back', nextLabel = 'Continue', canNext = true, onNext, onBack }) {
-  return el('div', { class: 'row row--end', style: { marginTop: 'var(--sp-5)' } },
-    draft.step > 0 && el('button', {
-      type: 'button', class: 'btn',
-      onclick: () => { onBack ? onBack() : (draft.step--, draw(root)); },
-    }, backLabel),
-    el('button', {
-      type: 'button', class: 'btn btn--primary', disabled: !canNext, onclick: onNext,
-    }, nextLabel));
 }
 
 /* ------------------------------------------------------------------ *
@@ -269,7 +257,6 @@ function connectDrive(body, root) {
       if (!result.ok) throw new Error(result.detail || describeConnectFailure(result.reason));
       draft.folderId = folder.id;
       draft.folderName = result.folderName || folder.name;
-      draft.folderInput = folder.id;
       draft.connected = true;
       draft.reused = true;
       toast(`Using the existing "${draft.folderName}".`, 'ok');
@@ -293,7 +280,6 @@ function connectDrive(body, root) {
       if (!result.ok) throw new Error(describeConnectFailure(result.reason));
       draft.folderId = result.folderId;
       draft.folderName = result.folderName || DB_LAYOUT.root;
-      draft.folderInput = draft.folderId;
       db.use(BACKENDS.drive, { clientId: draft.clientId, folderId: draft.folderId });
       draft.connected = true;
       draft.reused = false;

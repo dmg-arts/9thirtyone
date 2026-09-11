@@ -26,7 +26,8 @@
  * On a backend with no proxy there is no server to enforce anything, and this
  * runs in the browser as a lens only.
  *
- * **Mirrored in `tools/proxy/Code.gs` as `peopleTierFor` / `subjectAllowed`.**
+ * **Mirrored in `tools/proxy/Code.gs` as `peopleTierFor` and `readPeople`.**
+ * (`subjectAllowed` never existed; the narrowing lives inside `readPeople`.)
  * Apps Script cannot import this file, the same reason `SPACE_ACCESS` is
  * declared in both places. Change one, change the other.
  */
@@ -95,7 +96,9 @@ export function peopleScope(heldRoles, username, rosterByUsername = new Map()) {
   /** Whether this scope covers a person at all — used for the staff list. */
   function allowsSubject(subject) {
     if (tier === PEOPLE_SCOPE.all) return true;
-    if (!subject) return tier === PEOPLE_SCOPE.all;
+    // Unattributed. Only the everyone tier covers it, and that already returned
+    // above — this read as though it might still say yes.
+    if (!subject) return false;
     if (subject === me) return true;
     if (tier === PEOPLE_SCOPE.own) return false;
     return isPlainInstructor(rosterByUsername.get(subject));

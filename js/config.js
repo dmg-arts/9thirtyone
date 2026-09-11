@@ -46,7 +46,6 @@ export const LS = {
   setupComplete: 'nine31.setup.complete.v1',
   session: 'nine31.session.v1',
   directSignIn: 'nine31.directsignin.v1',
-  queue: 'nine31.queue.v1',
 };
 
 /**
@@ -82,7 +81,7 @@ export const SPACES = {
  * be answered. What they never see is anyone's responses, so nothing leaks
  * across a boundary by being answerable.
  */
-export const SPACE_ACCESS = {
+const SPACE_ACCESS = {
   [ROLES.instructor]: [SPACES.shared],
   [ROLES.admin]: [SPACES.shared],
   [ROLES.cadre]: [SPACES.shared, SPACES.cadre],
@@ -103,7 +102,7 @@ export const MAX_COMMANDERS = 2;
  * Deliberately not applied to `admin`: managing the roster and running the
  * panel are separate jobs that happen to be held together often.
  */
-export const ROLE_IMPLIES = {
+const ROLE_IMPLIES = {
   [ROLES.cadre]: [ROLES.instructor],
   [ROLES.commander]: [ROLES.cadre, ROLES.instructor],
 };

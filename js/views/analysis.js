@@ -12,20 +12,18 @@
 import {
   el, icon, field, select, badge, notice, emptyState, spinner, toast,
   download, toCsv, fmtDate, fmtDateTime, pluralize, mean, median, stdev, round,
-  modal, confirmDialog, fromDateInput, groupBy,
+  modal, fromDateInput, groupBy,
   mount, remount } from '../util.js';
 import { AS_CLASSES, SEMESTERS, PRIVACY, ROLES, schoolYears, nearestAnchor } from '../config.js';
-import { db } from '../storage/index.js';
 import {
   loadCatalog, loadAllResponses, loadResponsesFor, loadStudents,
   deleteResponse as removeResponse, writeAudit,
 } from '../data-source.js';
-import { isRestricted, spaceShort } from '../spaces.js';
 import { inSpaces } from '../panels.js';
 import { renderForm, formItems } from '../forms.js';
 import { navigate } from '../router.js';
 import { hasRole } from '../auth.js';
-import { record, AUDIT } from '../audit.js';
+import { AUDIT } from '../audit.js';
 import {
   describe, histogram, consensus, describeConsensus, findClusters,
   findOutliers, findRespondentOutliers, compareSegments, MIN_FOR_OUTLIERS,

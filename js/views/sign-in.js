@@ -127,6 +127,12 @@ export async function renderLogin(root, role, title, onSuccess) {
 
   // An empty roster means the first person through the door claims it. Only
   // worth saying on the admin screen — that is where a new detachment starts.
+  //
+  // Before the early return below, deliberately: an installation with no Client
+  // ID is exactly the one most likely to have no roster either, and it takes the
+  // `return`. This block used to appear twice, once here and once after it, so
+  // every admin sign-in with a Client ID configured did two full roster reads
+  // and rendered the same notice over itself.
   if (role === ROLES.admin) {
     hasAnyAccount().then((exists) => {
       if (exists) return;
@@ -163,17 +169,6 @@ export async function renderLogin(root, role, title, onSuccess) {
     });
   } catch (err) {
     remount(buttonHost, notice('danger', 'Could not start Google sign-in', el('p', {}, err.message)));
-  }
-
-  // An empty roster means the first person through the door claims it. Only
-  // worth saying on the admin screen — that is where a new detachment starts.
-  if (role === ROLES.admin) {
-    hasAnyAccount().then((exists) => {
-      if (exists) return;
-      remount(hint, notice('info', 'This detachment has no roster yet',
-        el('p', {}, 'The first Google account to sign in becomes the administrator and can add '
-          + 'everyone else. Make sure that is you.')));
-    }).catch(() => {});
   }
 }
 

@@ -23,34 +23,40 @@ import {
 } from '../config.js';
 import { connection } from '../state.js';
 import { hasRole, currentUser, activeRoles, signOut, listStudents } from '../auth.js';
-import { db } from '../storage/index.js';
+import { db, backendLabel } from '../storage/index.js';
 import { navigate } from '../router.js';
 import { renderAnalysis } from './analysis.js';
 import { renderLogin } from './sign-in.js';
 import { isRestricted, spaceShort } from '../spaces.js';
 import { PANELS, panelSpacesFor, canOpenPanel, inSpaces } from '../panels.js';
 import {
-  loadCatalog, saveForm, saveRequest, deleteForm, deleteRequest, writeAudit,
+  loadCatalog, deleteForm, writeAudit,
   canDoMaintenance, connectionStatus, loadOverview,
 } from '../data-source.js';
 import { buildAnonymisedExport, summariseAnonymisedExport } from '../export-anon.js';
 import { renderPeople } from './people.js';
-import { record, AUDIT } from '../audit.js';
+import { AUDIT } from '../audit.js';
 
+/**
+ * The tab bar renders labels only, so these carry no icon.
+ *
+ * They used to carry an `iconName` each and a `tabsFor()` that filtered on a
+ * `role` key — but no entry ever had a `role`, so the filter was `() => TABS`,
+ * and no icon was ever drawn. Which tabs a person sees is decided by which panel
+ * they can open (panels.js) and by what the server returns inside each one;
+ * there is no per-tab role gate, and a dead one sitting here suggested otherwise.
+ */
 const TABS = [
-  { id: 'requests', label: 'Feedback requests', iconName: 'send' },
-  { id: 'analysis', label: 'Responses & analysis', iconName: 'chart' },
+  { id: 'requests', label: 'Feedback requests' },
+  { id: 'analysis', label: 'Responses & analysis' },
   // The same records, grouped by the person they reflect on. Open to every
   // panel role, because reviewing the instructors under you is an oversight
   // function and cadre have one — but what it contains differs by role, and
   // that narrowing is the server's, not this tab's. See js/people-scope.js.
-  { id: 'people', label: 'By instructor', iconName: 'clipboard' },
-  { id: 'students', label: 'Cadets', iconName: 'users' },
-  { id: 'database', label: 'Database', iconName: 'database' },
+  { id: 'people', label: 'By instructor' },
+  { id: 'students', label: 'Cadets' },
+  { id: 'database', label: 'Database' },
 ];
-
-/** The tabs this account may see, in order. */
-const tabsFor = () => TABS.filter((tab) => !tab.role || hasRole(tab.role));
 
 /** Wraps a panel in the sign-in gate. */
 export async function requirePanel(root, panel, render) {
@@ -68,7 +74,7 @@ export async function requirePanel(root, panel, render) {
  * @param {object} panel  One of `PANELS`. Decides the title, the sign-in gate,
  *   and — through `panelSpacesFor` — which records every tab below can see.
  */
-export async function renderPanel(root, { query }, panel) {
+async function renderPanel(root, { query }, panel) {
   return requirePanel(root, panel, async () => {
     remount(root, );
     const activeTab = query.get('tab') || 'requests';
@@ -77,7 +83,7 @@ export async function renderPanel(root, { query }, panel) {
     const spaces = panelSpacesFor(panel, activeRoles());
 
     const tabBar = el('div', { class: 'tabs', role: 'tablist' });
-    for (const tab of tabsFor()) {
+    for (const tab of TABS) {
       mount(tabBar, el('button', {
         type: 'button', class: 'tab', role: 'tab',
         'aria-selected': String(tab.id === activeTab),
@@ -148,9 +154,10 @@ export async function renderPanel(root, { query }, panel) {
       database: tabDatabase,
     };
     try {
-      // A tab this account cannot see is not merely hidden from the bar — asking
-      // for it by URL lands on the default rather than rendering it.
-      const allowed = tabsFor().some((tab) => tab.id === activeTab);
+      // A tab that does not exist is not rendered from the URL either — ?tab=
+      // anything unknown lands on the default rather than throwing. Access is
+      // decided by which panel opened, not by the tab name.
+      const allowed = TABS.some((tab) => tab.id === activeTab);
       await (allowed ? renderers[activeTab] || tabRequests : tabRequests)(host, context);
     } catch (err) {
       remount(host, notice('danger', 'Could not load this tab', el('p', {}, err.message)));
@@ -614,14 +621,6 @@ async function tabDatabase(host, { panel } = {}) {
       el('div', { class: 'row row--wrap' },
         el('button', { type: 'button', class: 'btn btn--danger', onclick: wipe }, icon('trash'), 'Delete all records'))),
   );
-}
-
-function backendLabel(backend) {
-  return {
-    drive: 'Google Drive (organization account)',
-    folder: 'Synced folder on this computer',
-    local: 'This device only',
-  }[backend] || 'Not configured';
 }
 
 /** Small text prompt built on the modal helper. */

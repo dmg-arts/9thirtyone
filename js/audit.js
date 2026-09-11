@@ -30,7 +30,6 @@ import { db } from './storage/index.js';
 export const AUDIT = {
   responseDeleted: 'response.deleted',
   requestDeleted: 'request.deleted',
-  formDeleted: 'form.deleted',
   accountCreated: 'account.created',
   accountUpdated: 'account.updated',
   accountDeleted: 'account.deleted',
@@ -39,13 +38,11 @@ export const AUDIT = {
   dataImported: 'database.imported',
   dataWiped: 'database.wiped',
   indexesRebuilt: 'database.reindexed',
-  migrationRun: 'database.migrated',
 };
 
 export const AUDIT_LABELS = {
   'response.deleted': 'Response deleted',
   'request.deleted': 'Feedback deleted',
-  'form.deleted': 'Form deleted',
   'account.created': 'Account created',
   'account.updated': 'Account updated',
   'account.deleted': 'Account deleted',
@@ -57,7 +54,6 @@ export const AUDIT_LABELS = {
   'database.imported': 'Backup imported',
   'database.wiped': 'All records deleted',
   'database.reindexed': 'Indexes rebuilt',
-  'database.migrated': 'Schema migrated',
 };
 
 /** Destructive actions, highlighted in the viewer. */

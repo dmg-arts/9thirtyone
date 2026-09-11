@@ -31,6 +31,17 @@
 /** Google's own redirect chain is slow on a bad campus connection. */
 const TIMEOUT_MS = 30000;
 
+/**
+ * What a deployment calls itself, and what it used to.
+ *
+ * Exported because `data-source.connectionStatus` runs the same health check for
+ * the app bar and had its own copy of the current name and none of the old one —
+ * so the two disagreed about a deployment left on the pre-rename script: Settings
+ * said "running an older version, redeploy", the header just said ready.
+ */
+export const PROXY_SERVICE = 'nine31-proxy';
+export const PROXY_SERVICE_LEGACY = 'top-feedback-proxy';
+
 /** Recognises a deployed Apps Script web app URL. */
 const EXEC_PATTERN = /^https:\/\/script\.google\.com\/(a\/[^/]+\/)?macros\/s\/[A-Za-z0-9_-]+\/exec$/;
 
@@ -155,7 +166,7 @@ export async function checkProxy(url) {
     };
   }
 
-  if (body.service === 'top-feedback-proxy') {
+  if (body.service === PROXY_SERVICE_LEGACY) {
     // The name it answered to before the rename. Recognised rather than
     // rejected so the message can say what to do instead of "not ours".
     return {
@@ -165,7 +176,7 @@ export async function checkProxy(url) {
         + 'a new version. The URL does not change.',
     };
   }
-  if (body.service !== 'nine31-proxy') {
+  if (body.service !== PROXY_SERVICE) {
     return { ok: false, error: 'That is a Google Apps Script, but not the 9ThirtyOne proxy.' };
   }
   if (!body.configured) {

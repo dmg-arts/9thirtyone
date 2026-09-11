@@ -19,7 +19,7 @@
 import { mean, median, stdev, round } from '../util.js';
 
 /** Below this many responses, dispersion and shape are not worth reporting. */
-export const MIN_FOR_SHAPE = 5;
+const MIN_FOR_SHAPE = 5;
 /** Below this, outlier detection produces nonsense — every point is extreme. */
 export const MIN_FOR_OUTLIERS = 6;
 
@@ -28,7 +28,7 @@ export const MIN_FOR_OUTLIERS = 6;
  * ------------------------------------------------------------------ */
 
 /** Quantile by linear interpolation, the definition most tools agree on. */
-export function quantile(sorted, p) {
+function quantile(sorted, p) {
   if (!sorted.length) return null;
   if (sorted.length === 1) return sorted[0];
   const pos = (sorted.length - 1) * p;

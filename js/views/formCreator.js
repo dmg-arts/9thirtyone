@@ -48,7 +48,7 @@ async function loadReusable() {
   });
 }
 
-export function resetFormDraft() {
+function resetFormDraft() {
   draft = null;
 }
 

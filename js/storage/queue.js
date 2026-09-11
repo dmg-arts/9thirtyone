@@ -140,10 +140,10 @@ export async function runWrite(kind, path, data, attempt) {
   try {
     const result = await attempt();
     // A successful direct write supersedes anything queued for the same path.
-    if (overlay.has(path) || deleted.has(path)) {
-      overlay.delete(path);
-      deleted.delete(path);
-    }
+    // Unconditional: delete on an absent key is already a no-op, so the guard
+    // this used to carry only asked the same question twice.
+    overlay.delete(path);
+    deleted.delete(path);
     return { queued: false, data: result ?? data };
   } catch (err) {
     if (!isTransient(err)) throw err;

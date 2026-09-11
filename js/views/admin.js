@@ -19,7 +19,7 @@ import {
   APP, AS_CLASSES, BACKENDS, ROLES, ROLE_LABELS, AS_PROGRESSION, MAX_COMMANDERS,
   currentSchoolYear,
 } from '../config.js';
-import { record, AUDIT, AUDIT_LABELS } from '../audit.js';
+import { AUDIT, AUDIT_LABELS } from '../audit.js';
 import {
   createAccount, updateAccount, deleteAccount, signOut, currentUser, hasRole, normalizeEmail,
 } from '../auth.js';
@@ -455,7 +455,7 @@ async function renderConsole(root) {
  * you send them the link. Splitting those across two screens would guarantee
  * that half the roster never gets told how to get in.
  */
-export function inviteCard() {
+function inviteCard() {
   const conn = connection.get();
   const host = el('div', { class: 'stack' });
 

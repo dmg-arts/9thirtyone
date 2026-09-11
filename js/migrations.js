@@ -32,7 +32,7 @@ import { nowIso, makeId } from './util.js';
  */
 
 /** @type {Migration[]} */
-export const MIGRATIONS = [
+const MIGRATIONS = [
   {
     to: 2,
     describe: 'Accounts, submission receipts and roll-up indexes',
@@ -181,8 +181,11 @@ export const MIGRATIONS = [
       // nothing for a token to match. Those are flagged rather than deleted or
       // deactivated: the record still carries a name, an AS level and the username
       // its receipts are filed under, all of which an admin needs in order to
-      // fix it by adding the address. `needsEmail` is what the admin console
-      // lists under "cannot sign in yet".
+      // fix it by adding the address. `needsEmail` marks them, and is read back
+      // on a re-run so a second pass does not count the same record twice —
+      // these migrations must be idempotent. The admin console does not use it:
+      // it finds these accounts by the absence of an email, which cannot go
+      // stale the way a flag can.
       const users = (await db.getUsers().catch(() => null))?.users || [];
       if (!users.length) return report('No accounts to convert');
 

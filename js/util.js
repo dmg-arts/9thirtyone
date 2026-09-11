@@ -30,7 +30,7 @@ export function el(tag, attrs = {}, ...children) {
   return node;
 }
 
-export function append(parent, children) {
+function append(parent, children) {
   for (const child of children.flat(Infinity)) {
     if (child == null || child === false || child === true) continue;
     parent.append(child instanceof Node ? child : document.createTextNode(String(child)));
@@ -77,7 +77,7 @@ export function icon(name, { size = null, cls = '' } = {}) {
 }
 
 /** 24x24 stroke icons, feather-ish. */
-export const ICONS = {
+const ICONS = {
   dot: '<circle cx="12" cy="12" r="3"/>',
   student: '<path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/>',
   cadre: '<path d="M12 2 4 6v6c0 5 3.4 9.4 8 10 4.6-.6 8-5 8-10V6l-8-4Z"/><path d="m9 12 2 2 4-4"/>',

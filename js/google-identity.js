@@ -31,9 +31,20 @@ const ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.com']);
 let gisPromise = null;
 let initialisedFor = null;
 
-/** Loads Google Identity Services once, however many callers ask. */
-export function loadGis() {
-  if (window.google?.accounts) return Promise.resolve();
+/**
+ * Loads Google Identity Services once, however many callers ask.
+ *
+ * `isReady` differs by caller and cannot be folded away: this module wants the
+ * sign-in API, and the Drive adapter wants `accounts.oauth2` for the token
+ * client, which appears at its own pace. What *was* worth folding away is the
+ * loader — drive.js carried a byte-identical copy with its own `gisPromise`, so
+ * a page that touched both could inject the script twice, each copy believing it
+ * was the one loading it.
+ *
+ * @param {() => boolean} isReady  true when the part the caller needs exists
+ */
+export function loadGis(isReady = () => Boolean(window.google?.accounts)) {
+  if (isReady()) return Promise.resolve();
   if (gisPromise) return gisPromise;
 
   gisPromise = new Promise((resolve, reject) => {

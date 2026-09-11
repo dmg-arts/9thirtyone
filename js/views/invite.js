@@ -20,7 +20,7 @@
  */
 
 import { el, icon, notice, toast, remount } from '../util.js';
-import { APP, ROLES } from '../config.js';
+import { ROLES } from '../config.js';
 import { connection } from '../state.js';
 import { hasRole } from '../auth.js';
 import { buildJoinLink } from '../join.js';

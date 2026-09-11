@@ -16,7 +16,7 @@ let rootHandle = null;
 
 export const folderAdapter = {
   id: 'folder',
-  label: 'Synced Google Drive folder',
+  label: 'Synced Drive folder on this computer',
 
   isAvailable: () => typeof window.showDirectoryPicker === 'function' && window.isSecureContext,
 

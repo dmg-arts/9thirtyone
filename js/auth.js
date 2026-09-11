@@ -36,7 +36,7 @@ export { startSession, currentUser, currentIdToken, signOut } from './session.js
  * ------------------------------------------------------------------ */
 
 /** Usernames are matched case-insensitively and stored lowercased. */
-export function normalizeUsername(value) {
+function normalizeUsername(value) {
   return String(value || '').trim().toLowerCase();
 }
 
@@ -44,7 +44,7 @@ export function normalizeUsername(value) {
  * Validates the shape of a username. Kept deliberately narrow: cadets type
  * these by hand on a phone, so no spaces and no case sensitivity.
  */
-export function validateUsername(value) {
+function validateUsername(value) {
   const username = normalizeUsername(value);
   if (!username) return 'Enter a username.';
   if (username.length < 3) return 'Usernames are at least 3 characters.';
@@ -69,7 +69,7 @@ export function normalizeEmail(value) {
  * everything in between, and rejecting an unusual but real address is worse
  * than accepting a typo an admin can see and fix.
  */
-export function validateEmail(value) {
+function validateEmail(value) {
   const email = normalizeEmail(value);
   if (!email) return 'Enter the Google account email.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'That does not look like an email address.';
@@ -78,7 +78,7 @@ export function validateEmail(value) {
 }
 
 /** Suggests `last.first` from a display name, deduped against existing users. */
-export function suggestUsername(name, taken = []) {
+function suggestUsername(name, taken = []) {
   const parts = String(name || '').replace(/,/g, ' ').trim().split(/\s+/).filter(Boolean);
   const last = parts.length > 1 ? parts[0] : (parts[0] || 'cadet');
   const first = parts.length > 1 ? parts[1] : '';
@@ -102,11 +102,12 @@ export function suggestUsername(name, taken = []) {
  * @property {string} email        the Google account they sign in with; the key
  * @property {string} username     stable internal username; receipts are filed under it
  * @property {string} name         display name
- * @property {string[]} roles      any of student | instructor | admin
+ * @property {string[]} roles      any of student | instructor | cadre | commander | admin
  * @property {string} asClass      AS100…AS400, FT, CADRE
  * @property {string} section
  * @property {boolean} active
- * @property {boolean} [needsEmail] set by the v4 migration on records with no email
+ * @property {boolean} [needsEmail] set by the v4 migration on records with no email,
+ *   and used by that migration alone to stay idempotent
  */
 
 /**
@@ -119,12 +120,6 @@ export function suggestUsername(name, taken = []) {
  */
 export async function listAccounts() {
   return loadRoster();
-}
-
-export async function findByUsername(username) {
-  const target = normalizeUsername(username);
-  if (!target) return null;
-  return (await listAccounts()).find((a) => normalizeUsername(a.username) === target) || null;
 }
 
 /** The identity lookup: a verified Google address against the roster. */

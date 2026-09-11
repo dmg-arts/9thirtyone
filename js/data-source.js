@@ -24,6 +24,7 @@ import { db } from './storage/index.js';
 import {
   fetchBundle, fetchCatalog, fetchResponses, fetchAllResponses, fetchRoster, fetchAudit,
   fetchPeople,
+  PROXY_SERVICE, PROXY_SERVICE_LEGACY,
   saveFormViaProxy, saveRequestViaProxy, deleteFormViaProxy, deleteRequestViaProxy,
   deleteResponseViaProxy, createAccountViaProxy, updateAccountViaProxy,
   deleteAccountViaProxy, rolloverViaProxy, recordAuditViaProxy,
@@ -58,9 +59,16 @@ export async function connectionStatus() {
     try {
       const response = await fetch(url, { method: 'GET', redirect: 'follow' });
       const body = await response.json();
-      return body?.service === 'nine31-proxy'
-        ? { status: 'ready', detail: 'Through your detachment\'s server' }
-        : { status: 'error', detail: 'The submission service did not answer properly.' };
+      if (body?.service === PROXY_SERVICE) {
+        return { status: 'ready', detail: 'Through your detachment\'s server' };
+      }
+      // The pre-rename script answers, so "did not answer properly" was both
+      // wrong and unactionable. Settings already says what to do; the header
+      // just has to stop calling it healthy.
+      if (body?.service === PROXY_SERVICE_LEGACY) {
+        return { status: 'error', detail: 'The server is running an older script — redeploy it.' };
+      }
+      return { status: 'error', detail: 'The submission service did not answer properly.' };
     } catch {
       return { status: 'offline', detail: 'Cannot reach the submission service.' };
     }

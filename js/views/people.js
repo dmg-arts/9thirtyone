@@ -41,6 +41,7 @@ import { PRIVACY, ROLE_LABELS, nearestAnchor, scaleValues } from '../config.js';
 import { describe, histogram } from '../analysis/stats.js';
 import { inSpaces } from '../panels.js';
 import { loadPeople } from '../data-source.js';
+import { subjectOf } from '../people-scope.js';
 import { spaceShort, isRestricted } from '../spaces.js';
 import { navigate } from '../router.js';
 
@@ -79,7 +80,7 @@ function groupByPerson(requests, responses, formsById, staffByUsername) {
   }
 
   for (const request of requests) {
-    const key = request.subject || request.createdBy || null;
+    const key = subjectOf(request);
     if (!groups.has(key)) {
       groups.set(key, {
         username: key,

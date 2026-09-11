@@ -18,7 +18,8 @@
  * sharing settings.
  */
 
-const GIS_SRC = 'https://accounts.google.com/gsi/client';
+import { loadGis as loadSharedGis } from '../google-identity.js';
+
 /**
  * The narrowest scope that does the job.
  *
@@ -39,7 +40,6 @@ const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const TOKEN_KEY = 'nine31.drive.token';
 
-let gisPromise = null;
 let tokenClient = null;
 let config = { clientId: '', rootId: '' };
 /** path (relative to root) -> Drive file id. Cleared on reconnect. */
@@ -47,7 +47,7 @@ const idCache = new Map();
 
 export const driveAdapter = {
   id: 'drive',
-  label: 'Google Drive (organization account)',
+  label: 'Google Drive (detachment account)',
 
   isAvailable: () => window.isSecureContext,
 
@@ -379,22 +379,15 @@ async function ensurePath(parts) {
  * Google Identity Services
  * ------------------------------------------------------------------ */
 
+/**
+ * The shared loader, asked for the part this adapter needs.
+ *
+ * This used to be a second copy of loadGis with its own promise cache, so the
+ * app could inject the Google script twice — once for the sign-in button and
+ * once for the token client — with neither copy aware of the other.
+ */
 function loadGis() {
-  if (window.google?.accounts?.oauth2) return Promise.resolve();
-  if (gisPromise) return gisPromise;
-  gisPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = GIS_SRC;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => {
-      gisPromise = null;
-      reject(new Error('Could not load Google sign-in. Check the network connection.'));
-    };
-    document.head.append(script);
-  });
-  return gisPromise;
+  return loadSharedGis(() => Boolean(window.google?.accounts?.oauth2));
 }
 
 function storeToken(token, expiresInSeconds) {

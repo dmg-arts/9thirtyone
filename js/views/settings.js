@@ -11,7 +11,7 @@ import {
 import { APP, BACKENDS, ROLES, SEMESTERS, schoolYears, isDirectSignIn, setDirectSignIn } from '../config.js';
 import { settings, connection, applySettings, markSetupComplete, disconnectDevice } from '../state.js';
 import { hasAdmin, signOut, currentUser } from '../auth.js';
-import { db, adapters, parseFolderId } from '../storage/index.js';
+import { db, adapters, parseFolderId, backendLabel } from '../storage/index.js';
 import { checkProxy } from '../storage/proxy.js';
 import { connectionStatus } from '../data-source.js';
 import { navigate } from '../router.js';
@@ -598,10 +598,3 @@ function row(label, value) {
     el('dd', { style: { fontWeight: '570' } }, value));
 }
 
-function backendLabel(backend) {
-  return {
-    [BACKENDS.drive]: 'Google Drive (organization account)',
-    [BACKENDS.folder]: 'Synced folder on this computer',
-    [BACKENDS.local]: 'This device only',
-  }[backend] || 'Not configured';
-}

@@ -156,14 +156,12 @@ export function markSetupComplete(done = true) {
   else localStorage.removeItem(LS.setupComplete);
 }
 
-const SESSION_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 /* ------------------------------------------------------------------ *
  * student view preferences (last-used filters, remembered name)
  * ------------------------------------------------------------------ */
 
 export const studentPrefs = createStore(LS.studentPrefs, {
-  studentId: '',
   schoolYear: '',
   semester: '',
   asClass: '',

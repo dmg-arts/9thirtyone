@@ -6,7 +6,7 @@
  * preview/response viewer render through here.
  */
 
-import { el, makeId, mount, remount } from './util.js';
+import { el, makeId, mount } from './util.js';
 import { scaleValues } from './config.js';
 
 /**
@@ -234,4 +234,4 @@ export function formItems(form) {
 }
 
 const slug = (value) => String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-');
-const cssEscape = (value) => (window.CSS?.escape ? CSS.escape(value) : String(value).replace(/["\\]/g, '\\$&'));
+export const cssEscape = (value) => (window.CSS?.escape ? CSS.escape(value) : String(value).replace(/["\\]/g, '\\$&'));

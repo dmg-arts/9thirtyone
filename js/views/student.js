@@ -30,7 +30,7 @@ import {
 } from '../data-source.js';
 import { renderLogin } from './sign-in.js';
 import { navigate } from '../router.js';
-import { renderForm, collectAnswers, showMissing } from '../forms.js';
+import { renderForm, collectAnswers, showMissing, cssEscape } from '../forms.js';
 
 /* ------------------------------------------------------------------ *
  * Sign in
@@ -447,7 +447,6 @@ function findOverLimit(host, form) {
   return null;
 }
 
-const cssEscape = (value) => (window.CSS?.escape ? CSS.escape(value) : String(value).replace(/["\\]/g, '\\$&'));
 
 function renderThanks(root, request, queued) {
   remount(root, el('div', { class: 'stack' },

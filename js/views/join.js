@@ -14,7 +14,7 @@
  */
 
 import {
-  el, icon, notice, toast, remount, mount,
+  el, icon, notice, toast, remount,
 } from '../util.js';
 import { APP, BACKENDS } from '../config.js';
 import { connection, markSetupComplete, isConfigured } from '../state.js';

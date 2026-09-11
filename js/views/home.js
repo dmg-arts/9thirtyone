@@ -6,6 +6,7 @@
 import { el, icon, badge, emptyState, mount, remount } from '../util.js';
 import { connection } from '../state.js';
 import { db } from '../storage/index.js';
+import { canDoMaintenance, loadOverview } from '../data-source.js';
 import { navigate } from '../router.js';
 import { APP, ROLE_LABELS } from '../config.js';
 import { currentUser, activeRoles } from '../auth.js';
@@ -74,7 +75,13 @@ export async function renderHome(root) {
 
   // Counts are a live read, so keep them off the critical render path.
   try {
-    const stats = await db.stats();
+    // In proxy mode this device has no storage adapter, so db.stats() throws and
+    // the home screen told a cadet their database was unreadable — on the one
+    // screen that exists to reassure them the app is working. The Instructor
+    // Panel already forks the same call; this is that fork, applied here too.
+    const stats = canDoMaintenance()
+      ? await db.stats()
+      : (await loadOverview()).stats;
     remount(counts, 
       badge(`${stats.openRequests} open`, stats.openRequests ? 'ok' : 'neutral', 'send'),
       badge(`${stats.responses} responses`, 'neutral', 'inbox'),

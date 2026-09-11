@@ -56,7 +56,22 @@ if (html.includes('APP_ICON')) {
   html = html.replaceAll('APP_ICON', dataUri('icons/icon-512.png'));
 }
 
-const left = html.match(/SHOT\[[^\]]*\]|APP_ICON/);
+/**
+ * The version, read rather than typed.
+ *
+ * build-guide.mjs learned this the hard way — its cover was hand-written and
+ * three releases stale before anyone noticed — and the lesson did not make it
+ * across to this script, so the two documents built here went stale the same way
+ * and by the same margin. A document that names the wrong version invites a
+ * reader to doubt every other fact in it.
+ */
+if (html.includes('APP_VERSION')) {
+  const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+  const beta = /^(\d+\.\d+\.\d+)-beta/.exec(version);
+  html = html.replaceAll('APP_VERSION', beta ? `Beta ${beta[1]}` : version);
+}
+
+const left = html.match(/SHOT\[[^\]]*\]|APP_ICON|APP_VERSION/);
 if (left) throw new Error(`unresolved placeholder: ${left[0]}`);
 
 const tmp = `/tmp/${basename(SRC, '.html')}.inlined.html`;

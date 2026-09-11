@@ -377,9 +377,24 @@ export async function loadAudit(months = 6) {
  * retry.
  * ------------------------------------------------------------------ */
 
-export async function saveForm(form) {
+/**
+ * @param {object} form
+ * @param {{expectRev?: number}} [options]  refuse the write if storage has moved on
+ *
+ * The options were accepted by the caller and dropped here for as long as the
+ * feature existed: this took one parameter and forwarded one, so `expectRev`
+ * never reached storage, `writeChecked` always took its unconditional branch,
+ * and the conflict modal in formCreator.js was unreachable UI. Two cadre editing
+ * one form was a silent last-write-wins overwrite — in an app whose purpose is
+ * not losing what people wrote.
+ *
+ * Proxy mode still has no revision check: the server's actions take a record and
+ * write it. Said out loud rather than left to be discovered, because the two
+ * modes really do differ here — see saveFormViaProxy.
+ */
+export async function saveForm(form, options = {}) {
   if (usingProxy()) return saveFormViaProxy(proxyUrl(), token(), form);
-  return db.saveForm(form);
+  return db.saveForm(form, options);
 }
 
 /**
@@ -390,7 +405,7 @@ export async function saveForm(form) {
  * this keeps direct mode consistent. The commander reviews instructors by this
  * field, so it has to mean something.
  */
-export async function saveRequest(request) {
+export async function saveRequest(request, options = {}) {
   if (usingProxy()) return saveRequestViaProxy(proxyUrl(), token(), request);
 
   const me = currentUser();
@@ -399,7 +414,7 @@ export async function saveRequest(request) {
     ...request,
     createdBy: existing?.createdBy || me?.username || null,
     subject: request.subject || existing?.subject || me?.username || null,
-  });
+  }, options);
 }
 
 export async function deleteForm(formId) {

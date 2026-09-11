@@ -37,6 +37,7 @@ const SHELL = [
   './js/google-identity.js',
   './js/join.js',
   './js/panels.js',
+  './js/people-scope.js',
   './js/session.js',
   './js/spaces.js',
   './js/qr.js',
@@ -65,6 +66,12 @@ const SHELL = [
   './js/views/setup.js',
   './js/views/student.js',
   './icons/icon.svg',
+  // The PNGs index.html and manifest.json name. Without them a first offline
+  // launch on iOS, and an offline install prompt, have no icon.
+  './icons/icon-180.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
 ];
 
 self.addEventListener('install', (event) => {

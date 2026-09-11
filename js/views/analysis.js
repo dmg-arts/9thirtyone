@@ -321,7 +321,7 @@ export async function renderAnalysis(host, { spaces = null } = {}) {
       const avg = mean(values);
       const word = nearestAnchor(avg, item.anchors);
       mount(bars, el('div', { class: 'bar-row' },
-        el('div', { class: 'truncate', title: item.label }, item.label),
+        el('div', { class: 'bar-row__label', title: item.label }, item.label),
         el('div', { class: 'bar-row__track' },
           el('div', { class: 'bar-row__fill', style: { width: `${(avg / max) * 100}%` } })),
         el('div', { class: 'bar-row__val' },

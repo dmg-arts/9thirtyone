@@ -803,7 +803,7 @@
     <tr><th style="width:38%">What you see</th><th>What to do</th></tr>
     <tr>
       <td>"Could not connect" when signing in to Google</td>
-      <td><em>Authorised JavaScript origins</em> does not list <code>https://9thirtyone.app</code>. Add it exactly — scheme and host only, with no trailing slash. Wait a few minutes.</td>
+      <td>Almost always the network rather than the configuration — there is nothing on your side to register any more. Check you are on <code>https://9thirtyone.app</code> and not a copy served from somewhere else, then try again. If it persists on a detachment network, a content filter is blocking <code>accounts.google.com</code>.</td>
     </tr>
     <tr>
       <td>The sign-in popup does not open</td>
@@ -811,7 +811,7 @@
     </tr>
     <tr>
       <td>Sign-in popup closes immediately, or <code>origin_mismatch</code></td>
-      <td><code>https://9thirtyone.app</code> is not listed under <em>Authorised JavaScript origins</em>, or is listed with a path attached. It must read scheme and host only — no path, no trailing slash. Changes can take a few minutes to take effect.</td>
+      <td>The app is being served from an address Google does not recognise — a local copy, a fork on someone else's hosting, or an old bookmark. Use <code>https://9thirtyone.app</code>. If you are deliberately running your own copy you need your own Google registration and Client ID; see <em>Advanced</em> in the wizard's Connect step.</td>
     </tr>
     <tr>
       <td>The home-screen icon opens the setup wizard again</td>
@@ -819,7 +819,7 @@
     </tr>
     <tr>
       <td>Connects, then Drive requests fail with 403</td>
-      <td>The Google Drive API was never enabled on the project. Part 2, step 2.</td>
+      <td>Sign out of Google in <em>Settings</em>, then sign in again and grant access when asked. A 403 after a successful sign-in means the Drive permission was declined, or was later revoked for this account.</td>
     </tr>
     <tr>
       <td>"The folder or file was not found"</td>

@@ -713,6 +713,64 @@ check('deleting a non-existent account is refused rather than silently succeedin
   if (out.ok) throw new Error('accepted a deletion of nobody');
 });
 
+/**
+ * The detachment must always be able to administer itself.
+ *
+ * The console refuses to remove or demote the last administrator, and for a
+ * public endpoint that refusal is worth whatever the client chooses to honour.
+ * A roster with people and no admin is not self-healing the way an empty one is:
+ * the first-arrival bootstrap only fires on an empty roster, so the only way
+ * back is hand-editing users.json in Drive.
+ */
+check('the last administrator cannot be deleted', () => {
+  const proxy = detachment();
+  const out = proxy.post({ action: 'accountDelete', idToken: as('admin'), id: 'usr_admin' });
+  if (out.ok) throw new Error('the only administrator was deleted');
+  if (!/no administrator/i.test(out.error || '')) {
+    throw new Error(`refused, but not for that reason: ${out.error}`);
+  }
+  const roster = proxy.root.read(['users'], 'users.json').users;
+  if (!roster.some((u) => u.id === 'usr_admin')) throw new Error('removed anyway');
+});
+
+check('the last administrator cannot demote themselves', () => {
+  const proxy = detachment();
+  const out = proxy.post({
+    action: 'accountUpdate', idToken: as('admin'), id: 'usr_admin',
+    patch: { roles: ['instructor'] },
+  });
+  if (out.ok) throw new Error('the only administrator dropped the role');
+  const roster = proxy.root.read(['users'], 'users.json').users;
+  const admin = roster.find((u) => u.id === 'usr_admin');
+  if (!(admin.roles || []).includes('admin')) throw new Error('the role was dropped anyway');
+});
+
+check('an administrator can be deleted once another one exists', () => {
+  // The floor is one, not "never" — a handover has to be possible.
+  const proxy = detachment([account('admin2', 'admin2@x.edu', ['admin'])]);
+  const out = proxy.post({ action: 'accountDelete', idToken: as('admin'), id: 'usr_admin' });
+  if (!out.ok) throw new Error(`a spare administrator did not permit the deletion: ${out.error}`);
+  const roster = proxy.root.read(['users'], 'users.json').users;
+  if (roster.some((u) => u.id === 'usr_admin')) throw new Error('not actually removed');
+});
+
+check('a refused deletion does not anonymise anything first', () => {
+  // The sweep is irreversible, so the refusal has to happen before it. Checking
+  // afterwards would leave the records scrubbed and the account still present —
+  // the worst of both.
+  const proxy = withNamedAnswer();
+  const out = proxy.post({ action: 'accountDelete', idToken: as('admin'), id: 'usr_admin' });
+  if (out.ok) throw new Error('the only administrator was deleted');
+
+  // The admin's own name is not in the records; the cadet's is. What matters is
+  // that the sweep did not run at all, so nothing was rewritten.
+  const dump = proxy.root.snapshot();
+  const named = Object.entries(dump)
+    .filter(([path]) => path.startsWith('responses/'))
+    .some(([, value]) => /\bcadet\b/.test(JSON.stringify(value)));
+  if (!named) throw new Error('records were anonymised despite the deletion being refused');
+});
+
 check('an instructor cannot delete an account', () => {
   const proxy = withNamedAnswer();
   const out = proxy.post({ action: 'accountDelete', idToken: as('instructor'), id: 'usr_cadet' });

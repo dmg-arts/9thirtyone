@@ -535,6 +535,10 @@ button.list__item:hover { background: var(--surface-hover); }
 /* horizontal bar rows for report distributions */
 .bars { display: grid; gap: var(--sp-2); }
 .bar-row { display: grid; grid-template-columns: minmax(5rem, 11rem) 1fr auto; gap: var(--sp-3); align-items: center; font-size: var(--step--1); }
+/* The label column. people.js emitted this class for months with no rule behind
+   it — it landed in the right column by accident of .bar-row's grid, while
+   analysis.js rendered the same slot as a .truncate div. One name, one rule. */
+.bar-row__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar-row__track { height: 1.1rem; background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
 .bar-row__fill { height: 100%; background: var(--accent); }
 .bar-row__val { color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 3.5rem; text-align: right; }

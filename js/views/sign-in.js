@@ -19,15 +19,24 @@ import { renderSignInButton } from '../google-identity.js';
 import { connection } from '../state.js';
 import { navigate } from '../router.js';
 
+// Keyed by every role that can reach this screen. The Cadre Panel calls
+// renderLogin with ROLES.cadre and the commander's space with ROLES.commander
+// (see panels.js), and while those keys were missing a refusal on either
+// rendered an empty paragraph — the person was told no, and not told why.
 const SUBTITLES = {
   [ROLES.student]: 'Use the Google account your detachment mails you at.',
   [ROLES.instructor]: 'Sign in with the Google account on your detachment\'s roster.',
+  [ROLES.cadre]: 'Sign in with the Google account on your detachment\'s roster.',
+  [ROLES.commander]: 'Sign in with the Google account on your detachment\'s roster.',
   [ROLES.admin]: 'Sign in with the Google account on your detachment\'s roster.',
 };
 
 const DENIED_HELP = {
   [ROLES.student]: 'Ask your cadre — cadets are added to the roster by an administrator.',
   [ROLES.instructor]: 'Ask your database administrator to give this account the instructor role.',
+  [ROLES.cadre]: 'Ask your database administrator to give this account the cadre role.',
+  [ROLES.commander]: 'The commander role is held by at most two people and is granted by a '
+    + 'database administrator.',
   [ROLES.admin]: 'Ask an existing administrator to add this account.',
 };
 

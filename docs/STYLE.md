@@ -23,7 +23,7 @@
 | Panel | "Dashboard" — and never for what should say *space* | Visible text only |
 | Roster | "User list" | Identifiers too² |
 | Disclosure threshold | "Privacy threshold," "anonymity cutoff" | Visible text only |
-| Anonymized export | "The archive" — different object, see §2 | Visible text only |
+| Anonymised export | "The archive" — different object, see §2 | Visible text only |
 | Join link | "Invite link" | Visible text only |
 | Username | "Handle" | Already consistent⁴ |
 | Feedback request | "Form," when what's meant is one issued instance rather than the template | Visible text only |
@@ -34,13 +34,25 @@
 ³ AFROTC's own word, and the one the beta detachment uses. Visible text only: `ROLES.student`, the `/student` route, `students.json`, `js/views/student.js` and `nine31.student.prefs.v1` are stored or addressed identifiers and do not move — only `ROLE_LABELS.student` changes, which is the seam that exists for exactly this. The gap between the id and the label is deliberate; there is a comment in `js/config.js` saying so.
 ⁴ This row previously ran the other way — "Handle" preferred, "Username" banned — on the reasoning that username is ambiguous with the sign-in identity. Reversed by decision: the sign-in identity is the *email*, and the app, the roster, the setup guide and the on-disk field have all said `username` from the beginning. Keeping "handle" would have meant a migration across ~344 sites to introduce an ambiguity nobody had reported. The few identity-sense uses of "handle" that existed were changed to username instead.
 
+
+### Spelling
+
+**en-GB, everywhere a person reads it** — *anonymised*, *organisation*, *authorised*,
+*recognise*. The app's own strings already are (`js/views/instructor.js` "Export anonymised
+records", `js/export-anon.js` `nine31-anonymised`), as are `privacy.html`, `terms.html`,
+`about.html` and all four documents in `tools/docs/`.
+
+Recorded because this file itself drifted: it prescribed *"Anonymized export"* while
+everything it governs said *anonymised*. Code identifiers are exempt — they are addressed,
+not read.
+
 ---
 
 ## 2. Object definitions
 
 **Cadet** — A member of the detachment, from any of the schools it serves, who answers feedback requests. The word for a person; the stored role id behind them is still `student` and does not move (§1, note 3). An upperclassman cadet may also instruct, which is a job rather than a different kind of account.
 
-**Detachment** — An AFROTC unit at a host institution, serving cadets from that school and its Crosstown affiliates. The organizational and Drive-ownership boundary the whole app is scoped to: one detachment, one Det Google Account, one 9ThirtyOne folder.
+**Detachment** — An AFROTC unit at a host institution, serving cadets from that school and its Crosstown affiliates. The organisational and Drive-ownership boundary the whole app is scoped to: one detachment, one Det Google Account, one 9ThirtyOne folder.
 
 **Space** — A restricted area of the detachment's data that only certain roles can reach. The cadre space and the commander space are separate folders, not filtered views, enforced by the submission server rather than by what a screen chooses to show.
 

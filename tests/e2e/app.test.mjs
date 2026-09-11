@@ -1767,6 +1767,57 @@ await step('editing a form someone else changed raises a conflict', async () => 
   console.log('       conflict raised, with the other version attached');
 });
 
+/**
+ * The same check, one layer up — where the views actually live.
+ *
+ * The two steps above call `db` directly, and that is exactly why they stayed
+ * green through a total failure of this feature: `data-source.saveForm` and
+ * `saveRequest` took one parameter and forwarded one, so the `{ expectRev }` the
+ * form creator passed was silently dropped and every save was unconditional. The
+ * conflict modal in formCreator.js could not be reached, and two cadre editing
+ * one form was a last-write-wins overwrite with nothing said.
+ *
+ * Testing the storage facade proves the mechanism exists. Testing the routing
+ * layer proves anything uses it.
+ */
+await step('the layer the views call passes expectRev through to storage', async () => {
+  const result = await page.evaluate(async () => {
+    const ds = await import('/js/data-source.js');
+    const m = await import('/js/storage/index.js');
+    const req = await m.db.getRequest('req_race');
+    const staleRev = Number(req.rev) || 0;
+
+    await ds.saveRequest({ ...req, title: 'Saved by someone else' }, { expectRev: staleRev });
+    try {
+      await ds.saveRequest({ ...req, title: 'Mine, from a stale copy' }, { expectRev: staleRev });
+      return { threw: false };
+    } catch (err) {
+      return { threw: true, conflict: Boolean(err.conflict), theirs: err.theirs?.title };
+    }
+  });
+  if (!result.threw) throw new Error('a stale save through data-source was allowed through');
+  if (!result.conflict) throw new Error('the error carried no conflict flag, so the modal stays unreachable');
+  if (result.theirs !== 'Saved by someone else') throw new Error(`theirs was "${result.theirs}"`);
+});
+
+await step('a save through data-source returns the new revision', async () => {
+  // Without this the editor cannot track its own rev, so the *second* save in a
+  // session conflicts with the first — the feature would fail closed instead of
+  // open, which is quieter but no more correct.
+  const revs = await page.evaluate(async () => {
+    const ds = await import('/js/data-source.js');
+    const m = await import('/js/storage/index.js');
+    const fresh = await m.db.getRequest('req_race');
+    const before = Number(fresh.rev) || 0;
+    const saved = await ds.saveRequest({ ...fresh, title: 'Rev check' }, { expectRev: before });
+    return { before, returned: Number(saved?.rev) };
+  });
+  if (!Number.isFinite(revs.returned)) throw new Error('no revision came back from the save');
+  if (revs.returned !== revs.before + 1) {
+    throw new Error(`rev went ${revs.before} -> ${revs.returned}, expected ${revs.before + 1}`);
+  }
+});
+
 await step('a deliberate overwrite still works after re-reading', async () => {
   const title = await page.evaluate(async () => {
     const m = await import('/js/storage/index.js');

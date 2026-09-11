@@ -1093,7 +1093,9 @@ function patchAccount(users, id, patch) {
   }
   var capped = enforceCommanderCap(next);
   if (capped.error) return capped;
-  return { users: capped.users, account: found };
+  var floored = enforceAdminFloor(capped.users);
+  if (floored.error) return floored;
+  return { users: floored.users, account: found };
 }
 
 /**
@@ -1113,6 +1115,33 @@ function enforceCommanderCap(users) {
       error: 'Only ' + MAX_COMMANDERS + ' commanders are allowed at once. Remove the '
         + 'designation from someone before granting it, so a handover overlaps rather '
         + 'than a third person appearing.'
+    };
+  }
+  return { users: users };
+}
+
+/**
+ * A detachment always has at least one administrator.
+ *
+ * Here for the same reason as the cap above: the app is the thing being guarded
+ * against. The console already refuses to delete or demote the last admin, and
+ * that refusal is worth exactly as much as the client honouring it — which is
+ * nothing, for a public endpoint anybody can post to.
+ *
+ * The consequence of losing the last one is not theoretical. An empty roster is
+ * claimed by the first account to sign in, but a roster with people and no
+ * administrator is claimed by nobody: Database Administration becomes
+ * unreachable, and the only way back is editing users.json by hand in Drive,
+ * which only the folder's owner can do.
+ */
+function enforceAdminFloor(users) {
+  var admins = users.filter(function (user) {
+    return user.active !== false && (user.roles || []).indexOf('admin') !== -1;
+  });
+  if (!admins.length) {
+    return {
+      error: 'That would leave the detachment with no administrator, and nobody '
+        + 'could add one back. Give another account the administrator role first.'
     };
   }
   return { users: users };
@@ -1155,11 +1184,18 @@ function removeAccount(root, actor, id) {
     }
     if (!target) return fail('That account no longer exists.');
 
+    // Checked before the sweep, not after: anonymiseEverywhere rewrites the
+    // folder, and there is no undo for it. A deletion that must be refused has
+    // to be refused while the records are still intact.
+    var remaining = users.filter(function (user) { return user.id !== id; });
+    var floored = enforceAdminFloor(remaining);
+    if (floored.error) return fail(floored.error);
+
     var scrubbed = anonymiseEverywhere(root, target.username);
 
     writeJson(root, ['users'], 'users.json', {
       schemaVersion: 4,
-      users: users.filter(function (user) { return user.id !== id; }),
+      users: remaining,
       updatedAt: new Date().toISOString()
     });
 

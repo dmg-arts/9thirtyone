@@ -893,10 +893,49 @@ Ranked by what would actually hurt, not by how alarming they sound.
 8. **Sessions last eight hours.** They die with the tab, so a closed browser is
    safe, but a tab left open in a shared office stays signed in all day.
 
+9. **An instructor's counts include spaces they cannot read.** `overview` is open
+   to instructors and `readStats` deliberately counts across every space, so the
+   totals on an instructor's panel include cadre and commander requests. Counts
+   only, never content — but it means an instructor can tell that the commander
+   has filed something. Undecided rather than broken: narrowing it costs the
+   detachment-wide totals that make the number useful.
+
+10. **An unrecognised space is filed as `shared`.** `spaceOf` falls back to the
+    least restricted space when a request names one it does not know. Safe for
+    reads, and the wrong direction for writes: a request meant for the
+    commander's space, with its space mistyped, lands where every instructor can
+    read it. Refusing would be the safer default; changing it needs a check that
+    no fielded record relies on the fallback.
+
 Checked and clean: the proxy logs no personal data, there are no runtime
 dependencies, hash fragments are not sent in `Referer` so join links do not leak
 through it, and the roll-up index files — which do duplicate response content —
 are filtered out of every proxy read.
+
+### Carried forward from the pre-review pass, 11 Sep 2026
+
+Found and deliberately not taken. None blocks the beta.
+
+- **The three public pages do not use the design system.** `about.html`,
+  `privacy.html` and `terms.html` each carry the same 85 lines of inline CSS,
+  byte for byte, and none links `css/styles.css`. Three copies to keep in step by
+  hand, in the pages a stranger sees first.
+- **The clone is 44 MB** for a project with no build step and no dependencies,
+  because fifty-odd PDF revisions and five `.pptx` blobs are in history. Only a
+  history rewrite fixes it, which is not worth doing before a review.
+- **There is no CI.** Deployment is a push to `main`, and the README notes branch
+  builds have silently failed to trigger twice. Nothing in the repository shows
+  how the site is published, and nothing runs `npm test` but a person choosing to.
+- **Coverage still thin in four places**: the cadet's submission path *through the
+  proxy* has no client-side test, no browser test signs in as a genuinely rostered
+  cadre account (they edit `sessionStorage.roles` instead, which skips the whole
+  roster→session seam), `anonymiseInDrive` — direct mode's deletion sweep — has
+  none at all while its proxy twin has seven, and `js/storage/folder.js` has none.
+- **Several unit checks are regexes over source** where the behaviour harness
+  could now run the thing instead. `tests/unit/scope.test.mjs` also asserts that
+  setup no longer takes a pasted folder link by grepping only `setup.js` — the
+  input still exists in `settings.js`, so the guarantee it is named for holds in
+  one file rather than across the app.
 
 ### Open questions, awaiting decisions
 

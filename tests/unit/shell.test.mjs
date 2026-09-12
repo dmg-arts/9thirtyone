@@ -4,15 +4,25 @@
  *     npm run test:unit
  *
  * `service-worker.js` lists every served file by path, and the app loads ES
- * modules directly with no bundler — so a module missing from that list is a
- * module the browser cannot resolve offline. The failure is total rather than
- * partial: the shell paints, the module graph fails to resolve, and the app does
- * not start.
+ * modules directly with no bundler — so a module missing from that list has no
+ * *guarantee* of being there offline.
  *
- * That is not hypothetical. `js/people-scope.js` was added on 29 August and was
- * never added here, so offline boot was broken for six releases while the whole
- * suite stayed green. Nothing caught it because nothing looked: the list is data,
- * and data with no test rots silently.
+ * Worth being precise about the size of that, because it is easy to overstate.
+ * `SHELL` is the precache, written at install. The fetch handler also caches any
+ * same-origin file it successfully fetches, so a module left out of the list
+ * still lands in the cache on the first online load that requests it — which for
+ * `js/people-scope.js`, imported by `data-source.js`, is every load. Offline
+ * reloads therefore worked in practice, and did while it was missing.
+ *
+ * The gap is the window after an update. `activate` deletes the previous cache,
+ * so a freshly activated worker holds exactly `SHELL` and nothing else; anything
+ * omitted is absent until one online load repopulates it. A device that goes
+ * offline inside that window cannot resolve the module, and the failure is total
+ * rather than partial — the shell paints and the app does not start.
+ *
+ * `js/people-scope.js` was added on 29 August and never added here, so that
+ * window existed for six releases with the whole suite green. Nothing caught it
+ * because nothing looked: the list is data, and data with no test rots silently.
  *
  * This is deliberately a file-existence check rather than a behavioural one. The
  * behaviour — does it actually boot with the network off — belongs in a browser,
@@ -58,7 +68,8 @@ function modules(dir = 'js') {
 check('every module under js/ is precached', () => {
   const missing = modules().filter((path) => !listed.has(path));
   if (missing.length) {
-    throw new Error(`not in SHELL, so unreachable offline: ${missing.join(', ')}`);
+    throw new Error('not precached, so absent from a freshly activated cache until '
+      + `an online load fetches it: ${missing.join(', ')}`);
   }
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "nine-thirty-one",
-  "version": "1.0.7-beta.1",
+  "version": "1.0.8-beta.1",
   "private": true,
   "description": "Cadet and cadre feedback for AFROTC detachments. Runs from a folder of static files with no build step.",
   "license": "Apache-2.0",

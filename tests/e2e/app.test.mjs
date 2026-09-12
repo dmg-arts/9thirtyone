@@ -1357,6 +1357,78 @@ await step('a first call that times out is retried once, and says so', async () 
   if (result.slow !== 1) throw new Error('the screen was never told the server was waking');
 });
 
+/**
+ * The screen has to say something while the proxy wakes.
+ *
+ * For ten seconds it said nothing at all — `accept` hid the error box and
+ * awaited — and that silence is what makes someone press the button again, which
+ * starts a second request rather than hurrying the first.
+ */
+await step('a slow sign-in shows elapsed time rather than a dead screen', async () => {
+  // Driven through the email sign-in, which reaches the same indicator as the
+  // Google button. Google will not issue a credential to a headless browser, so
+  // its callback is unreachable here — and both paths run the same roster read,
+  // which is why they share the indicator rather than only one having it.
+  const result = await page.evaluate(async () => {
+    const { renderLogin } = await import('/js/views/sign-in.js');
+    const a = await import('/js/auth.js');
+    const root = document.querySelector('#view');
+    const flag = localStorage.getItem('nine31.directsignin.v1');
+
+    // Hold the roster read open so the wait is observable.
+    const ds = await import('/js/data-source.js');
+    const realLoad = ds.loadRoster;
+    let release;
+    const held = new Promise((r) => { release = r; });
+
+    try {
+      localStorage.setItem('nine31.directsignin.v1', '1');
+      a.signOut();
+      await renderLogin(root, 'instructor', 'Instructor Panel', () => {});
+
+      const input = root.querySelector('input[type=email]');
+      const button = [...root.querySelectorAll('button')]
+        .find((b) => (b.textContent || '').includes('Sign in without Google'));
+      if (!input || !button) return { error: 'the email sign-in box did not render' };
+
+      // Make the roster read slow by stalling the adapter underneath it.
+      const m = await import('/js/storage/index.js');
+      const realGetUsers = m.db.getUsers.bind(m.db);
+      m.db.getUsers = async () => { await held; return realGetUsers(); };
+
+      input.value = 'capt.reyes@det025.edu';
+      button.click();
+
+      await new Promise((r) => setTimeout(r, 2400));
+      const during = root.textContent || '';
+
+      release();
+      await new Promise((r) => setTimeout(r, 600));
+      m.db.getUsers = realGetUsers;
+      return { during, after: root.textContent || '' };
+    } finally {
+      if (flag) localStorage.setItem('nine31.directsignin.v1', flag);
+      else localStorage.removeItem('nine31.directsignin.v1');
+      a.signOut();
+    }
+  });
+
+  if (result.error) throw new Error(result.error);
+  if (!/Signing in|Waking your detachment/.test(result.during)) {
+    throw new Error(`nothing was shown while it waited: ${result.during.slice(0, 200)}`);
+  }
+  // Elapsed seconds, not a fabricated percentage — an HTTP request to a black box
+  // has no progress to report.
+  if (!/\(\d+s\)/.test(result.during)) {
+    throw new Error(`no elapsed time shown: ${result.during.slice(0, 200)}`);
+  }
+  if (/%/.test(result.during)) throw new Error('a percentage was shown for an unmeasurable wait');
+  // And it clears, or the screen claims to still be signing in afterwards.
+  if (/Signing in|Waking your detachment/.test(result.after)) {
+    throw new Error('the indicator was left on screen after the sign-in finished');
+  }
+});
+
 await step('a refusal is not retried — it is a real answer', async () => {
   const result = await page.evaluate(async () => {
     const state = await import('/js/state.js');

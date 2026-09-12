@@ -12,7 +12,7 @@
  * with the role the screen asked for, which is an administrator's decision.
  */
 
-import { el, icon, field, notice, toast, remount } from '../util.js';
+import { el, icon, field, notice, toast, remount, spinner } from '../util.js';
 import { ROLES, isDirectSignIn } from '../config.js';
 import { signInWithGoogle, signInAsDeveloper, hasAnyAccount } from '../auth.js';
 import { renderSignInButton } from '../google-identity.js';
@@ -81,19 +81,64 @@ export async function renderLogin(root, role, title, onSuccess) {
    * An idle Apps Script deployment takes a few seconds to wake, and that wait
    * used to be indistinguishable from a dead button.
    */
-  const waking = () => {
-    remount(error, notice('info', 'Waking your detachment\'s server',
-      el('p', {}, 'It sleeps when nobody has used it for a while, so the first sign-in of '
-        + 'the day takes a few seconds. Trying again — no need to press anything.')));
-    error.hidden = false;
+  /**
+   * Says what is happening between handing over a Google account and arriving.
+   *
+   * There used to be nothing here at all: `accept` hid the error box and awaited,
+   * so the screen sat inert — and the notice about a waking server only appeared
+   * once the first attempt had already timed out ten seconds in. A dead screen is
+   * what makes someone press the button again, and pressing again starts its own
+   * request rather than hurrying the one already running.
+   *
+   * The counter is elapsed time, not progress. An HTTP request to a black box has
+   * no progress signal, so a bar or a percentage would be invented; seconds are
+   * true, and they are what distinguishes *slow* from *hung* for the person
+   * watching. The message escalates because the right thing to think at three
+   * seconds ("it is working") differs from at fifteen ("it is waking, wait").
+   */
+  const progress = el('div', { class: 'stack-sm', hidden: true });
+  let ticking = null;
+
+  const stopProgress = () => {
+    if (ticking) clearInterval(ticking);
+    ticking = null;
+    progress.hidden = true;
+    remount(progress);
+  };
+
+  const startProgress = () => {
+    const began = Date.now();
+    let woken = false;
+    const paint = () => {
+      const secs = Math.round((Date.now() - began) / 1000);
+      // Nothing for the first moment: a direct-mode sign-in reads a local roster
+      // and is done in milliseconds, and a spinner that flashes is worse than no
+      // spinner at all.
+      if (secs < 1) return;
+      const label = woken || secs >= 12
+        ? `Still waking your detachment's server — up to 30 seconds is normal (${secs}s)`
+        : secs >= 3
+          ? `Waking your detachment's server (${secs}s)`
+          : `Signing in… (${secs}s)`;
+      remount(progress, spinner(label));
+      progress.hidden = false;
+    };
+    ticking = setInterval(paint, 1000);
+    return () => { woken = true; paint(); };
   };
 
   async function accept(profile, rawToken = null) {
     error.hidden = true;
+    const onSlow = startProgress();
     try {
-      finish(await signInWithGoogle(profile, role, rawToken, { onSlow: waking }));
+      finish(await signInWithGoogle(profile, role, rawToken, { onSlow }));
     } catch (err) {
       fail(err.message);
+    } finally {
+      // In a finally, not after the await: a refusal has to clear the spinner
+      // too, or the screen says it is still signing in underneath the reason it
+      // did not.
+      stopProgress();
     }
   }
 
@@ -106,6 +151,7 @@ export async function renderLogin(root, role, title, onSuccess) {
       el('div', { class: 'row', style: { justifyContent: 'center' } },
         el('span', { class: 'role-card__icon' }, icon(role === ROLES.student ? 'student' : 'lock'))),
       buttonHost,
+      progress,
       error,
       el('p', { class: 'field__hint' },
         'This app issues no password of its own. Whether you can get in is decided by your '
@@ -157,7 +203,7 @@ export async function renderLogin(root, role, title, onSuccess) {
         el('div', { style: { marginTop: 'var(--sp-3)' } },
           el('button', { type: 'button', class: 'btn btn--sm', onclick: () => navigate('/settings') },
             icon('settings'), 'Open Settings'))),
-      isDirectSignIn() ? developerSignIn(role, finish, fail) : null));
+      isDirectSignIn() ? developerSignIn(role, finish, fail, startProgress, stopProgress) : null));
     return;
   }
 
@@ -180,7 +226,7 @@ export async function renderLogin(root, role, title, onSuccess) {
  * bluntly on purpose — anyone who sees this box should understand that the
  * screen is not checking anything.
  */
-function developerSignIn(role, finish, fail) {
+function developerSignIn(role, finish, fail, startProgress, stopProgress) {
   const input = el('input', {
     class: 'input mono', type: 'email', placeholder: 'you@example.edu',
     autocapitalize: 'off', spellcheck: 'false',
@@ -191,11 +237,16 @@ function developerSignIn(role, finish, fail) {
 
   async function go() {
     button.disabled = true;
+    // The same wait and the same indicator as the Google path. This reads a
+    // roster too, and against a proxy it is exactly as slow — the screen should
+    // not go quiet on one path and not the other.
+    startProgress();
     try {
       finish(await signInAsDeveloper(input.value, role));
     } catch (err) {
       fail(err.message);
     } finally {
+      stopProgress();
       button.disabled = false;
     }
   }

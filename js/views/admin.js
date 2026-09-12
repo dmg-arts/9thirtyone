@@ -549,6 +549,45 @@ function inviteCard() {
   return card;
 }
 
+/**
+ * Whether this school year has already been advanced, and by whom.
+ *
+ * The rollover is irreversible and the preview cannot tell you it has run: it
+ * recomputes from whatever the roster says now, so the morning after a rollover
+ * it offers a fresh, entirely plausible set of moves. Nothing on the screen
+ * distinguished "not yet run" from "already run", which does not merely permit a
+ * second run — it invites one, and a second run advances the whole detachment
+ * another year.
+ *
+ * Nothing new is recorded to detect it. `apply` below has always written a
+ * `roster.rollover` audit entry stamped with the school year; it was simply never
+ * read back.
+ *
+ * Twelve months rather than the default six: a re-run in May belongs to the same
+ * school year as a rollover the previous July, and that late case is the
+ * dangerous one — the six-month window would have missed it.
+ *
+ * This is a mistake-guard and not a boundary, which is why it lives here and not
+ * in the proxy. Rollover already requires an administrator, and an administrator
+ * can edit every AS level by hand, so a server-side check would prevent nothing
+ * a determined caller could not do another way. Contrast `enforceAdminFloor` in
+ * tools/proxy/Code.gs, which is server-side because losing every administrator
+ * cannot be undone from inside the app at all.
+ */
+async function priorRolloverThisYear() {
+  const year = currentSchoolYear();
+  try {
+    const entries = await loadAudit(12);
+    return entries.find((entry) => entry.action === AUDIT.rolloverApplied
+      && entry.detail?.schoolYear === year) || null;
+  } catch {
+    // A broken or unreadable audit must not stop a legitimate rollover. Falling
+    // through unguarded is the lesser failure: the confirm dialog still says
+    // there is no undo.
+    return null;
+  }
+}
+
 function rolloverCard(reload) {
   const host = el('div', {});
 
@@ -569,8 +608,20 @@ function rolloverCard(reload) {
   };
 
   const draw = async () => {
-    const { moves, untouched, students } = await preview();
+    const [{ moves, untouched, students }, prior] = await Promise.all([
+      preview(), priorRolloverThisYear(),
+    ]);
     remount(host);
+
+    if (prior) {
+      mount(host, notice('warn', `Already advanced for ${currentSchoolYear()}`,
+        el('p', {}, `${prior.actor?.username || 'Someone'} ran this on `
+          + `${fmtDateTime(prior.at)}. ${prior.summary || ''}`),
+        el('p', {}, 'Running it again moves every cadet up a second level — an AS100 '
+          + 'would become AS300 — and there is no undo. If you are unsure whether the '
+          + 'first run worked, check the levels in the roster above rather than running '
+          + 'it again.')));
+    }
 
     if (!students.length) {
       mount(host, el('p', { class: 'muted' }, 'No active cadet accounts to advance.'));
@@ -609,13 +660,28 @@ function rolloverCard(reload) {
       el('div', { class: 'row row--wrap' },
         el('button', {
           type: 'button', class: 'btn btn--primary',
-          onclick: () => apply(moves, deactivateBox.checked),
+          onclick: () => apply(moves, deactivateBox.checked, prior),
         }, icon('refresh'), 'Advance the academic year')));
   };
 
-  const apply = async (moves, deactivate) => {
+  const apply = async (moves, deactivate, prior = null) => {
     const total = moves.reduce((n, m) => n + m.people.length, 0);
     const graduating = moves.filter((m) => m.to === null).reduce((n, m) => n + m.people.length, 0);
+
+    // A second run is warned about, not refused. There is a legitimate one: a
+    // detachment that rolled over, then restored a backup taken before it, has
+    // to roll over again in the same year — and refusing would leave them
+    // re-levelling the whole roster by hand.
+    if (prior) {
+      const again = await confirmDialog(`Advance ${currentSchoolYear()} a second time?`,
+        `This year was already advanced on ${fmtDateTime(prior.at)}`
+        + `${prior.actor?.username ? ` by ${prior.actor.username}` : ''}. Doing it again `
+        + 'moves every cadet up another level, and cannot be undone.\n\n'
+        + 'Only continue if you know the first run was reversed — by restoring a backup, '
+        + 'say. Otherwise cancel and check the roster.',
+        { confirmLabel: 'I know it was reversed — advance again', danger: true });
+      if (!again) return;
+    }
 
     const confirmed = await confirmDialog('Advance the academic year?',
       `${pluralize(total, 'cadet')} will move up a level`

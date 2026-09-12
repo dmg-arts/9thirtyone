@@ -534,16 +534,31 @@ async function tabDatabase(host, { panel } = {}) {
   }
 
   async function wipe() {
+    // Checked again here, not only when the card is drawn. The card is hidden in
+    // proxy mode now, but this is the one action in the app that cannot be
+    // allowed to run on a stale render.
+    if (!canDoMaintenance()) {
+      return toast('This device routes through the submission server, which offers no way '
+        + 'to delete records. Sign in on the account that owns the Drive folder.', 'warn', 9000);
+    }
     if (!(await confirmDialog('Delete every record?',
       'Requests, responses, form templates and the roster will all be deleted. '
       + 'The folder structure stays. This cannot be undone.',
       { confirmLabel: 'Delete everything', danger: true }))) return;
     const typed = await promptText('Type DELETE to confirm');
     if (typed !== 'DELETE') return toast('Cancelled — nothing was deleted.', 'warn');
-    await db.wipeData();
+    // Export and import both report their failures; this did not, so a wipe that
+    // could not run threw into an unhandled rejection and said nothing at all.
+    // Silence is the worst possible answer here: somebody who has just typed
+    // DELETE needs to know whether it happened.
+    try {
+      await db.wipeData();
+    } catch (err) {
+      return toast(`Nothing was deleted: ${err.message}`, 'danger', 9000);
+    }
     await writeAudit({
       action: AUDIT.dataWiped,
-      summary: `Deleted every record (${stats.requests} forms, ${stats.responses} responses)`,
+      summary: `Deleted every record (${stats.requests} requests, ${stats.responses} responses)`,
       reason: 'Confirmed by typing DELETE',
     });
     toast('All records deleted.', 'ok');
@@ -612,14 +627,21 @@ async function tabDatabase(host, { panel } = {}) {
         + 'An endpoint that could empty a detachment\'s records on request is not one worth '
         + 'having. Sign in on the account that owns the Drive folder to run them.')),
 
-    el('div', { class: 'card stack', style: { marginTop: 'var(--sp-5)' } },
-      el('h3', { class: 'section-title' }, 'Danger zone'),
-      notice('danger', 'Deleting records is permanent',
-        el('p', {}, db.backendId === 'drive'
-          ? 'Files are moved to the Drive trash, where Google keeps them for 30 days.'
-          : 'Deleted records cannot be recovered from here.')),
-      el('div', { class: 'row row--wrap' },
-        el('button', { type: 'button', class: 'btn btn--danger', onclick: wipe }, icon('trash'), 'Delete all records'))),
+    // Gated like every other maintenance control on this tab. It was not, so in
+    // proxy mode "Delete all records" sat directly beneath a notice saying wipe
+    // is unavailable here — and clicking it took two confirmations and the word
+    // DELETE before failing silently.
+    canDoMaintenance()
+      ? el('div', { class: 'card stack', style: { marginTop: 'var(--sp-5)' } },
+        el('h3', { class: 'section-title' }, 'Danger zone'),
+        notice('danger', 'Deleting records is permanent',
+          el('p', {}, db.backendId === 'drive'
+            ? 'Files are moved to the Drive trash, where Google keeps them for 30 days.'
+            : 'Deleted records cannot be recovered from here.')),
+        el('div', { class: 'row row--wrap' },
+          el('button', { type: 'button', class: 'btn btn--danger', onclick: wipe },
+            icon('trash'), 'Delete all records')))
+      : null,
   );
 }
 

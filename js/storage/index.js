@@ -632,7 +632,19 @@ export const db = {
     };
   },
 
-  /** Restores a bundle. `mode: 'merge'` keeps existing records with new ids. */
+  /**
+   * Restores a bundle.
+   *
+   * Ids are preserved in **both** modes — saveForm, saveRequest and saveResponse
+   * only mint one when the record has none, and an exported record always has
+   * one. So a merge overwrites records that share an id rather than duplicating
+   * them, and adds the rest. The docstring here used to claim merge assigned new
+   * ids, which would have made it a duplicating import; it never did.
+   *
+   * `mode: 'replace'` wipes first — see wipeData for exactly what that does and,
+   * importantly, does not remove. The format check happens before the wipe, so a
+   * file that is not a backup cannot destroy anything.
+   */
   async importBundle(bundle, { mode = 'merge' } = {}) {
     // 'top-feedback-bundle' is what this app stamped into every backup before
     // it was renamed. A detachment that took one is not going to re-take it,

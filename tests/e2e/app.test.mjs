@@ -688,6 +688,86 @@ await step('a device-only install still disconnects to an empty Client ID', asyn
   if (after.clientId !== '') throw new Error(`a Client ID appeared from nowhere: "${after.clientId}"`);
 });
 
+/* ---------- session and token expiry ---------- */
+
+/**
+ * Two clocks, and neither was tested.
+ *
+ * The ID token lasts about an hour and the session eight, so they expire at
+ * different times and mean different things. `currentIdToken()` returning null
+ * on the first is what makes a proxy read fail with "your sign-in has expired"
+ * rather than a raw server error — the same seam the proxy-mode lockout lived
+ * in. `currentUser()` returning null on the second is the shared-office-laptop
+ * guarantee: a tab left open all day stops being signed in.
+ */
+await step('an expired ID token is withheld while the session survives', async () => {
+  const result = await page.evaluate(async () => {
+    const s = await import('/js/session.js');
+    const key = 'nine31.session.v1';
+    const saved = sessionStorage.getItem(key);
+    try {
+      s.startSession(
+        { id: 'usr_x', email: 'x@y.z', username: 'x', name: 'X', roles: ['instructor'] },
+        { idToken: 'tok-stale', idTokenExp: Math.floor(Date.now() / 1000) - 60 });
+      return { token: s.currentIdToken(), user: s.currentUser()?.username || null };
+    } finally {
+      if (saved) sessionStorage.setItem(key, saved); else sessionStorage.removeItem(key);
+    }
+  });
+  // Withheld rather than handed over: passing a token the proxy will reject
+  // turns a clear "sign in again" into an opaque server refusal.
+  if (result.token !== null) throw new Error(`a stale token was handed out: ${result.token}`);
+  // But the person is still signed in — only the credential aged out, and the
+  // app can re-acquire one without making them start over.
+  if (result.user !== 'x') throw new Error(`the session was dropped too: ${result.user}`);
+});
+
+await step('a live ID token is handed over', async () => {
+  // The negative above is only worth anything beside this.
+  const token = await page.evaluate(async () => {
+    const s = await import('/js/session.js');
+    const key = 'nine31.session.v1';
+    const saved = sessionStorage.getItem(key);
+    try {
+      s.startSession(
+        { id: 'usr_x', email: 'x@y.z', username: 'x', name: 'X', roles: ['instructor'] },
+        { idToken: 'tok-fresh', idTokenExp: Math.floor(Date.now() / 1000) + 3600 });
+      return s.currentIdToken();
+    } finally {
+      if (saved) sessionStorage.setItem(key, saved); else sessionStorage.removeItem(key);
+    }
+  });
+  if (token !== 'tok-fresh') throw new Error(`expected tok-fresh, got ${token}`);
+});
+
+await step('a session past its expiry signs itself out rather than reporting stale', async () => {
+  const result = await page.evaluate(async () => {
+    const s = await import('/js/session.js');
+    const key = 'nine31.session.v1';
+    const saved = sessionStorage.getItem(key);
+    try {
+      // Written directly: startSession always stamps `until` in the future, so
+      // the only way to reach this branch is to age the record.
+      sessionStorage.setItem(key, JSON.stringify({
+        id: 'usr_old', email: 'old@y.z', username: 'old', name: 'Old',
+        roles: ['admin'], idToken: 'tok', idTokenExp: Math.floor(Date.now() / 1000) + 3600,
+        until: Date.now() - 1000,
+      }));
+      const user = s.currentUser();
+      // Clearing it is the point. Reporting null while leaving the record in
+      // place would leave the next reader to make the same judgement, and any
+      // one of them forgetting is somebody else's session on a shared laptop.
+      return { user, left: sessionStorage.getItem(key), token: s.currentIdToken() };
+    } finally {
+      if (saved) sessionStorage.setItem(key, saved); else sessionStorage.removeItem(key);
+    }
+  });
+  if (result.user !== null) throw new Error('an expired session still reported a user');
+  if (result.left !== null) throw new Error('the expired session was left in sessionStorage');
+  // And the token goes with it, even though its own expiry had not passed.
+  if (result.token !== null) throw new Error('a token outlived the session holding it');
+});
+
 /* ---------- roster import ---------- */
 
 /**
@@ -968,7 +1048,13 @@ await step('cadre reads go to the proxy when one is configured, with the right a
     const key = 'nine31.connection.v1';
     const conn = JSON.parse(localStorage.getItem(key));
     const original = conn.proxyUrl;
-    conn.proxyUrl = 'https://script.google.com/macros/s/AKfycbTESTdeployment0123456789/exec';
+    // A local file that genuinely exists, not a fabricated script.google.com URL.
+    // `usingProxy()` only tests truthiness and every proxy call below is stubbed,
+    // so the address never needs to look real — and pointing at an unreachable
+    // host meant the app bar's health check tried to reach it for real. That went
+    // unnoticed for as long as no test rendered the app bar, because
+    // refreshStatus() returns early when #conn-indicator is absent.
+    conn.proxyUrl = `${location.origin}/manifest.json`;
     localStorage.setItem(key, JSON.stringify(conn));
 
     const state = await import('/js/state.js');
@@ -1025,9 +1111,15 @@ await step('maintenance disappears once a proxy is configured', async () => {
     window.fetch = async () => new Response('{}', { status: 200 });
     try {
       const withoutProxy = ds.canDoMaintenance();
-      state.connection.set({
-        proxyUrl: 'https://script.google.com/macros/s/AKfycbTESTdeployment0123456789/exec',
-      });
+      // A same-origin URL that genuinely exists, not a script.google.com one.
+      // `usingProxy()` only tests truthiness, and this test is about the gating,
+      // not about talking to a deployment — so pointing at a real local file
+      // makes an external request impossible. A fake Apps Script URL left the
+      // header health-checking a host it could never reach, and the resulting
+      // console error failed the run no matter how the fetch was stubbed: this
+      // app is service-worker controlled, so the request passes out of reach of
+      // an in-page stub and of page- and context-level routing alike.
+      state.connection.set({ proxyUrl: `${location.origin}/manifest.json` });
       const withProxy = ds.canDoMaintenance();
       state.connection.set({ proxyUrl: original || '' });
       return { withoutProxy, withProxy, restored: ds.canDoMaintenance() };
@@ -1038,6 +1130,91 @@ await step('maintenance disappears once a proxy is configured', async () => {
   if (!result.withoutProxy) throw new Error('maintenance was refused without a proxy configured');
   if (result.withProxy) throw new Error('maintenance stayed available in proxy mode');
   if (!result.restored) throw new Error('the check did not restore the connection');
+});
+
+/**
+ * The same gate, in the markup this time.
+ *
+ * The check above exercises `canDoMaintenance()` and nothing else, which is
+ * exactly why this went unseen: the Danger zone card rendered unconditionally,
+ * so in proxy mode "Delete all records" sat directly beneath a notice saying
+ * wipe is unavailable on this device. Clicking it cost two confirmations and the
+ * typed word DELETE before failing into an unhandled rejection that said
+ * nothing — the worst answer a destructive button can give.
+ */
+await step('the destructive controls are absent from the page in proxy mode', async () => {
+  await signInAs(ADMIN_EMAIL, 'Capt Reyes');
+
+  const seen = await page.evaluate(async () => {
+    const state = await import('/js/state.js');
+    const { renderInstructor } = await import('/js/views/instructor.js');
+    const root = document.querySelector('#view');
+    const original = state.connection.get().proxyUrl;
+
+    // The Database tab has no storage adapter in proxy mode, so it takes its
+    // counts from the `overview` action rather than db.stats(). Answer that, or
+    // the tab renders its error notice and the assertions below measure that
+    // instead of the gating.
+    const real = window.fetch;
+    window.fetch = async (url, opts) => new Response(
+      opts && opts.method === 'POST'
+        ? JSON.stringify({
+          ok: true,
+          org: { orgName: 'Det 025' },
+          stats: { requests: 0, openRequests: 0, responses: 0, students: 0, forms: 0 },
+        })
+        : JSON.stringify({ service: 'nine31-proxy', version: '1.1.0', configured: true }),
+      { status: 200 });
+
+    // The router hands views a URLSearchParams, not a plain object.
+    const onDatabase = () => ({ query: new URLSearchParams('tab=database') });
+    const read = () => ({
+      text: root?.textContent || '',
+      labels: [...root.querySelectorAll('button')].map((b) => b.textContent),
+    });
+
+    try {
+      state.connection.set({ proxyUrl: '' });
+      await renderInstructor(root, onDatabase());
+      await new Promise((r) => setTimeout(r, 400));
+      const direct = read();
+
+      state.connection.set({
+        proxyUrl: `${location.origin}/manifest.json`,
+      });
+      await renderInstructor(root, onDatabase());
+      await new Promise((r) => setTimeout(r, 400));
+      const proxied = read();
+
+      return { direct, proxied };
+    } finally {
+      // Order matters, and so does the wait. Clearing the proxy first means the
+      // header's next health check has nothing to reach; the pause then lets
+      // anything the render already started land on the stub. Handing fetch back
+      // too early lets one request through to script.google.com for real, and a
+      // console error fails the whole suite.
+      state.connection.set({ proxyUrl: original || '' });
+      await new Promise((r) => setTimeout(r, 1200));
+      window.fetch = real;
+    }
+  });
+
+  const has = (snap, label) => snap.labels.some((l) => (l || '').includes(label));
+
+  // Present without a proxy, or their absence below proves nothing.
+  for (const label of ['Delete all records', 'Export backup', 'Import backup']) {
+    if (!has(seen.direct, label)) throw new Error(`"${label}" is missing in direct mode`);
+  }
+  // Gone with one.
+  for (const label of ['Delete all records', 'Export backup', 'Import backup']) {
+    if (has(seen.proxied, label)) throw new Error(`"${label}" is still on the page in proxy mode`);
+  }
+  if (/Danger zone/.test(seen.proxied.text)) {
+    throw new Error('the Danger zone card is still rendered in proxy mode');
+  }
+  if (!/Maintenance runs from the folder owner/.test(seen.proxied.text)) {
+    throw new Error('no explanation replaced the controls');
+  }
 });
 
 /* ---------- signing in while the proxy is on ---------- */
@@ -1060,7 +1237,7 @@ const signInUnderProxy = (email, name, role, answer) => page.evaluate(async ([e,
   const state = await import('/js/state.js');
   const original = state.connection.get().proxyUrl;
   state.connection.set({
-    proxyUrl: 'https://script.google.com/macros/s/AKfycbTESTdeployment0123456789/exec',
+    proxyUrl: `${location.origin}/manifest.json`,
   });
 
   const a = await import('/js/auth.js');
@@ -1137,7 +1314,7 @@ await step('a first call that times out is retried once, and says so', async () 
     const state = await import('/js/state.js');
     const original = state.connection.get().proxyUrl;
     state.connection.set({
-      proxyUrl: 'https://script.google.com/macros/s/AKfycbTESTdeployment0123456789/exec',
+      proxyUrl: `${location.origin}/manifest.json`,
     });
     const a = await import('/js/auth.js');
     a.signOut();
@@ -1185,7 +1362,7 @@ await step('a refusal is not retried — it is a real answer', async () => {
     const state = await import('/js/state.js');
     const original = state.connection.get().proxyUrl;
     state.connection.set({
-      proxyUrl: 'https://script.google.com/macros/s/AKfycbTESTdeployment0123456789/exec',
+      proxyUrl: `${location.origin}/manifest.json`,
     });
     const a = await import('/js/auth.js');
     a.signOut();
@@ -1865,6 +2042,102 @@ await step('a deliberate overwrite still works after re-reading', async () => {
   if (title !== 'Overwritten on purpose') throw new Error(`title is "${title}"`);
 });
 
+/* ---------- backup and restore ---------- */
+
+/**
+ * The disaster-recovery path, which had no test at all.
+ *
+ * It is also the path the demo data arrives by, and `mode: 'replace'` wipes
+ * before it writes — so a fault here does not degrade a detachment's records, it
+ * loses them. Worth more than the zero coverage it had.
+ *
+ * Deliberately self-contained: export, wipe, restore, assert, all inside one
+ * step. This suite is sequential and shares one folder, so a step that left the
+ * collections empty would break everything after it.
+ */
+await step('a backup round-trips: export, wipe, restore', async () => {
+  const result = await page.evaluate(async () => {
+    const m = await import('/js/storage/index.js');
+    const count = async () => ({
+      forms: (await m.db.listForms()).length,
+      requests: (await m.db.listRequests()).length,
+      responses: (await m.db.listAllResponses()).length,
+      users: ((await m.db.getUsers()).users || []).length,
+    });
+
+    const before = await count();
+    const bundle = await m.db.exportBundle();
+    await m.db.wipeData();
+    const wiped = await count();
+    const counts = await m.db.importBundle(bundle, { mode: 'replace' });
+    const after = await count();
+    return { before, wiped, after, counts, format: bundle.format, schema: bundle.schemaVersion };
+  });
+
+  if (result.format !== 'nine31-bundle') throw new Error(`format was ${result.format}`);
+  if (result.schema !== 4) throw new Error(`schemaVersion was ${result.schema}`);
+
+  // The wipe has to actually empty things, or the restore proves nothing.
+  if (result.wiped.requests !== 0 || result.wiped.forms !== 0) {
+    throw new Error(`wipe left ${result.wiped.requests} requests and ${result.wiped.forms} forms`);
+  }
+  // And it must not touch the account directory. This is load-bearing: it is why
+  // a replace import cannot lock the owner out of their own detachment.
+  if (result.wiped.users !== result.before.users) {
+    throw new Error(`wipeData changed the roster: ${result.before.users} -> ${result.wiped.users}`);
+  }
+
+  for (const key of ['forms', 'requests', 'responses', 'users']) {
+    if (result.after[key] !== result.before[key]) {
+      throw new Error(`${key} did not come back: ${result.before[key]} -> ${result.after[key]}`);
+    }
+  }
+  // The counts the UI reports come from the bundle, so they must match what was
+  // actually written rather than being reported optimistically.
+  if (result.counts.requests !== result.before.requests) {
+    throw new Error(`reported ${result.counts.requests} requests, restored ${result.after.requests}`);
+  }
+  console.log(`       ${result.before.requests} requests, ${result.before.responses} responses, `
+    + `${result.before.users} accounts — out and back`);
+});
+
+await step('a file that is not a backup is refused before anything is wiped', async () => {
+  // The order matters more than the message: validation precedes the wipe, so
+  // pointing Replace at the wrong JSON file cannot cost a detachment its records.
+  const result = await page.evaluate(async () => {
+    const m = await import('/js/storage/index.js');
+    const before = (await m.db.listRequests()).length;
+    let message = 'NO ERROR';
+    try {
+      await m.db.importBundle({ format: 'something-else', requests: [] }, { mode: 'replace' });
+    } catch (err) { message = err.message; }
+    return { message, before, after: (await m.db.listRequests()).length };
+  });
+  if (!/not a 9ThirtyOne backup/i.test(result.message)) {
+    throw new Error(`unexpected message: ${result.message}`);
+  }
+  if (result.after !== result.before) {
+    throw new Error(`a rejected import still wiped: ${result.before} -> ${result.after}`);
+  }
+});
+
+await step('a pre-rename backup still restores', async () => {
+  // Someone who took a backup before the app was renamed is not going to take it
+  // again. Refusing their only copy over a string would be indefensible.
+  const ok = await page.evaluate(async () => {
+    const m = await import('/js/storage/index.js');
+    const counts = await m.db.importBundle({
+      format: 'top-feedback-bundle',
+      schemaVersion: 4,
+      forms: [{ id: 'form_oldfmt', name: 'From an old backup', sections: [] }],
+    }, { mode: 'merge' });
+    const form = await m.db.getForm('form_oldfmt');
+    return { counts, restored: form?.name || null };
+  });
+  if (ok.restored !== 'From an old backup') throw new Error(`form did not restore: ${ok.restored}`);
+  if (ok.counts.forms !== 1) throw new Error(`counted ${ok.counts.forms} forms`);
+});
+
 await step('legacy receipt arrays migrate to per-student files', async () => {
   const result = await page.evaluate(async () => {
     const m = await import('/js/storage/index.js');
@@ -2172,6 +2445,96 @@ await step('advancing the year moves levels and retires AS400', async () => {
   if (after.cActive !== false) throw new Error('graduating cadet was not deactivated');
   if (after.c !== 'AS400') throw new Error('graduating cadet should keep their level, not be blanked');
   console.log('       AS100 -> AS200, AS400 deactivated but retained');
+});
+
+/**
+ * A second rollover is the one that would actually hurt.
+ *
+ * The preview recomputes from the roster as it stands, so the morning after a
+ * rollover it offers a fresh and entirely plausible set of moves. Nothing said
+ * the year had already been advanced, which invited an administrator who was
+ * unsure whether the first run worked to simply run it again — and that moves
+ * every cadet up a second level, irreversibly.
+ */
+await step('a second rollover in the same year is warned about, not offered silently', async () => {
+  // The step above has just advanced the year, so the card should now say so.
+  await page.goto(`${BASE}#/admin`, { waitUntil: 'networkidle' });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.section-title:has-text("Academic year rollover")', { timeout: 12000 });
+  await page.waitForTimeout(1500);
+
+  const year = await page.evaluate(async () => (await import('/js/config.js')).currentSchoolYear());
+  const text = await page.textContent('#view');
+  if (!text.includes(`Already advanced for ${year}`)) {
+    throw new Error(`no already-advanced notice for ${year}`);
+  }
+  // Naming who and when is the point — it is what lets someone tell their own
+  // earlier run from somebody else's.
+  if (!/capt\.reyes/.test(text)) throw new Error('the notice does not say who ran it');
+  if (!/AS100 would become AS300|up a second level/.test(text)) {
+    throw new Error('the notice does not say what a second run would do');
+  }
+});
+
+await step('the second-run warning can be overridden, and only then applies', async () => {
+  // Warned, not blocked: a det that restored a backup from before the rollover
+  // has to run it again in the same year. Refusing would leave them re-levelling
+  // the roster by hand.
+  await page.waitForSelector('button:has-text("Advance the academic year")', { timeout: 12000 });
+
+  const before = await page.evaluate(async () => {
+    const a = await import('/js/auth.js');
+    const all = await a.listAccounts();
+    return all.find((x) => x.email === 'roll.a@det025.edu')?.asClass;
+  });
+
+  await page.click('button:has-text("Advance the academic year")');
+  await page.waitForSelector('dialog.modal', { timeout: 8000 });
+  const first = await page.textContent('dialog.modal');
+  if (!/a second time/i.test(first)) {
+    throw new Error(`the extra confirmation did not appear: ${first.slice(0, 140)}`);
+  }
+
+  // Cancelling the extra confirmation must change nothing at all.
+  await page.click('dialog .btn:not(.btn--danger):not(.btn--primary)');
+  await page.waitForTimeout(900);
+  const afterCancel = await page.evaluate(async () => {
+    const a = await import('/js/auth.js');
+    const all = await a.listAccounts();
+    return all.find((x) => x.email === 'roll.a@det025.edu')?.asClass;
+  });
+  if (afterCancel !== before) {
+    throw new Error(`cancelling the warning still advanced: ${before} -> ${afterCancel}`);
+  }
+  console.log(`       cancelled at the warning; still ${afterCancel}`);
+});
+
+await step('a rollover recorded for a previous year does not suppress this one', async () => {
+  // Keyed on the school year, not on "has ever been run". A det in its second
+  // year must be able to advance again.
+  const suppressed = await page.evaluate(async () => {
+    const ds = await import('/js/data-source.js');
+    const c = await import('/js/config.js');
+    const entries = await ds.loadAudit(12);
+    const thisYear = c.currentSchoolYear();
+    const rollovers = entries.filter((e) => e.action === 'roster.rollover');
+    return {
+      thisYear,
+      years: [...new Set(rollovers.map((e) => e.detail?.schoolYear))],
+      // What the guard asks: is there one for *this* year?
+      matchesThisYear: rollovers.some((e) => e.detail?.schoolYear === thisYear),
+      matchesLastYear: rollovers.some((e) => e.detail?.schoolYear === '1999-2000'),
+    };
+  });
+  if (!suppressed.matchesThisYear) {
+    throw new Error(`no rollover recorded for ${suppressed.thisYear}; years seen: ${suppressed.years}`);
+  }
+  if (suppressed.matchesLastYear) throw new Error('a fabricated year matched');
+  // The school year is stamped on the entry, so the detection cannot be keyed on
+  // presence alone — which is what makes a det's second September work.
+  if (!suppressed.years.every((y) => /^\d{4}-\d{4}$/.test(String(y)))) {
+    throw new Error(`a rollover entry carries no usable school year: ${suppressed.years}`);
+  }
 });
 
 /* ---------- audit trail ---------- */

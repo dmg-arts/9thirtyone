@@ -931,6 +931,12 @@ Found and deliberately not taken. None blocks the beta.
   cadre account (they edit `sessionStorage.roles` instead, which skips the whole
   roster→session seam), `anonymiseInDrive` — direct mode's deletion sweep — has
   none at all while its proxy twin has seven, and `js/storage/folder.js` has none.
+- **The join journey is untested end to end.** Every station on it is covered —
+  the link builds and parses, the join screen renders on a device that has never
+  been set up, a truncated link is refused, an added account signs in and gets
+  its role — but nothing drives the whole road: open a link on an unconfigured
+  device, apply it, sign in, see assigned feedback. Found by walking an external
+  person through it by hand, which is the only thing that has exercised it.
 - **Several unit checks are regexes over source** where the behaviour harness
   could now run the thing instead. `tests/unit/scope.test.mjs` also asserts that
   setup no longer takes a pasted folder link by grepping only `setup.js` — the

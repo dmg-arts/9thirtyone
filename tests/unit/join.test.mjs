@@ -210,7 +210,18 @@ check('the mail draft warns about the unverified-app screen', () => {
   // Cadets meet that screen before they ever see the app; an invitation that
   // does not mention it generates support questions by design.
   const body = decodeURIComponent(joinMailto({ link: 'https://x/#/join?c=a&f=b' }));
-  if (!/not been verified/i.test(body)) throw new Error('no warning in the invitation');
+  // The invitation used to promise an unverified-app warning and tell the reader
+  // to choose Advanced. The app is published and brand verified, so that screen
+  // does not appear — and this assertion was holding the stale copy in place.
+  // What it checks now is the inverse, which is the more useful thing to tell a
+  // cadet: seeing that warning means they are not on the real address.
+  if (/Choose Advanced/i.test(body)) {
+    throw new Error('the invitation still tells the reader to choose Advanced');
+  }
+  if (!/permission/i.test(body)) throw new Error('the invitation does not mention the consent step');
+  if (!/NOT see a warning/i.test(body)) {
+    throw new Error('the invitation does not say an unverified warning means the wrong address');
+  }
 });
 
 /* ---------- base url ---------- */

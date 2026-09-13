@@ -900,7 +900,10 @@ await step('the join route renders without a session or a configured device', as
   const title = await page.textContent('.page-title');
   if (!/Join Det 025/.test(title)) throw new Error(`title read "${title}"`);
   const body = await page.textContent('#view');
-  if (!/not been verified/i.test(body)) throw new Error('no warning about the Google consent screen');
+  // Not "warns about an unverified app" any more — the app is verified, so that
+  // screen is gone and the absence of it is the signal worth teaching.
+  if (!/permission/i.test(body)) throw new Error('no mention of the Google consent step');
+  if (/Choose Advanced/i.test(body)) throw new Error('still tells the reader to choose Advanced');
 });
 
 await step('a truncated join link is refused rather than half-applied', async () => {

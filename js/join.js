@@ -194,8 +194,11 @@ export function joinMailto({ link, orgName = '', appName = '9ThirtyOne' }) {
     'It will ask you to sign in with Google. Use the account this message',
     'was sent to — that is the one on the roster.',
     '',
-    'Google will warn that the app has not been verified. That is expected.',
-    'Choose Advanced, then continue.',
+    'Google will ask your permission before the app can do anything.',
+    'Accept it.',
+    '',
+    'You should NOT see a warning that the app is unverified. If you do, you',
+    'are not on the real address — check the link and ask your cadre.',
     '',
     'Nothing to install and nothing to type.',
   ].join('\n');

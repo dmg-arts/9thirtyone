@@ -248,7 +248,10 @@ feedback with nothing typed. The proxy travels in the link because a cadet in
 proxy mode has no Drive access and therefore cannot read a shared setting to
 discover it. The admin
 console offers it three ways: copy, a native share sheet on phones, and a
-pre-written mail draft that warns about the unverified-app screen.
+pre-written mail draft. The draft used to warn cadets to expect an
+unverified-app screen and choose *Advanced*; the app is published and brand
+verified, so it now tells them the opposite — that seeing such a warning means
+they are not on the real address.
 
 **A join link is not a credential**, and the UI says so. The Client ID is public
 by design, the folder ID is an address rather than a key, and connecting grants
@@ -526,11 +529,20 @@ choice. The trade is accuracy, and every output is labelled accordingly.
 
 ## Known limits
 
-Alpha 0.4 was installed and run end to end against real Google Drive, on a Mac
-and an iPhone, in August 2026. **That test predates the `drive.file` change in
-0.15**, which replaced the folder step entirely — the live install pasted a
-folder link, and the app now creates the folder itself. Treat the Drive setup
-path as re-tested only once somebody runs it again.
+Installed and run end to end against real Google Drive on **macOS, iPhone and
+Windows**, on the current release. The Drive setup path has been exercised
+repeatedly since — it is how the live testbed folder was created, and an external
+person has been walked through from a join link on their own device.
+`tests/e2e/drive.test.mjs` covers the same path against an intercepted Drive,
+including the case where setup finds a folder it made earlier rather than creating
+another.
+
+This paragraph used to carry a caveat that the only live test was Alpha 0.4 and
+predated the `drive.file` change in 0.15. That stopped being true some releases
+ago and the caveat outlived it, which is worth noting here because a stale
+disclaimer costs the same credibility as a stale claim.
+
+What follows is what the app genuinely does not do, or does imperfectly.
 
 - **The submission server is required for anyone but the folder's owner.** The
   app holds `drive.file`, so a device can only reach files *it* created. The
@@ -539,16 +551,14 @@ path as re-tested only once somebody runs it again.
   says so rather than failing obscurely. Earlier versions fell back to giving
   every cadet Editor access to the whole folder, which is how a cadet could read
   every response; that fallback is gone.
-- **The app is still in Testing, so Google caps it at 100 accounts** and every
-  user meets an unverified-app screen. This is *publishing status*, not scope —
-  narrowing to `drive.file` removed the reason the app could not be published
-  (`auth/drive` is restricted: verification plus a paid annual security
-  assessment), but nothing is published until somebody presses the button.
-  Doing so needs the homepage, verified domain and branding that the rename will
-  provide.
-- **Some Google accounts refuse unverified apps outright.** Settled, not a
-  mystery: it is a standing Google behaviour, those people need a different
-  Google account, and it stops mattering once the app is published.
+- **Everyone still meets a Google permission prompt.** The app is published to
+  Production and brand verified, so the consent screen carries the 9ThirtyOne
+  name — the 100-account cap and the unverified-app screen no longer apply, and
+  the test-user list that once refused two ordinary Gmail accounts is gone. What
+  remains is Google asking the person to grant what the app asked for, which is
+  the system working rather than a fault. A cadet routed through the submission
+  server grants no Drive access at all. The detail is under *Google verification*
+  below.
 - **Receipt timing can correlate.** For anonymous feedback, a receipt and a
   response are written seconds apart, the response ID encodes its creation time,
   and both index arrays are in submission order — so someone reading the **raw

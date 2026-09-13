@@ -192,9 +192,20 @@ export async function renderJoin(root, { query }) {
       el('ul', { style: { paddingLeft: '1.25rem', margin: '0', listStyle: 'disc' } },
         el('li', { style: { marginBottom: 'var(--sp-2)' } },
           'Use the Google account your detachment mails you at — that is the one on the roster.'),
-        viaProxy ? null : el('li', {},
-          'Google will warn that this app has not been verified. That is expected. Choose ',
-          el('strong', {}, 'Advanced'), ', then continue.')),
+        // Both of these used to tell the reader to expect an unverified-app
+        // warning and to choose Advanced. The app is published and brand
+        // verified, so that screen no longer appears — and an instruction to go
+        // looking for an Advanced link on a legitimate consent screen is worse
+        // than no instruction at all. Its absence is now the useful signal.
+        el('li', {},
+          'Google will ask your permission first. Accept it — ',
+          viaProxy
+            ? `${APP.name} only asks who you are, not for access to your Drive.`
+            : `${APP.name} asks only for the folder it creates, never the rest of your Drive.`),
+        el('li', { style: { marginTop: 'var(--sp-2)' } },
+          'You should ', el('strong', {}, 'not'), ' see a warning that this app is unverified. '
+          + 'If you do, you are not on the real address — check the link with your cadre '
+          + 'before continuing.')),
 
       // Named before the button, not after it. This is the one thing in the
       // link that decides where a cadet's answers and sign-in end up, and it

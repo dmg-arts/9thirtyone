@@ -111,11 +111,11 @@ not read.
 3. **Anonymous results are withheld below exactly three responses.** Not "enough," not "several" — the number is a verifiable engineering guarantee, and vaguing it up loses the thing that makes it checkable.
 
 4. **Removing names cannot change what someone wrote.** (`privacy.html`, "What anonymity cannot do") — distinct from claim 3; worth protecting separately because it is the caveat that keeps claim 3 honest.
-5. **The app can only reach files it created itself.** The `drive.file` scope, `js/storage/drive.js:36`. A specific, checkable security claim — generalizing it to "the app only accesses what it needs" quietly loses the thing that makes it verifiable. Note it is *narrower* than "only the Drive owner can see the folder", which is not true anyway: cadre and instructors hold Drive access too.
+5. **The app can only reach files it created itself.** The `drive.file` scope — the `SCOPE` constant in `js/storage/drive.js`. A specific, checkable security claim — generalizing it to "the app only accesses what it needs" quietly loses the thing that makes it verifiable. Note it is *narrower* than "only the Drive owner can see the folder", which is not true anyway: cadre and instructors hold Drive access too.
 
 **Overclaim guard — the one place our copy has been wrong rather than vague:**
 
-6. **"No external dependencies" needs its exception stated.** The app bundles nothing: no third-party script tags, no build step, nothing in `js/` imported from `node_modules` (`package.json` pins test tooling only). But it injects Google's Identity Services script at runtime from `https://accounts.google.com/gsi/client` (`js/google-identity.js:28`, `js/storage/drive.js:21`), because Google sign-in requires it.
+6. **"No external dependencies" needs its exception stated.** The app bundles nothing: no third-party script tags, no build step, nothing in `js/` imported from `node_modules` (`package.json` pins test tooling only). But it injects Google's Identity Services script at runtime from `https://accounts.google.com/gsi/client` (`GIS_SRC` in `js/google-identity.js`, loaded for the Drive adapter too), because Google sign-in requires it.
 
    > Say: no third-party dependencies, no build step, no vendor libraries — the only external code is Google's own sign-in script, loaded from Google.
 

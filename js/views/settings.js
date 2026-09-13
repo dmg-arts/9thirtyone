@@ -565,7 +565,7 @@ function aboutSection() {
     el('h2', { class: 'section-title' }, 'About'),
     el('dl', { class: 'stack-sm' },
       row('Version', `${APP.version} (schema v${APP.schemaVersion})`),
-      row('Organization', connection.get().orgName || '—'),
+      row('Detachment', connection.get().orgName || '—'),
       row('Offline', navigator.onLine ? 'Online' : 'Offline'),
       row('Installed', window.matchMedia('(display-mode: standalone)').matches ? 'Yes' : 'No')),
     install,

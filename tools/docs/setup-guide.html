@@ -774,7 +774,7 @@
     <li><strong>The Drive folder contains the app's folders</strong> — open it in Drive and confirm you can see <code>config</code>, <code>users</code>, <code>forms</code> and the rest.</li>
     <li><strong>A test cadet can sign in with their own Google account</strong> and see feedback assigned to them &mdash; on their own phone, not yours, reached by tapping a join link. If this is the first thing to touch the server in hours, give the first attempt time and try once more before treating it as a failure &mdash; see Part 6.</li>
     <li><strong>That cadet was never asked for access to their Google Drive.</strong> If they were, the submission server is not configured on their device — re-send the join link.</li>
-    <li><strong>A test submission appears</strong> in the Instructor Panel under Responses &amp; Analysis.</li>
+    <li><strong>A test submission appears</strong> in the Instructor Panel under Responses &amp; analysis.</li>
     <li><strong>You have exported a backup</strong> from Instructor Panel → Database → Export backup.</li>
     <li><strong>You have taken one anonymised export</strong> and looked at it, so you know what is in the backup copy you keep off-site.</li>
   </ul>
@@ -909,13 +909,16 @@
 ├── users/       the roster — who may sign in, and as what
 ├── forms/       feedback form definitions
 ├── requests/    feedback issued to cadets, each with an ID
-├── responses/   submitted feedback, one folder per form
+├── responses/   submitted feedback, one folder per request
 ├── receipts/    who submitted (kept apart from what they said)
 ├── audit/       every deletion and roster change, with who did it
-├── cadre/       feedback only cadre and the commander can read
-├── commander/   feedback only the commander can read
+├── roster/      legacy roster, migrated into users/ on setup
 ├── reports/     exported reports
 └── archive/     closed terms retained for the record</pre>
+  <p>Two more appear later: <code>cadre/</code> and <code>commander/</code>, holding
+  feedback those roles alone can read. They are created the first time something is
+  filed into them, so a folder you have just set up will not have them yet &mdash;
+  their absence is not a fault.</p>
 
   <h3>Things worth understanding before you field this</h3>
 

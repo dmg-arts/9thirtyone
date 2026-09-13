@@ -1,9 +1,9 @@
 # Regenerating the documents
 
-The two **PDFs** in `docs/` are generated from the running app, so every
-screenshot shows real behaviour with seeded data rather than a mock-up. The two
-Markdown files beside them — `WHY.md` and `STYLE.md` — are written by hand and
-are not built by anything here.
+The five **PDFs** in `docs/` are generated from the running app, so every
+screenshot shows real behaviour with seeded data rather than a mock-up. The four
+Markdown files beside them — `WHY.md`, `STYLE.md`, `ALPHA-TAGS.md` and
+`ROSTER-FORMAT.md` — are written by hand and are not built by anything here.
 
 These scripts are for maintainers and are **not** needed to run 9ThirtyOne.
 They have dependencies the app itself does not: Playwright with a Chrome

@@ -9,7 +9,7 @@ import { connection, markSetupComplete } from '../state.js';
 import { db, adapters } from '../storage/index.js';
 import { navigate } from '../router.js';
 
-const STEPS = ['Organization', 'Storage', 'Connect', 'Finish'];
+const STEPS = ['Detachment', 'Storage', 'Connect', 'Finish'];
 
 /** Wizard-local draft; discarded if the user backs out. */
 let draft = null;
@@ -87,7 +87,7 @@ function stepOrg(body, root) {
 
   mount(body, 
     el('h2', { class: 'section-title' }, 'Who is this installation for?'),
-    field('Organization name', nameInput, {
+    field('Detachment name', nameInput, {
       required: true,
       hint: 'Shown in the app header and stamped on exported reports.',
     }),
@@ -479,7 +479,7 @@ function stepFinish(body, root) {
       + 'Existing data is left untouched, so it is safe to point a second device at the same folder.'),
     el('pre', { class: 'tree' }, FOLDER_TREE_PREVIEW),
     el('dl', { class: 'stack-sm' },
-      summaryRow('Organization', draft.orgName),
+      summaryRow('Detachment', draft.orgName),
       summaryRow('Storage', adapters[draft.backend]?.label || draft.backend),
       summaryRow('Location', draft.folderName || '—')),
     status,

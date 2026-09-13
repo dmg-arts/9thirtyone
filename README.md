@@ -33,7 +33,7 @@ and no shared database, and writes only to storage the detachment controls.
 |---|---|---|
 | `WHY.md` | Cadre and commanders | Why this exists: the centralized detachment model and what it costs, the cadet-instructor gap, how the app works in plain English, and the guarantees with their limits. **The argument the other documents are built on.** |
 | `STYLE.md` | Anyone writing copy | The content lexicon — terminology, object definitions, voice, and the claims that must not be softened. Applied by hand; there is no build step that reads it. |
-| `9ThirtyOne-Setup-Guide.pdf` | Whoever installs it | 25 pages: creating the detachment's Google account, opening the app, the wizard, the submission server, the roster, join links, a verification checklist, and troubleshooting. There is no Cloud setup any more. |
+| `9ThirtyOne-Setup-Guide.pdf` | Whoever installs it | 26 pages: creating the detachment's Google account, opening the app, the wizard, the submission server, the roster, join links, a verification checklist, and troubleshooting. There is no Cloud setup any more. |
 | `9ThirtyOne-User-Introduction.pdf` | Everyone, at rollout | 8 slides: why and how on one slide, then what instructors, cadre and commanders do, what a cadet sees, and a diagram of where an answer actually goes. |
 | `9ThirtyOne-Overview.pdf` | A handout, or a projector | The same argument on one landscape page — why, how, both sides of the app, and the data-flow diagram. |
 | `9ThirtyOne-How-To-Guide.pdf` | Anyone using it | 19 pages, a chapter per role, every screen with its screenshot, and a closing matrix of what each role cannot reach. |
@@ -129,8 +129,9 @@ The chosen folder becomes the database. Each record is one JSON document.
 ├── roster/      legacy roster (migrated into users/ automatically)
 ├── forms/       feedback form definitions
 ├── requests/    feedback issued to cadets, each with a feedback ID
-├── responses/   submitted feedback, one folder per form
+├── responses/   submitted feedback, one folder per request
 ├── receipts/    who submitted (kept apart from what they said)
+├── audit/       who deleted or changed what, and when
 ├── reports/     exported reports
 └── archive/     closed terms retained for the record
 ```
@@ -163,16 +164,31 @@ backed up by Google, and recoverable from the Drive trash for 30 days.
 
 Done once by the detachment, on the account the detachment owns:
 
-1. Sign in to that Google account.
-2. In [Google Cloud Console](https://console.cloud.google.com), create a project
-   and enable the **Google Drive API**.
-3. **OAuth consent screen** → *Internal* if the account is on Google Workspace,
-   otherwise *External* and add each cadre member as a test user.
-4. **Credentials** → **OAuth client ID** → *Web application*. Add the address the
-   app is served from as an **Authorised JavaScript origin**.
-5. In Drive, create a folder named `9ThirtyOne` and share it with the cadre who
-   need access.
-6. In the app's setup wizard, paste the **Client ID** and the **folder link**.
+1. **Create a Google account for the detachment**, if it does not have one. A
+   personal account works, but an account the unit owns survives the person who
+   made it.
+2. **Open the app and run the setup wizard.** Choose Google Drive, sign in as that
+   account, and grant access. The app creates its own `9ThirtyOne` folder.
+3. **Deploy the submission server** (below) if cadets are going to submit —
+   without it every cadet needs Editor access to the folder, which also lets them
+   read every response in it.
+
+That is the whole of it. There is no Cloud project, no consent screen, no OAuth
+client to create and no Client ID to paste: the app is registered with Google once
+for the whole programme, published and brand verified, and ships that registration
+in `js/config.js`.
+
+**Do not create the Drive folder by hand.** The app holds the `drive.file` scope,
+which reaches only files it created itself — a folder you made is invisible to it,
+however plainly it exists in the next browser tab. This is also why there is no
+folder link to paste.
+
+> **This section used to describe the opposite.** Until the move to `drive.file` it
+> listed six steps: a Cloud project, the Drive API, a consent screen, an OAuth
+> client, a hand-made folder, and a Client ID and folder link to paste. All six are
+> gone. It is recorded here because the instructions outlived the product by
+> several releases, and a reader who followed them would have spent twenty minutes
+> on work that cannot succeed.
 
 The OAuth client ID is public by design — it identifies the app, it is not a
 password. Who can read the data is governed by Google sign-in and the folder's
@@ -1042,7 +1058,7 @@ stays unambiguous.
 
 A visible number would invite people to average it in their heads while
 answering, so cadets never see one. Instructors see both: the response viewer
-shows the word and its value, the analysis table has a *Reads as* column, and
+shows the word and its value, the mean is captioned with the word it reads as, and
 CSV export emits a numeric column and a word column per question.
 
 This object **drives the UI directly** - one option per entry, so changing the

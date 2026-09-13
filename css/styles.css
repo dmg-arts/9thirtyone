@@ -239,12 +239,25 @@ h1[tabindex="-1"]:focus { outline: none; }
 .appfoot {
   padding: var(--sp-4);
   padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom));
+  /* Flex rather than centred inline text. As inline links these wrapped
+     mid-phrase on a phone, and a link broken across two lines has a bounding box
+     spanning both — which reads as a collision with whatever sits on the second
+     line, because it is one. Each link is now a box that wraps whole. */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--sp-2) var(--sp-3);
   text-align: center;
   font-size: var(--step--1);
   color: var(--text-faint);
   border-top: 1px solid var(--border);
   background: var(--bg-elevated);
 }
+/* Padded to a real tap target. As inline text these inherited the paragraph's
+   line box; as flex items they are blockified and shrink to the glyphs, which is
+   20px — under the 24px WCAG 2.5.8 minimum the layout audit holds us to. */
+.appfoot a { white-space: nowrap; padding: var(--sp-1) var(--sp-1); margin: calc(var(--sp-1) * -1) 0; }
 
 /* ---------- typography ---------- */
 .page-head { margin-bottom: var(--sp-5); }

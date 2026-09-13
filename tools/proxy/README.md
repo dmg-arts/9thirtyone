@@ -48,7 +48,9 @@ You need the two values from your existing setup:
 1. Go to **[script.google.com](https://script.google.com)**, signed in as the
    account that **owns the Drive folder**. This matters: the script writes files
    as whoever owns it.
-2. **New project**. Name it `9ThirtyOne Proxy`.
+2. **New project**. Name it `9ThirtyOne Server` — the same name the setup guide
+   uses, and the term the style guide prefers over "proxy" in anything a
+   detachment reads.
 3. Delete the contents of `Code.gs` and paste in this folder's `Code.gs`.
 4. Save.
 

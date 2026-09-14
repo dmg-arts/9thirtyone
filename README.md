@@ -36,7 +36,7 @@ and no shared database, and writes only to storage the detachment controls.
 | `9ThirtyOne-Setup-Guide.pdf` | Whoever installs it | 26 pages: creating the detachment's Google account, opening the app, the wizard, the submission server, the roster, join links, a verification checklist, and troubleshooting. There is no Cloud setup any more. |
 | `9ThirtyOne-User-Introduction.pdf` | Everyone, at rollout | 8 slides: why and how on one slide, then what instructors, cadre and commanders do, what a cadet sees, and a diagram of where an answer actually goes. |
 | `9ThirtyOne-Overview.pdf` | A handout, or a projector | The same argument on one landscape page — why, how, both sides of the app, and the data-flow diagram. |
-| `9ThirtyOne-How-To-Guide.pdf` | Anyone using it | 19 pages, a chapter per role, every screen with its screenshot, and a closing matrix of what each role cannot reach. |
+| `9ThirtyOne-How-To-Guide.pdf` | Anyone using it | 20 pages, a chapter per role, every screen with its screenshot, and a closing matrix of what each role cannot reach. |
 | `ALPHA-TAGS.md` | The maintainer | The twelve alpha releases of 21–24 Aug 2026, with their commit SHAs and what each shipped. The tags themselves say a name and a line; this says why four of them are one movement. |
 | `9ThirtyOne-Introduction.pdf` | Briefing cadre or a commander | 22 slides with speaker notes: why it exists, what it does, how each role uses it, and the anonymity and safety design. |
 | `ROSTER-FORMAT.md` | Whoever builds the roster | The CSV the roster importer accepts, column by column, with a prompt written to be handed to an assistant along with the detachment's existing list. |

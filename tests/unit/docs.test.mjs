@@ -192,8 +192,16 @@ check('every document agrees how many PDFs there are', () => {
   const word = { 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six' }[pdfs];
   const wrong = [];
   for (const site of ['README.md', 'tools/docs/README.md', '.gitignore']) {
-    for (const m of read(site).matchAll(/\b(two|three|four|five|six)\s+(?:\*\*)?PDFs/gi)) {
-      if (m[1].toLowerCase() !== word) wrong.push(`${site}: "${m[1]} PDFs"`);
+    const text = read(site);
+    for (const m of text.matchAll(/(\w+\s+)?\b(two|three|four|five|six)\s+(?:\*\*)?PDFs/gi)) {
+      // "the other three PDFs" is a subset, not a total, and a quoted "two PDFs"
+      // is usually a document recording what it used to say wrongly — a habit
+      // worth keeping rather than one to design around.
+      const preceding = (m[1] || '').trim().toLowerCase();
+      if (preceding === 'other' || preceding === 'remaining') continue;
+      const quoted = text.slice(Math.max(0, m.index - 2), m.index).includes('"');
+      if (quoted) continue;
+      if (m[2].toLowerCase() !== word) wrong.push(`${site}: "${m[2]} PDFs"`);
     }
   }
   if (wrong.length) throw new Error(`${pdfs} PDFs exist, but ${wrong.join('; ')}`);

@@ -161,8 +161,8 @@ done by the submission server before anything reaches the screen.
   create and no list of cadets to authorise. About 25 minutes, once, following the
   setup guide.
 - One **Drive folder**, which the app creates itself.
-- The **submission server**, deployed into that same account. Roughly 15 minutes,
-  and it is what makes everything above about anonymity true.
+- The **submission server**, deployed into that same account. Most of the 25
+  minutes is this, and it is what makes everything above about anonymity true.
 
 Not a server. Not a vendor. Not a licence, a subscription, or a budget line. No
 IT ticket at any of the universities involved.

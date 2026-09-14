@@ -793,6 +793,7 @@
     <tr><td>Export a backup</td><td>End of each term</td><td>Instructor Panel → Database</td></tr>
     <tr><td>Review accounts, deactivate leavers</td><td>Start of each term</td><td>Database Administration</td></tr>
     <tr><td>Rebuild indexes (only if counts look wrong)</td><td>Rarely</td><td>Database Administration</td></tr>
+    <tr><td><strong>Advance the academic year</strong> &mdash; every cadet up one AS level, the graduating class deactivated. No undo, so export a backup first. If the year has already been advanced the card says so and asks again before proceeding.</td><td><strong>Once</strong>, at the start of the year</td><td>Database Administration</td></tr>
   </table>
 </section>
 
@@ -804,6 +805,13 @@
     <tr>
       <td>"Could not connect" when signing in to Google</td>
       <td>Almost always the network rather than the configuration — there is nothing on your side to register any more. Check you are on <code>https://9thirtyone.app</code> and not a copy served from somewhere else, then try again. If it persists on a detachment network, a content filter is blocking <code>accounts.google.com</code>.</td>
+    </tr>
+    <tr>
+      <td>Sign-in takes several seconds, or seems to hang the first time</td>
+      <td>Expected, once. The submission server sleeps when nobody has used it, and the first
+      sign-in of the day has to wake it. The screen shows a count of seconds while it does. Wait
+      rather than pressing again &mdash; each press starts its own request instead of hurrying the
+      one already running. See Part 6.</td>
     </tr>
     <tr>
       <td>The sign-in popup does not open</td>
@@ -825,7 +833,11 @@
       <td>"The folder or file was not found"</td>
       <td>Almost always a folder created by hand rather than by the app. The app can only reach
       files it made itself, so a folder you made in Drive is invisible to it however correct the
-      address looks. Run the wizard and let it create one.</td>
+      address looks. If you have never run the wizard on this device, run it &mdash; it will offer
+      any folder it made for this account before creating a new one. If you had a working install
+      and it has lost its place, use <em>Settings &rarr; Storage &rarr; Change folder</em> instead:
+      that reconnects to a folder you already have, where re-running setup risks starting an empty
+      one beside it.</td>
     </tr>
     <tr>
       <td>Header shows "offline" with a pending count</td>

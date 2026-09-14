@@ -12,6 +12,20 @@ npm install                           # once, for the browser suite
 npm test                              # both
 ```
 
+`npm test` runs the unit suites, the proxy behaviour suite, then the browser ones
+— app, Drive, memory and the layout audit — against one server it starts and stops
+itself.
+
+Four of the unit suites check things that are not application logic, and are worth
+naming because they are easy to overlook when adding a test:
+
+| Suite | What it guards |
+|---|---|
+| `shell.test.mjs` | The service worker precaches every module. A module missing from that list has no guarantee of being there offline. |
+| `csv.test.mjs` | `toCsv` escaping, and that free text cannot become a spreadsheet formula. |
+| `docs.test.mjs` | The documents against the code they describe. It states its own limits in its header; read them before trusting a green run. |
+| `imports.test.mjs` | Nothing in `js/` reaches into `node_modules`. |
+
 `npm run test:e2e` starts its own server on port 8123, runs **both** browser
 suites against it, and shuts it down afterwards. When iterating it is faster to
 leave one running:
@@ -58,6 +72,13 @@ a leaked username is not, and may not surface for a term.
 | The roster | An empty folder is claimed by the first sign-in and closes behind it; an unknown email is turned away; a deactivated account cannot sign in; changing someone's email leaves the username their receipts are filed under alone. |
 | Offline queue | A write that fails is queued and drains on reconnect. |
 | Read amplification | `db.stats()` stays under a fixed number of document reads regardless of how much feedback exists. |
+| The offline shell | Every module under `js/` is precached, every precached path exists, and the icons the app declares are cached with it. |
+| Backup and restore | A bundle round-trips through export, wipe and replace-import with every count intact. A file that is not a backup is refused *before* anything is wiped. A wipe leaves the account directory alone, which is what stops a replace import locking the owner out. |
+| CSV exports | Commas, quotes and newlines survive a round trip; a leading `=`, `+`, `-` or `@` is defused, so a cadet's answer cannot run as a formula in the spreadsheet the cadre member opens. |
+| The academic year | A second rollover in the same year is warned about, names who ran the first, and can still be overridden — a detachment that restored a backup has to run it again. |
+| Session and token expiry | An expired ID token is withheld while the session survives; a session past its own expiry signs itself out rather than reporting stale. |
+| Administrators | The last one cannot be deleted or demoted, and a refused deletion anonymises nothing on its way out. |
+| Documentation | Prose is checked against the code it describes — constants, repo counts, the folder tree, symbol citations, banned terms and retired instructions. |
 | Analysis | The scale renders words and never digits; the mean is reported back in words; statistics refuse to compute below their minimum sample. |
 
 The unit files additionally check the maths, the lexicons and the token decoder
@@ -96,9 +117,12 @@ checking those things rather than discovering the logic was wrong.
 ## Memory
 
 ```bash
-python3 serve.py --port 8123 --no-open &
 npm run test:memory
 ```
+
+Part of `npm test` since it was wired into the runner. It used to want a server
+started by hand, which is the only reason it sat outside the suite — and the only
+test of the sign-out cache drop sat outside with it.
 
 JavaScript has no manual memory management, so this checks the two failure modes
 that do exist: **retention past the point something should be gone**, and

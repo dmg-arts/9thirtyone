@@ -188,6 +188,15 @@ Two so a change of command overlaps: the outgoing and incoming commander both
 hold it during the handover. The space belongs to the detachment, so the
 designation moves and the records stay.
 
+**A detachment always keeps one administrator.** Deleting the last admin account,
+or taking the role off the last account holding it, is refused here for the same
+reason as the cap above: the app is the thing being guarded against. The console
+refuses it too, and that refusal is worth exactly what a public endpoint chooses
+to honour. It matters more than the cap because it cannot be undone from inside
+the app at all — an empty roster is claimed by the first person to sign in, but a
+roster with people and no administrator is claimed by nobody, and the only way
+back is editing `users/users.json` by hand in Drive.
+
 Roll-up index files (names beginning `_`) are never served. They are caches the
 app rebuilds for itself, and handing them over would invite the client to trust
 them as though the server had vouched for them.

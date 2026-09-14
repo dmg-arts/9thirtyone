@@ -75,6 +75,28 @@ onto its own line — lead with it, or use `<em>`. And check the result: run
 `pdftoppm -png` over the pages you changed and look at them. The last two
 regressions in this document were both invisible in the source.
 
+## 2b. The other three PDFs
+
+`build-doc.mjs` is the generalised sibling of `build-guide.mjs`: it takes any
+print-first HTML and renders it, so a 16:9 deck and a Letter guide share one
+script. Geometry comes from each document's own `@page { size: ... }` rule rather
+than from a flag, which is why one script can do both.
+
+```bash
+node tools/docs/build-doc.mjs tools/docs/how-to-guide.html       docs/9ThirtyOne-How-To-Guide.pdf
+node tools/docs/build-doc.mjs tools/docs/user-introduction.html  docs/9ThirtyOne-User-Introduction.pdf
+node tools/docs/build-doc.mjs tools/docs/overview.html           docs/9ThirtyOne-Overview.pdf
+```
+
+Placeholders it resolves: `SHOT[path]` (against `docs/screens/` then `shots/`),
+`APP_ICON`, and `APP_VERSION` from `package.json`. An unresolved placeholder
+throws rather than shipping a broken image — a missing screenshot in a thirty-page
+PDF is not something anyone notices before it goes out.
+
+This section did not exist for some time, which is the direct reason this README
+undercounted the PDFs in `docs/` for months: the script that builds three of
+them was undocumented, so they were invisible to anyone reading here.
+
 ## 3. The introduction deck (PDF)
 
 ```bash

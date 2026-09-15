@@ -57,7 +57,19 @@ export async function connectionStatus() {
   if (usingProxy()) {
     const url = proxyUrl();
     try {
-      const response = await fetch(url, { method: 'GET', redirect: 'follow' });
+      // Bounded. This had no timeout at all, so a deployment that accepts a
+      // connection and never answers left a promise pending for the life of the
+      // page — and the header sat on whatever it last said, indefinitely. Shorter
+      // than the submission timeout on purpose: this only paints a status pill,
+      // and a pill that is late is worth less than one that is wrong.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      let response;
+      try {
+        response = await fetch(url, { method: 'GET', redirect: 'follow', signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
       const body = await response.json();
       if (body?.service === PROXY_SERVICE) {
         return { status: 'ready', detail: 'Through your detachment\'s server' };

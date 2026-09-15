@@ -17,6 +17,7 @@ import { ROLES, isDirectSignIn } from '../config.js';
 import { signInWithGoogle, signInAsDeveloper, hasAnyAccount } from '../auth.js';
 import { renderSignInButton } from '../google-identity.js';
 import { connection } from '../state.js';
+import { warmProxy } from '../storage/proxy.js';
 import { navigate } from '../router.js';
 
 // Keyed by every role that can reach this screen. The Cadre Panel calls
@@ -51,6 +52,13 @@ const DENIED_HELP = {
  */
 export async function renderLogin(root, role, title, onSuccess) {
   const clientId = connection.get().clientId;
+
+  // Started before anything is drawn, and never awaited. Signing in reads the
+  // roster through the submission server, and a sleeping deployment makes that
+  // first read the slowest thing in the app. Waking it now hands the delay to the
+  // Google account-chooser, which the person is about to spend a few seconds in
+  // anyway — the same wait, somewhere it is not being watched.
+  warmProxy(connection.get().proxyUrl);
   const buttonHost = el('div', { class: 'row', style: { justifyContent: 'center' } });
   const error = el('div', { class: 'stack-sm', hidden: true });
   const hint = el('div', {});

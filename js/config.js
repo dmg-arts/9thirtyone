@@ -29,7 +29,7 @@ export const GOOGLE_CLIENT_ID =
 export const APP = {
   name: '9ThirtyOne',
   shortName: '9ThirtyOne',
-  version: '1.0.10-beta.1',
+  version: '1.0.11-beta.1',
   /**
    * Bump when the on-disk record shape changes, and add a matching entry to
    * MIGRATIONS in js/migrations.js. The runner upgrades a detachment's existing
@@ -46,6 +46,9 @@ export const LS = {
   setupComplete: 'nine31.setup.complete.v1',
   session: 'nine31.session.v1',
   directSignIn: 'nine31.directsignin.v1',
+  /* Round-trip times for the submission server, most recent last. Device-local
+     measurements, kept so the delay can be read off rather than timed by hand. */
+  proxyTimings: 'nine31.proxy.timings.v1',
 };
 
 /**

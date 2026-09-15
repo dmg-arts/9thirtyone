@@ -501,6 +501,97 @@ await step('home stats read the index, not every response', async () => {
   console.log(`       db.stats() = ${reads} document reads`);
 });
 
+/**
+ * The app has to start with the network off.
+ *
+ * This sat on a checklist as a manual step for a week — load it, switch DevTools
+ * to Offline, reload — because it was assumed to need a person. It does not: the
+ * suite already drops the context offline for the queue test below, and 127.0.0.1
+ * counts as a secure context, so the service worker registers here exactly as it
+ * does in the field.
+ *
+ * What it guards is narrow and worth stating. `activate` deletes the previous
+ * cache, so a freshly activated worker holds exactly the SHELL list and nothing
+ * else. Anything omitted is absent until one online load fetches it, and a device
+ * that goes offline inside that window cannot resolve the module. That window is
+ * the whole of the risk — js/people-scope.js was missing from SHELL for six
+ * releases and offline reloads still worked, because the fetch handler had cached
+ * it on the way past.
+ */
+await step('the app starts with the network off', async () => {
+  // Wait for the worker to *control* the page, not merely to exist. A reload
+  // before navigator.serviceWorker.controller is set is served from the network,
+  // and would pass while proving nothing at all.
+  await page.goto(BASE, { waitUntil: 'networkidle' });
+  const controlled = await page.evaluate(async () => {
+    if (!('serviceWorker' in navigator)) return 'unsupported';
+    const reg = await navigator.serviceWorker.ready;
+    if (navigator.serviceWorker.controller) return 'controlled';
+    // skipWaiting + clients.claim means this lands quickly, but not instantly.
+    await new Promise((done) => {
+      const timer = setTimeout(done, 8000);
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        clearTimeout(timer); done();
+      }, { once: true });
+    });
+    return navigator.serviceWorker.controller ? 'controlled' : `uncontrolled:${reg.active?.state}`;
+  });
+  if (controlled !== 'controlled') {
+    throw new Error(`the service worker never took control (${controlled})`);
+  }
+
+  // Prune the cache back to exactly what SHELL names.
+  //
+  // Without this the test passes no matter what SHELL contains, and the first
+  // version of it did: the fetch handler caches every module it successfully
+  // fetches, so the online load above had already stored js/people-scope.js
+  // whether or not it was precached. Removing it from SHELL changed nothing and
+  // the check still went green — proving only that the cache had been warmed.
+  //
+  // What is reproduced here is the window that actually carries the risk: activate
+  // deletes the previous cache, so a worker that has just taken over holds SHELL
+  // and nothing more, until one online load fills the rest back in.
+  const pruned = await page.evaluate(async () => {
+    const source = await (await fetch('./service-worker.js')).text();
+    const block = source.slice(source.indexOf('const SHELL = ['), source.indexOf('];', source.indexOf('const SHELL = [')));
+    const listed = new Set([...block.matchAll(/'\.\/([^']*)'/g)].map((m) => m[1]).filter(Boolean));
+
+    const names = await caches.keys();
+    const name = names.find((n) => n.startsWith('nine31-shell-'));
+    if (!name) return { error: 'no shell cache found' };
+    const cache = await caches.open(name);
+    let removed = 0;
+    for (const request of await cache.keys()) {
+      const path = new URL(request.url).pathname.replace(/^\//, '');
+      // index.html answers the navigation itself and is listed as './' as well.
+      if (listed.has(path) || path === '' || path === 'index.html') continue;
+      await cache.delete(request);
+      removed++;
+    }
+    return { removed, kept: (await cache.keys()).length };
+  });
+  if (pruned.error) throw new Error(pruned.error);
+
+  try {
+    await ctx.setOffline(true);
+    // An ordinary reload. A hard one deliberately bypasses the worker, so offline
+    // it fails whatever the cache holds — the check would look broken when it was
+    // the method that was wrong.
+    await page.reload({ waitUntil: 'load' });
+
+    // Assert on the app's own DOM, not on the absence of an error: index.html
+    // paints its shell from cache even when every module fails to resolve, so a
+    // check for "no error" would pass on a completely dead boot.
+    await page.waitForSelector('#view .role-grid, #view .page-title, #view .wizard',
+      { timeout: 15000 });
+    const rendered = await page.evaluate(() => (document.querySelector('#view')?.textContent || '').trim().length);
+    if (rendered < 20) throw new Error(`#view rendered ${rendered} characters offline`);
+  } finally {
+    await ctx.setOffline(false);
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+  }
+});
+
 await step('a write made offline is queued, then drains on reconnect', async () => {
   await ctx.setOffline(true);
   const queued = await page.evaluate(async () => {

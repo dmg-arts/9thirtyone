@@ -14,6 +14,7 @@ import { hasAdmin, signOut, currentUser } from '../auth.js';
 import { db, adapters, parseFolderId, backendLabel } from '../storage/index.js';
 import { checkProxy } from '../storage/proxy.js';
 import { connectionStatus } from '../data-source.js';
+import { proxyTimings, proxyTimingSummary } from '../storage/proxy.js';
 import { navigate } from '../router.js';
 import { resetSetupDraft } from './setup.js';
 
@@ -235,7 +236,11 @@ function proxySection(conn) {
     }
 
     connection.set({ proxyUrl: value });
-    remount(status, notice('ok', `Connected to proxy v${result.version}`,
+    // The round trip is reported because it is the thing people ask about. Press
+    // this twice: the first call wakes a sleeping deployment and the second does
+    // not, and the difference between them is the whole of the delay.
+    const took = Number.isFinite(result.ms) ? ` — responded in ${(result.ms / 1000).toFixed(1)}s` : '';
+    remount(status, notice('ok', `Connected to proxy v${result.version}${took}`,
       el('p', {}, 'Cadets who join from now on will submit through it and will not be asked '
         + 'for Drive access at all.'),
       el('p', {}, 'Anyone already set up keeps their current configuration until they open a '
@@ -577,6 +582,9 @@ function aboutSection() {
           app: APP,
           connection: { ...connection.get(), clientId: connection.get().clientId ? '(set)' : '' },
           settings: settings.get(),
+          // Durations and action names, nothing that identifies anybody — so this
+          // file is no less safe to send than it was before it carried them.
+          proxy: { summary: proxyTimingSummary(), roundTrips: proxyTimings() },
           userAgent: navigator.userAgent,
           online: navigator.onLine,
           generatedAt: new Date().toISOString(),

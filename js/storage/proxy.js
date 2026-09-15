@@ -28,8 +28,66 @@
  * that the submission was refused.
  */
 
+import { LS } from '../config.js';
+
 /** Google's own redirect chain is slow on a bad campus connection. */
 const TIMEOUT_MS = 30000;
+
+/* ------------------------------------------------------------------ *
+ * how long the server takes
+ *
+ * Apps Script lets an idle deployment sleep, so the first call back pays a cold
+ * start — and until this existed the only way to know how long was to sit with a
+ * stopwatch, which is how the question came up. Every round trip is timed and the
+ * last few kept, so the answer can be read off instead.
+ *
+ * Deliberately no "was this a cold start" flag. That is a judgement, and baking it
+ * into the record would hide the numbers it was inferred from; a cold start shows
+ * up plainly as an outlier. Durations and action names only — nothing here
+ * identifies a person, so the diagnostics file stays as safe to send as it was.
+ * ------------------------------------------------------------------ */
+
+const TIMINGS_KEPT = 50;
+
+/** Reads the ring buffer. Never throws: private browsing can refuse storage. */
+export function proxyTimings() {
+  try {
+    const raw = localStorage.getItem(LS.proxyTimings);
+    const rows = raw ? JSON.parse(raw) : [];
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Records one round trip.
+ *
+ * Wrapped end to end: a full or disabled localStorage must never be the reason a
+ * cadet's submission fails. Measuring is the least important thing happening on
+ * this code path.
+ */
+function recordTiming(action, ms, ok) {
+  try {
+    const rows = proxyTimings();
+    rows.push({ at: new Date().toISOString(), action, ms: Math.round(ms), ok });
+    localStorage.setItem(LS.proxyTimings, JSON.stringify(rows.slice(-TIMINGS_KEPT)));
+  } catch { /* measuring must not break anything */ }
+}
+
+/** Count, median and slowest — enough to see a cold start without reading rows. */
+export function proxyTimingSummary(rows = proxyTimings()) {
+  if (!rows.length) return { count: 0 };
+  const ms = rows.map((r) => r.ms).sort((a, b) => a - b);
+  const mid = Math.floor(ms.length / 2);
+  return {
+    count: ms.length,
+    medianMs: ms.length % 2 ? ms[mid] : Math.round((ms[mid - 1] + ms[mid]) / 2),
+    slowestMs: ms[ms.length - 1],
+    fastestMs: ms[0],
+    since: rows[0].at,
+  };
+}
 
 /**
  * What a deployment calls itself, and what it used to.
@@ -92,6 +150,8 @@ function transient(err) {
 async function postJson(url, payload, { timeoutMs = TIMEOUT_MS } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const began = Date.now();
+  let served = false;
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -112,7 +172,9 @@ async function postJson(url, payload, { timeoutMs = TIMEOUT_MS } = {}) {
 
     const text = await response.text();
     try {
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      served = true;
+      return parsed;
     } catch {
       // Apps Script serves a sign-in page when a deployment is set to anything
       // other than "anyone", which is the single most common misconfiguration.
@@ -129,7 +191,31 @@ async function postJson(url, payload, { timeoutMs = TIMEOUT_MS } = {}) {
     throw err;
   } finally {
     clearTimeout(timer);
+    recordTiming(payload?.action || 'post', Date.now() - began, served);
   }
+}
+
+/**
+ * Wakes the deployment, and waits for nothing.
+ *
+ * Apps Script sleeps when idle, so the first call back has to start a container.
+ * The app already health-checks on navigation, but that fires as somebody *arrives*
+ * at sign-in — a quick click then races a container still booting. Called when the
+ * screen paints instead, the Google account-chooser popup absorbs the wait: two to
+ * five seconds of human time that was being wasted.
+ *
+ * Costs one script execution and no `UrlFetch`, because `doGet` verifies no token
+ * and so never calls out to Google. Bounded, and every failure swallowed: this is
+ * an optimisation, and an optimisation that can break sign-in is not one.
+ */
+export function warmProxy(url) {
+  if (!url) return;
+  try {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 10000);
+    fetch(url, { method: 'GET', redirect: 'follow', signal: controller.signal })
+      .catch(() => {});
+  } catch { /* nothing here is worth failing a sign-in for */ }
 }
 
 /**
@@ -143,6 +229,7 @@ export async function checkProxy(url) {
   if (problem) return { ok: false, error: problem };
 
   let response;
+  const began = Date.now();
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -152,8 +239,14 @@ export async function checkProxy(url) {
       clearTimeout(timer);
     }
   } catch {
+    recordTiming('health', Date.now() - began, false);
     return { ok: false, error: 'Could not reach that address. Check the URL and the network.' };
   }
+  // Measured to here: the answer has arrived, and how it is judged below costs
+  // nothing. This is the figure Settings reports, and pressing Save and test twice
+  // is the cheapest way to see a cold start — the first is slow, the second is not.
+  const ms = Date.now() - began;
+  recordTiming('health', ms, true);
 
   let body;
   try {
@@ -186,7 +279,7 @@ export async function checkProxy(url) {
         + 'Project Settings → Script Properties and add FOLDER_ID and CLIENT_ID, then Save.',
     };
   }
-  return { ok: true, version: body.version, configured: true };
+  return { ok: true, version: body.version, configured: true, ms };
 }
 
 /**

@@ -38,8 +38,8 @@ behaves rather than the way a writer imagined.
 1. **Home.** The doors, and how little is on this screen. A cadet walking up to a shared
    laptop sees only what they can open.
 2. **Instructor Panel → Responses & analysis.** 51 responses, mean 6.72. Then scroll to
-   *AS200 Leadership Lab — Drill Block 3*, question one. **This is the demo.** Agreement
-   0.31, "Sharply divided", and the app saying in words: *two distinct groups, 7 around
+   *AS200 Leadership Lab — Drill Block 3*, question one. **This is the demo.**
+   "Sharply divided", and the app saying in words: *two distinct groups, 7 around
    Unfavorable and 8 around Outstanding, and the mean of 5.8 describes nobody.* Three
    unusual ratings named underneath. An average alone would have hidden all of it.
 3. **The safety screen**, on the same request. A hazing concern buried inside otherwise

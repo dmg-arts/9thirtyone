@@ -215,9 +215,13 @@ const computeAt = async (n) => page.evaluate(async (count) => {
   };
 }, n);
 
-// 10000 is well past a detachment's lifetime — included to find where the
-// curve bends rather than to describe a realistic load.
-for (const n of [100, 500, 2000, 10000]) {
+// 45 is one drill night at Det 752: a form issued to the whole cadet wing, all
+// of it answered the same evening. It is the smallest number here and the only
+// one drawn from a real detachment rather than chosen to find the curve —
+// everything above it is headroom, and 10000 is well past a detachment's
+// lifetime, included to find where the curve bends rather than to describe a
+// realistic load.
+for (const n of [45, 100, 500, 2000, 10000]) {
   const before = await heap();
   const result = await computeAt(n);
   const after = await heap();
@@ -253,6 +257,12 @@ for (const rate of [4, 6]) {
   await cdp.send('Emulation.setCPUThrottlingRate', { rate });
   const result = await computeAt(500);
   record(`Throttled ${rate}x (500 responses)`, 'All four together', result.total,
+    BUDGET.interactionMs);
+  // And the same phone on the evening it actually happens. A cadet reads the
+  // form on this hardware; a cadre member opens Analysis on it in the car park
+  // afterwards with one night's answers in hand.
+  const night = await computeAt(45);
+  record(`Throttled ${rate}x (45 responses)`, 'All four together', night.total,
     BUDGET.interactionMs);
 }
 await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });

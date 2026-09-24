@@ -94,9 +94,36 @@ function buildAppBar() {
     }, icon('settings')));
 }
 
+/**
+ * How long a connection reading is allowed to stand before it is taken again.
+ *
+ * The pill is refreshed on every navigation, and in proxy mode each refresh is
+ * a request to the detachment's Apps Script deployment. Apps Script allows
+ * thirty *simultaneous executions* across the whole account, so on a drill
+ * night the cost of an untimed status pill is real: forty-five cadets moving
+ * between the list and a form spend four or five executions each on it, and
+ * every one of those is a slot a submission is queueing for.
+ *
+ * Thirty seconds is chosen against what the pill is for. It answers "is the
+ * detachment's server reachable", which does not change minute to minute — and
+ * the two things that *do* change it, the network flipping and the connection
+ * being reconfigured, both refresh past the cache rather than waiting for it.
+ */
+const STATUS_TTL_MS = 30_000;
+
+/** The last answer and when it was given, so navigation can reuse it. */
+let lastStatus = null;
+
+/** An in-flight check, so two callers at once make one request. */
+let statusInFlight = null;
+
 buildAppBar();
 // The org name and connection live in the bar, so rebuild it when they change.
-connection.subscribe(() => { buildAppBar(); syncAppBar(); refreshStatus(); });
+// A changed connection means the cached reading describes a server this device
+// is no longer pointed at, so it is dropped rather than waited out.
+connection.subscribe(() => {
+  buildAppBar(); syncAppBar(); forgetStatus(); refreshStatus({ force: true });
+});
 
 /** Hides the back button on the home screen, where it has nowhere to go. */
 function syncAppBar() {
@@ -106,8 +133,13 @@ function syncAppBar() {
   if (back) back.hidden = atHome;
 }
 
-/** Connection pill: refreshed on navigation and when the network flips. */
-async function refreshStatus() {
+/**
+ * Connection pill: refreshed on navigation and when the network flips.
+ *
+ * @param {{force?: boolean}} options  `force` skips the cache, for the cases
+ *   where the previous answer is known to be about a different server.
+ */
+async function refreshStatus({ force = false } = {}) {
   const node = $('#conn-indicator');
   if (!node) return;
   if (!isConfigured()) {
@@ -115,16 +147,42 @@ async function refreshStatus() {
     node.querySelector('.conn__label').textContent = 'setup';
     return;
   }
+
+  const paint = ({ status, detail }) => {
+    node.dataset.status = status;
+    node.querySelector('.conn__label').textContent = status;
+    node.title = detail || '';
+  };
+
+  // Painted from the last answer rather than skipped: the app bar is rebuilt on
+  // navigation, so a pill that returned early here would render blank.
+  if (!force && lastStatus && Date.now() - lastStatus.at < STATUS_TTL_MS) {
+    paint(lastStatus);
+    return;
+  }
+
   try {
-    const status = await connectionStatus();
-    node.dataset.status = status.status;
-    node.querySelector('.conn__label').textContent = status.status;
-    node.title = status.detail || '';
+    if (!statusInFlight) {
+      statusInFlight = connectionStatus()
+        .then((status) => ({ status: status.status, detail: status.detail || '' }))
+        .catch((err) => ({ status: 'error', detail: err.message }))
+        .finally(() => { statusInFlight = null; });
+    }
+    const answer = await statusInFlight;
+    lastStatus = { ...answer, at: Date.now() };
+    paint(answer);
   } catch (err) {
+    // connectionStatus is caught above; this is anything the painting threw.
     node.dataset.status = 'error';
     node.querySelector('.conn__label').textContent = 'error';
     node.title = err.message;
   }
+}
+
+/** Drop the cached reading — the answer would be about a different server. */
+function forgetStatus() {
+  lastStatus = null;
+  statusInFlight = null;
 }
 
 /**
@@ -174,12 +232,12 @@ async function sendQueue({ manual = false } = {}) {
 onQueueChange((state) => refreshQueuePill(state));
 
 window.addEventListener('online', () => {
-  refreshStatus();
+  refreshStatus({ force: true });
   toast('Back online.', 'ok', 2500);
   sendQueue();
 });
 window.addEventListener('offline', () => {
-  refreshStatus();
+  refreshStatus({ force: true });
   toast('Offline — your work is saved on this device and sent when you reconnect.', 'warn', 5000);
 });
 

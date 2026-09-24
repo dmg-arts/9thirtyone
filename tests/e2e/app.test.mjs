@@ -1355,10 +1355,17 @@ const signInUnderProxy = (email, name, role, answer) => page.evaluate(async ([e,
         : reply({ ok: false, error: 'That account is not allowed to do this.' });
     }
     if (body.action === 'bundle') {
-      return reply({ ok: true, bundle: { requests: [], submitted: [], account: {
-        id: 'usr_2', email: e, username: 'mia.alvarez', name: n,
-        roles: ['student'], asClass: 'AS200', active: true,
-      } } });
+      // Gated to students, as `ACTIONS` gates it on the real script. The stub
+      // used to answer it for anyone, which only went unnoticed while `bundle`
+      // was the second thing tried: sign-in now asks for it first, and a
+      // fixture that hands a cadre member a cadet's bundle makes the app look
+      // broken when it is the fixture that is.
+      return mode === 'cadet'
+        ? reply({ ok: true, bundle: { requests: [], submitted: [], account: {
+          id: 'usr_2', email: e, username: 'mia.alvarez', name: n,
+          roles: ['student'], asClass: 'AS200', active: true,
+        } } })
+        : reply({ ok: false, error: 'That account is not allowed to do this.' });
     }
     return reply({ ok: false, error: 'Unknown action.' });
   };
@@ -1385,12 +1392,24 @@ await step('a cadre member can sign in while the proxy is configured', async () 
   if (!roster.idToken) throw new Error('the identity read went out with no token — the deadlock is back');
 });
 
-await step('a cadet signs in through the bundle when the roster refuses them', async () => {
+/**
+ * The cadet path, which is the one most of a detachment takes.
+ *
+ * `bundle` is asked first and `roster` never, because neither action serves
+ * everyone — `roster` is staff-only, `bundle` student-only — so whichever is
+ * tried first, the other group spends a refused Apps Script execution finding
+ * that out. Forty-five cadets against five staff decides which way round that
+ * goes. Staff pay it instead, one call each, asserted in the step above.
+ */
+await step('a cadet signs in through the bundle, without asking for the roster', async () => {
   const result = await signInUnderProxy(STUDENT_EMAIL, 'Mia Alvarez', 'student', 'cadet');
   if (!result.ok) throw new Error(`cadet sign-in failed in proxy mode: ${result.error}`);
   if (!result.roles.includes('student')) throw new Error(`roles came back as ${result.roles}`);
   const actions = result.bodies.map((b) => b.action);
-  if (!actions.includes('bundle')) throw new Error(`never fell back to bundle — saw ${actions.join(', ')}`);
+  if (!actions.includes('bundle')) throw new Error(`never asked for a bundle — saw ${actions.join(', ')}`);
+  if (actions.includes('roster')) {
+    throw new Error(`a cadet spent an execution being refused the roster: ${actions.join(', ')}`);
+  }
   if (!result.bodies.every((b) => b.idToken)) throw new Error('an identity read went out with no token');
 });
 
@@ -1402,6 +1421,13 @@ await step('a cadet signs in through the bundle when the roster refuses them', a
  * submission whose first attempt succeeded but whose answer was lost would be
  * refused as a duplicate — telling a cadet their feedback failed when it is
  * already filed.
+ *
+ * Three calls, not two, and the difference is worth naming. This signs in a
+ * *staff* account, and sign-in asks for a cadet's bundle first because most of
+ * a detachment is cadets. So the sequence is: bundle times out, bundle is
+ * retried and refused on role, roster answers. The retry is still exactly one —
+ * which is what this step is about — and the third call is the refusal staff
+ * pay so that forty-five cadets do not. A cadet signing in makes one call.
  */
 await step('a first call that times out is retried once, and says so', async () => {
   const result = await page.evaluate(async () => {
@@ -1447,7 +1473,8 @@ await step('a first call that times out is retried once, and says so', async () 
   });
 
   if (!result.ok) throw new Error(`a cold start failed the sign-in: ${result.error}`);
-  if (result.calls !== 2) throw new Error(`expected exactly one retry, saw ${result.calls} calls`);
+  // One timed-out call, one retry of it, one roster call that answers.
+  if (result.calls !== 3) throw new Error(`expected one retry then the roster, saw ${result.calls} calls`);
   if (result.slow !== 1) throw new Error('the screen was never told the server was waking');
 });
 

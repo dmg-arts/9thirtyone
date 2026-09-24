@@ -12,7 +12,7 @@
 import {
   el, icon, field, select, badge, notice, emptyState, spinner, toast,
   download, toCsv, fmtDate, fmtDateTime, pluralize, mean, median, stdev, round,
-  modal, fromDateInput, groupBy,
+  modal, fromDateInput, groupBy, debounce,
   mount, remount } from '../util.js';
 import { AS_CLASSES, SEMESTERS, PRIVACY, ROLES, schoolYears, nearestAnchor } from '../config.js';
 import {
@@ -83,6 +83,11 @@ export async function renderAnalysis(host, { spaces = null } = {}) {
   const results = el('div', { class: 'stack-lg' });
   const years = schoolYears();
 
+  // The trailing-edge version of `draw`, for the one control that fires per
+  // keystroke. Declared before the filters that reference it, so the handler
+  // can never outrun its own definition.
+  const drawLater = debounce(() => draw(), 250);
+
   remount(host, 
     el('div', { class: 'row row--between row--wrap', style: { marginBottom: 'var(--sp-4)' } },
       el('h2', { class: 'section-title', style: { margin: '0' } }, 'Feedback Response and Analysis'),
@@ -114,9 +119,12 @@ export async function renderAnalysis(host, { spaces = null } = {}) {
             ...requests.filter((r) => r.feedbackId)
               .map((r) => ({ value: r.feedbackId, label: `${r.feedbackId} — ${r.title}` }))],
           { onchange: (e) => { state.feedbackId = e.target.value; draw(); } })),
+        // Debounced, unlike the selects beside it. A select fires once when a
+        // choice is made; this fires per keystroke, and `draw` re-screens every
+        // text answer and reads receipts for up to twenty-five requests.
         field('Class / event', el('input', {
           class: 'input', type: 'search', placeholder: 'Name contains…',
-          oninput: (e) => { state.search = e.target.value; draw(); },
+          oninput: (e) => { state.search = e.target.value; drawLater(); },
         }))),
       el('div', { class: 'row row--end', style: { marginTop: 'var(--sp-3)' } },
         el('button', {

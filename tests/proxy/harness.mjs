@@ -31,6 +31,34 @@ import vm from 'node:vm';
  * an in-memory Drive
  * ------------------------------------------------------------------ */
 
+/**
+ * Every call the script makes to the Drive surface, counted.
+ *
+ * Not a performance measurement — an in-memory Map is nothing like Drive. It is
+ * a count of *round trips*, which is the part that survives the translation: on
+ * a real deployment each of these is a network call taking tens of
+ * milliseconds, so the count is proportional to how long an execution runs.
+ *
+ * That matters because of the lock. `submit` holds one script-wide lock across
+ * all of its Drive work (`Code.gs`, "the lock is what makes one submission per
+ * cadet a rule"), so every submission in the detachment serialises behind it.
+ * Operations-under-lock is therefore the number that decides how many cadets
+ * can submit at once, and it is the only honest offline proxy for it.
+ *
+ * Deliberately counts only the Apps Script surface — `getFilesByName`,
+ * `createFile` and friends. The test helpers below (`path`, `put`, `read`,
+ * `snapshot`) reach into the Maps directly and are not counted, so seeding a
+ * 45-cadet roster does not pollute the measurement of what the script then does.
+ */
+let opCount = 0;
+const bump = () => { opCount += 1; };
+
+/** Drive operations counted so far. */
+export const ops = () => opCount;
+
+/** Zero the counter, so a test can measure one action rather than a run. */
+export const resetOps = () => { opCount = 0; };
+
 class FakeFile {
   constructor(name, content) {
     this.name = name;
@@ -41,12 +69,15 @@ class FakeFile {
   getName() { return this.name; }
 
   getBlob() {
+    // The download, not the lookup: in Drive these are separate round trips and
+    // the script pays for both.
+    bump();
     return { getDataAsString: () => this.content };
   }
 
-  setContent(next) { this.content = next; }
+  setContent(next) { bump(); this.content = next; }
 
-  setTrashed(value) { this.trashed = value; }
+  setTrashed(value) { bump(); this.trashed = value; }
 }
 
 /** Iterators in Apps Script are hasNext/next, not JavaScript iterables. */
@@ -69,36 +100,42 @@ class FakeFolder {
   getName() { return this.name; }
 
   getFoldersByName(name) {
+    bump();
     const found = this.folders.get(name);
     return iterator(found && !found.trashed ? [found] : []);
   }
 
   getFilesByName(name) {
+    bump();
     const found = this.files.get(name);
     return iterator(found && !found.trashed ? [found] : []);
   }
 
   getFiles() {
+    bump();
     return iterator([...this.files.values()].filter((f) => !f.trashed));
   }
 
   getFolders() {
+    bump();
     return iterator([...this.folders.values()].filter((f) => !f.trashed));
   }
 
   createFolder(name) {
+    bump();
     const folder = new FakeFolder(name);
     this.folders.set(name, folder);
     return folder;
   }
 
   createFile(blob) {
+    bump();
     const file = new FakeFile(blob.name, blob.content);
     this.files.set(blob.name, file);
     return file;
   }
 
-  setTrashed(value) { this.trashed = value; }
+  setTrashed(value) { bump(); this.trashed = value; }
 
   /* ---- helpers for tests, not part of the Apps Script surface ---- */
 
@@ -166,6 +203,12 @@ export function createProxy({
   let lockHeld = false;
   const lockWaits = [];
 
+  // Drive operations performed between waitLock and releaseLock, one entry per
+  // completed critical section. See the note on `bump` above for why this is
+  // the number that decides how many cadets can submit at once.
+  const lockedOps = [];
+  let opsAtAcquire = null;
+
   /**
    * The proxy now decodes the token locally before spending a network call, so
    * a bare label like "tok-cadet" is rejected before it ever reaches the fake
@@ -222,8 +265,14 @@ export function createProxy({
       DigestAlgorithm: { SHA_256: 'SHA_256' },
       computeDigest: (_algorithm, value) =>
         [...createHash('sha256').update(String(value)).digest()].map((b) => (b > 127 ? b - 256 : b)),
-      // Deterministic, so a test can predict the ids a run produces.
-      getUuid: () => `00000000-0000-0000-0000-${String(uuidCounter++).padStart(12, '0')}`,
+      // Deterministic, so a test can predict the ids a run produces — but the
+      // counter has to live in the *leading* characters. `buildResponse` builds
+      // a response id from `getUuid().replace(/-/g, '').slice(0, 14)`, so a
+      // counter in the trailing group gets sliced off and every response in a
+      // run is handed the same id. In a Map keyed by filename that reads as 45
+      // cadets submitting and one response surviving, which is a fault in this
+      // fake rather than in the script, and one that only appears at volume.
+      getUuid: () => `${String(uuidCounter++).padStart(8, '0')}-0000-4000-8000-000000000000`,
       formatDate: (date, _tz, format) => {
         const iso = date.toISOString();
         return format === 'yyyy-MM' ? iso.slice(0, 7) : iso;
@@ -243,8 +292,13 @@ export function createProxy({
           lockWaits.push(ms);
           if (lockHeld) throw new Error('Could not obtain lock');
           lockHeld = true;
+          opsAtAcquire = opCount;
         },
-        releaseLock() { lockHeld = false; },
+        releaseLock() {
+          lockHeld = false;
+          if (opsAtAcquire !== null) lockedOps.push(opCount - opsAtAcquire);
+          opsAtAcquire = null;
+        },
       }),
     },
 
@@ -296,6 +350,8 @@ export function createProxy({
     holdLock: () => { lockHeld = true; },
     releaseLock: () => { lockHeld = false; },
     lockWaits,
+    /** Drive operations per completed critical section, newest last. */
+    lockedOps,
     /** tokeninfo calls made so far — the quota an attacker would burn. */
     fetches,
     /** The JWT a label encodes to, for tests that need the raw string. */

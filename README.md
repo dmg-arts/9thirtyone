@@ -27,7 +27,7 @@ and no shared database, and writes only to storage the detachment controls.
 
 ## Documentation
 
-`docs/` holds ten things. Start with `WHY.md` — everything else assumes it.
+`docs/` holds twelve things. Start with `WHY.md` — everything else assumes it.
 
 | File | For | Contents |
 |---|---|---|
@@ -45,7 +45,9 @@ and no shared database, and writes only to storage the detachment controls.
 `privacy.html` ships alongside the app and deploys to the same domain, which is
 where Google's OAuth verification requires it to be.
 
-The five PDFs are rebuilt by the scripts in `tools/docs/` — see the README there.
+Five of the six PDFs are rebuilt by the scripts in `tools/docs/` — see the README
+there. The exception is the USER Installation Guide, which is written by hand in
+Pages and committed with its source.
 Every screenshot in them is the live app with seeded data, nothing mocked up, so
 the documents cannot quietly drift from what the app does.
 
@@ -602,10 +604,10 @@ manifest.json           PWA manifest
 service-worker.js       precached shell, network-first navigation, never caches Drive
 serve.py                dev server (http, or --https for phones)
 tools/make_icons.mjs    icon generator, no dependencies
-tools/docs/             regenerates the five PDFs from the running app
+tools/docs/             regenerates five of the six PDFs from the running app
 tools/demo/             the demo detachment, as an importable backup bundle
 tools/tuning/           the 600-item synthetic corpus the lexicons were tuned on
-docs/                   the five PDFs, WHY.md, STYLE.md, ALPHA-TAGS.md,
+docs/                   the six PDFs, WHY.md, STYLE.md, ALPHA-TAGS.md,
                         ROSTER-FORMAT.md and its CSV template
 css/styles.css          design system: tokens, themes, color-vision palettes
 js/
@@ -888,7 +890,33 @@ Ranked by what would actually hurt, not by how alarming they sound.
    only AS400 in their flight has identified themselves. The file says so in its
    own header rather than relying on the reader remembering.
 
-3. **One hosted copy is a supply-chain target.** With per-detachment deployments,
+3. **A whole flight submitting at once queues behind one lock.** `submit` takes a
+   script-wide `LockService` lock and holds it across its Drive work — about
+   thirteen round trips, measured — so every submission in the detachment is
+   serialised. `waitLock` gives up at twenty seconds, and Apps Script allows
+   thirty *simultaneous executions* across the account, which a queue of waiting
+   submissions fills. Forty-five cadets told to submit in the same five minutes
+   is the shape that finds this.
+
+   **Partly addressed, by spending less rather than by raising the ceiling.** A
+   cadet's arrival is one round trip instead of three, the connection pill no
+   longer re-asks on every navigation, and a submission refused for a busy lock
+   is now retried once with jitter instead of being handed back to the cadet,
+   whose only move was to press Submit again and lengthen the queue that refused
+   them. `tests/proxy/load.test.mjs` and `tests/e2e/volume.test.mjs` hold those
+   counts in place, and the lock's own cost is budgeted so it cannot quietly
+   grow.
+
+   What none of that proves is the ceiling itself. Real contention across
+   concurrent executions cannot be reproduced offline — the in-memory Drive says
+   so in its own header — so **the remaining check is a live rehearsal**: ten to
+   fifteen people submitting at once against the real deployment, once, before
+   the first drill night. Two known inefficiencies are documented and not fixed,
+   both in `Code.gs` and both needing every detachment to redeploy: a refused
+   action still reads the whole roster first, and By-instructor re-reads it once
+   per request it evaluates.
+
+4. **One hosted copy is a supply-chain target.** With per-detachment deployments,
    compromising one account reached one detachment. With a single hosted copy and
    a single Client ID, compromising the hosting account — or a maintainer's
    laptop — serves JavaScript to every cadet in the programme, in an app that
@@ -896,37 +924,37 @@ Ranked by what would actually hurt, not by how alarming they sound.
    centralisation decision. Hardware-key 2FA, branch protection and never
    deploying from an unattended machine are the controls that matter.
 
-4. **The legal question is unanswered, and is not a technical one.** FERPA
+5. **The legal question is unanswered, and is not a technical one.** FERPA
    governs education records at US universities. Feedback by a student about an
    instructor probably is not one, but the roster is personal data, this is a
    federal programme, and Privacy Act or DoD considerations may apply. It needs
    whoever advises AFROTC, and it needs settling before the beta rather than
    after, because the answer could change retention or hosting.
 
-5. **There is no way to delete one person's data.** Removing an account drops the
+6. **There is no way to delete one person's data.** Removing an account drops the
    roster entry; their responses remain. The privacy policy needs an answer, and
    part of the honest answer is that anonymous responses cannot be deleted for
    one person by design.
 
-6. **A rostered cadet can exhaust the detachment's Apps Script quota** by looping
+7. **A rostered cadet can exhaust the detachment's Apps Script quota** by looping
    the bundle call — roughly 90 minutes of runtime a day, shared by everyone.
    No rate limiting and no detection. Trivial to do, unlikely to happen, cheap
    to add later.
 
-7. **The audit trail protects against everyone except the folder owner**, who is
+8. **The audit trail protects against everyone except the folder owner**, who is
    now the only account with Drive access. Always true; sharper now.
 
-8. **Sessions last eight hours.** They die with the tab, so a closed browser is
+9. **Sessions last eight hours.** They die with the tab, so a closed browser is
    safe, but a tab left open in a shared office stays signed in all day.
 
-9. **An instructor's counts include spaces they cannot read.** `overview` is open
+10. **An instructor's counts include spaces they cannot read.** `overview` is open
    to instructors and `readStats` deliberately counts across every space, so the
    totals on an instructor's panel include cadre and commander requests. Counts
    only, never content — but it means an instructor can tell that the commander
    has filed something. Undecided rather than broken: narrowing it costs the
    detachment-wide totals that make the number useful.
 
-10. **An unrecognised space is filed as `shared`.** `spaceOf` falls back to the
+11. **An unrecognised space is filed as `shared`.** `spaceOf` falls back to the
     least restricted space when a request names one it does not know. Safe for
     reads, and the wrong direction for writes: a request meant for the
     commander's space, with its space mistyped, lands where every instructor can

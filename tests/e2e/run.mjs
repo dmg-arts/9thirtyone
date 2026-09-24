@@ -103,8 +103,8 @@ const run = (file) => new Promise((done) => {
  */
 const SUITES = process.argv.slice(2).length
   ? process.argv.slice(2)
-  : ['tests/e2e/app.test.mjs', 'tests/e2e/drive.test.mjs', 'tests/memory/leaks.test.mjs',
-     'tests/layout/audit.test.mjs'];
+  : ['tests/e2e/app.test.mjs', 'tests/e2e/drive.test.mjs', 'tests/e2e/volume.test.mjs',
+     'tests/memory/leaks.test.mjs', 'tests/layout/audit.test.mjs'];
 
 let failed = 0;
 for (const file of SUITES) {

@@ -147,6 +147,17 @@ function transient(err) {
   return err;
 }
 
+/**
+ * The server's way of saying it could not take the lock in time.
+ *
+ * Matched on the message because that is all the script sends — `fail()` emits
+ * `{ok: false, error}` with no code. Matching prose is not lovely, and the
+ * client already does it for "not on this detachment"; if the proxy ever grows
+ * a machine-readable reason, this is the first thing that should use it.
+ */
+const BUSY = /server is busy/i;
+const BUSY_RETRY_MS = 1200;
+
 async function postJson(url, payload, { timeoutMs = TIMEOUT_MS } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -437,7 +448,7 @@ export async function submitViaProxy(url, { idToken, requestId, formId, answers,
     throw new Error('Your sign-in has expired. Sign in again and resubmit.');
   }
 
-  const result = await postJson(url, {
+  const send = () => postJson(url, {
     action: 'submit',
     idToken,
     requestId,
@@ -446,8 +457,43 @@ export async function submitViaProxy(url, { idToken, requestId, formId, answers,
     schemaVersion,
   });
 
+  let result = await send();
+
+  /**
+   * The one refusal a submission may be retried on, and no other.
+   *
+   * Retrying a submission is normally wrong: an attempt that succeeded but
+   * whose answer was lost comes back as "you have already submitted", which
+   * tells a cadet their feedback failed when it is already filed. That is why
+   * the retry in `data-source.js` is scoped to reads.
+   *
+   * This refusal is different in kind. The script fails to take its lock
+   * *before* it writes anything, so there is provably nothing to duplicate —
+   * pinned from the server side by "a submission refused for a busy lock writes
+   * absolutely nothing" in `tests/proxy/load.test.mjs`, which is what licenses
+   * this. Without it the cadet is simply told to try again, and forty-five
+   * people retrying by hand at the end of a drill night is the same stampede
+   * that caused the refusal, arriving a second time.
+   *
+   * Once, not until it works. Every attempt holds a simultaneous-execution slot
+   * for as long as it waits for the lock, so a persistent retry would spend the
+   * scarce thing to get the scarce thing. Jittered, because the whole flight
+   * was refused at the same moment and would otherwise come back at the same
+   * moment.
+   */
+  if (result && result.ok !== true && BUSY.test(result.error || '')) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, BUSY_RETRY_MS + Math.random() * BUSY_RETRY_MS);
+    });
+    result = await send();
+  }
+
   if (!result || result.ok !== true) {
-    throw new Error(result?.error || 'The submission was refused.');
+    const err = new Error(result?.error || 'The submission was refused.');
+    // Marked for what it is, even though nothing retries it again: a refusal
+    // the detachment could fix by spreading submissions out reads very
+    // differently from one the cadet has to act on.
+    throw BUSY.test(result?.error || '') ? transient(err) : err;
   }
   return { id: result.responseId, submittedAt: result.submittedAt };
 }

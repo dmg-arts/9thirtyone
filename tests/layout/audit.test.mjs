@@ -314,6 +314,23 @@ for (const event of ['uncaughtException', 'unhandledRejection']) {
   });
 }
 
+/**
+ * How many cadets the seeded detachment holds.
+ *
+ * Eight by default, which is what every screen here has always been audited
+ * against. A real detachment is closer to fifty, and the checks most likely to
+ * find something at that size are the ones that look at rows of controls:
+ * `controls-overlap` compares every visible control against every other, and
+ * `small-target` measures tap targets at phone width. A roster table with one
+ * button per row is exactly the case eight rows cannot produce.
+ *
+ *     AUDIT_CADETS=45 npm run test:layout
+ *
+ * Left at eight for the default run so the normal loop stays the length it was;
+ * the big one is for before a beta, not for every commit.
+ */
+const CADET_COUNT = Math.max(1, Number(process.env.AUDIT_CADETS) || 8);
+
 /** Completes setup and seeds a detachment with enough data for every screen. */
 async function seed(page) {
   await page.goto(BASE, { waitUntil: 'networkidle' });
@@ -329,7 +346,7 @@ async function seed(page) {
   await page.click('.wizard .btn--lg');
   await page.waitForSelector('.role-grid', { timeout: 12000 });
 
-  await page.evaluate(async () => {
+  await page.evaluate(async ([count]) => {
     const a = await import('/js/auth.js');
     const m = await import('/js/storage/index.js');
     const c = await import('/js/config.js');
@@ -342,7 +359,16 @@ async function seed(page) {
       ['jo.ellis@gmail.com', 'Ellis, Jo'], ['kim.ford@gmail.com', 'Ford, Kim'],
       ['ade.grant@gmail.com', 'Grant, Ade'], ['rae.hall@gmail.com', 'Hall, Rae'],
     ];
-    for (const [email, n] of cadets) {
+    // Beyond the named eight, generated — past this point the names only have to
+    // differ and be long enough to fill a row.
+    const SURNAMES = ['Ibarra', 'Jensen', 'Kowalski', 'Lindqvist', 'Mbeki', 'Novak',
+      'Oyelaran', 'Petrov', 'Quinn', 'Rasmussen', 'Silva', 'Tanaka', 'Ueda',
+      'Vasquez', 'Whitfield', 'Xu', 'Yamamoto', 'Zielinski'];
+    for (let i = cadets.length; i < count; i++) {
+      const surname = SURNAMES[i % SURNAMES.length];
+      cadets.push([`cadet${i}.${surname.toLowerCase()}@gmail.com`, `${surname}, Cadet${i}`]);
+    }
+    for (const [email, n] of cadets.slice(0, count)) {
       await a.createAccount({ email, name: n, roles: ['student'], asClass: 'AS200' });
     }
     // A long name, because names are the thing that breaks a row.
@@ -395,7 +421,7 @@ async function seed(page) {
     for (const [email] of cadets.slice(0, 7)) {
       await m.db.addReceipt('req_demo', (await a.findByEmail(email)).username);
     }
-  });
+  }, [CADET_COUNT]);
 }
 
 /** Every screen worth looking at, and how to get there. */
@@ -418,6 +444,9 @@ const SCREENS = [
   { name: 'setup', path: '/setup?rerun=1', settle: 1200 },
   { name: 'join', path: '/join', settle: 1200 },
 ];
+
+console.log(`  auditing a detachment of ${CADET_COUNT} cadets`
+  + `${CADET_COUNT === 8 ? '' : ' (AUDIT_CADETS)'}`);
 
 for (const viewport of WIDTHS) {
   for (const theme of THEMES) {

@@ -1,6 +1,6 @@
 {
   "name": "nine-thirty-one",
-  "version": "1.0.11-beta.1",
+  "version": "1.0.12-beta.1",
   "private": true,
   "description": "Cadet and cadre feedback for AFROTC detachments. Runs from a folder of static files with no build step.",
   "license": "Apache-2.0",
@@ -14,8 +14,9 @@
     "test:drive": "node tests/e2e/run.mjs tests/e2e/drive.test.mjs",
     "icons": "node tools/make_icons.mjs",
     "test:memory": "node tests/e2e/run.mjs tests/memory/leaks.test.mjs",
+    "test:volume": "node tests/e2e/run.mjs tests/e2e/volume.test.mjs",
     "bench": "node tools/bench/profile.mjs",
-    "test:proxy": "node tests/proxy/behaviour.test.mjs"
+    "test:proxy": "node tests/proxy/behaviour.test.mjs && node tests/proxy/load.test.mjs"
   },
   "devDependencies": {
     "playwright": "^1.62.1"

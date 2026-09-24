@@ -12,7 +12,7 @@ shots/
 !tools/tuning/**/*.jsonl
 
 # Screens by perspective: a few dozen images, regenerated on demand and stale
-# the moment a view changes. The five PDFs in docs/ are committed; these are not.
+# the moment a view changes. The six PDFs in docs/ are committed; these are not.
 docs/screens/
 
 # Machine-local tool permissions. .claude/settings.json is shared; this is not.

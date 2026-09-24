@@ -98,8 +98,27 @@ export async function connectionStatus() {
  */
 let cached = null;
 
+/**
+ * A bundle fetched during sign-in, waiting for the session that will claim it.
+ *
+ * `resolveIdentity` fetches a cadet's bundle to find out who they are, and that
+ * bundle is everything the feedback list is about to ask for. It could not
+ * simply be cached: `startSession` fires IDENTITY_CHANGED immediately
+ * afterwards, which clears `cached` by design, so the fetch was thrown away and
+ * repeated one screen later — two round trips where the detachment can afford
+ * one.
+ *
+ * Held beside the cache rather than in it, tagged with the email it describes,
+ * and adopted only when the signed-in person matches. That keeps the guarantee
+ * the IDENTITY_CHANGED listener exists for — nobody is ever served a bundle
+ * belonging to someone else — while letting the one bundle that *is* theirs
+ * survive the event.
+ */
+let carried = null;
+
 export function invalidateStudentData() {
   cached = null;
+  carried = null;
 }
 
 // The bundle belongs to one person. A shared office laptop signs one cadre
@@ -111,6 +130,17 @@ if (typeof window !== 'undefined') {
 
 async function loadBundle() {
   if (cached) return cached;
+
+  // Claimed by email, so a bundle fetched for one person can never be handed to
+  // the next one to sign in on a shared device.
+  const me = String(currentUser()?.email || '').trim().toLowerCase();
+  if (carried && me && carried.email === me) {
+    cached = carried.bundle;
+    carried = null;
+    return cached;
+  }
+  carried = null;
+
   const token = currentIdToken();
   if (!token) throw new Error('Your sign-in has expired. Sign in again.');
   cached = await fetchBundle(connection.get().proxyUrl, token);
@@ -353,15 +383,36 @@ export async function resolveIdentity(email, idToken, { onSlow = null } = {}) {
     }
   };
 
+  /**
+   * The cadet route first, because most of a detachment is cadets.
+   *
+   * Neither action serves everyone — `roster` is staff-only and `bundle` is
+   * student-only — so whichever is tried first, the other group spends a
+   * refused round trip finding that out. The question is only which group pays
+   * it, and at a real detachment that is forty-five cadets against five staff.
+   *
+   * It is not a free call. Every refusal is an Apps Script execution, taken
+   * from a pool of thirty simultaneous ones, at the exact moment a flight is
+   * signing in together — and the roster is read and parsed before the refusal
+   * is decided, so the cheap-looking one is not cheap.
+   *
+   * Staff still pay it, once per sign-in. That is the trade, and it is the
+   * right way round.
+   */
   try {
-    return match(await once(fetchRoster));
+    const bundle = await once(fetchBundle);
+    const found = bundle?.account || null;
+    // Everything the feedback list is about to ask for, already in hand. See
+    // `carried` above for why it cannot simply go in the cache from here.
+    if (found) carried = { email: target, bundle };
+    return found;
   } catch (err) {
-    // "Not on the roster" is a real answer, not a reason to try the cadet route:
-    // retrying would turn one honest refusal into a second, less clear one.
-    // Only a refusal of the *action* means "this may be a cadet".
+    // "Not on the roster" is a real answer, not a reason to try the staff
+    // route: retrying would turn one honest refusal into a second, less clear
+    // one. Only a refusal of the *action* means "this may be staff".
     if (err.transient) throw err;
     if (/not on this detachment|deactivated/i.test(err.message)) throw err;
-    return (await once(fetchBundle))?.account || null;
+    return match(await once(fetchRoster));
   }
 }
 

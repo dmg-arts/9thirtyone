@@ -12,9 +12,9 @@ npm install                           # once, for the browser suite
 npm test                              # both
 ```
 
-`npm test` runs the unit suites, the proxy behaviour suite, then the browser ones
-— app, Drive, memory and the layout audit — against one server it starts and stops
-itself.
+`npm test` runs the unit suites, the two proxy suites, then the browser ones —
+app, Drive, volume, memory and the layout audit — against one server it starts
+and stops itself.
 
 Four of the unit suites check things that are not application logic, and are worth
 naming because they are easy to overlook when adding a test:
@@ -34,6 +34,35 @@ leave one running:
 python3 serve.py --port 8123 --no-open &
 node tests/e2e/app.test.mjs      # the app, on the local backend
 node tests/e2e/drive.test.mjs    # the Google Drive path, against a fake Drive
+```
+
+### The volume suite
+
+Every other browser suite runs against eight cadets. `tests/e2e/volume.test.mjs`
+seeds five staff and forty-five, which is Det 752, and asks what the app
+**spends** rather than whether it works.
+
+```bash
+npm run test:volume
+```
+
+It counts round trips, not seconds. In proxy mode every read and every
+submission is an Apps Script execution, and Apps Script allows thirty of them at
+once across the whole account — so the number that decides whether a drill night
+works is executions per cadet, which is a count and cannot flake. Timing it in a
+headless browser against a stubbed server would be timing the stub.
+
+`tests/proxy/load.test.mjs` is the same question from the other side: what one
+execution costs the server, including how much Drive work it does while holding
+the script lock that every submission in the detachment queues behind. Together
+they bound the evening. Neither reproduces real contention, and neither claims
+to — see the note at the end of that file for what still needs a live rehearsal.
+
+The layout audit can be pointed at the same size, which is where a roster table
+with one button per row gets interesting:
+
+```bash
+AUDIT_CADETS=45 npm run test:layout
 ```
 
 ### The Drive suite

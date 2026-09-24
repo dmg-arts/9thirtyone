@@ -404,3 +404,28 @@ export function select(options, { value = '', name = null, onchange = null, cls 
   node.value = value;
   return node;
 }
+
+/**
+ * Delays a call until the caller stops making it.
+ *
+ * Written for the Analysis filters. Typing into a search box fires `input` per
+ * keystroke, and the redraw behind it is not cheap: it re-screens every text
+ * answer for safety terms, rebuilds the word and phrase frequencies, and walks
+ * up to twenty-five requests reading receipts — which in proxy mode is
+ * twenty-five round trips to Apps Script, per character. On a detachment-sized
+ * dataset "AS200" was a hundred and twenty-five requests nobody asked for, and
+ * the results for the first four letters were thrown away on arrival.
+ *
+ * The trailing edge is the one that matters here: what somebody wants is the
+ * answer for what they finished typing, not for its first letter.
+ *
+ * @param {Function} fn
+ * @param {number} ms  quiet period before the call goes through
+ */
+export function debounce(fn, ms = 250) {
+  let timer = null;
+  return (...args) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { timer = null; fn(...args); }, ms);
+  };
+}

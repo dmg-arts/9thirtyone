@@ -13,7 +13,7 @@
  * Bump CACHE_VERSION on release to roll users onto new assets.
  */
 
-const CACHE_VERSION = 'v45';
+const CACHE_VERSION = 'v46';
 const CACHE_NAME = `nine31-shell-${CACHE_VERSION}`;
 
 const SHELL = [
@@ -32,7 +32,9 @@ const SHELL = [
   './js/audit.js',
   './js/auth.js',
   './js/config.js',
+  './js/diagnostics.js',
   './js/export-anon.js',
+  './js/failures.js',
   './js/forms.js',
   './js/google-identity.js',
   './js/join.js',

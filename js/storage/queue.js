@@ -16,6 +16,7 @@
  */
 
 import { idb, openDb, STORE_QUEUE } from './idb.js';
+import { recordFailure } from '../failures.js';
 
 const STORE = STORE_QUEUE;
 
@@ -176,9 +177,18 @@ export async function drain(adapter) {
         sent++;
       } catch (err) {
         lastError = err;
-        if (isTransient(err)) break; // still offline — try again later
+        if (isTransient(err)) {
+          recordFailure('queue', 'transient');
+          break; // still offline — try again later
+        }
         // A permanent rejection would block the queue forever. Drop it and
         // surface it, rather than wedging every later write behind it.
+        //
+        // Counted, because this is the one path in the app that *discards*
+        // somebody's write. It is visible in the moment as a toast and invisible
+        // afterwards, which is exactly the kind of thing a maintainer should be
+        // able to read off a device weeks later.
+        recordFailure('queue', 'dropped');
         await idb.delete(STORE, item.id);
         overlay.delete(item.path);
         deleted.delete(item.path);

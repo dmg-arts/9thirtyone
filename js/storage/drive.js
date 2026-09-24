@@ -19,6 +19,7 @@
  */
 
 import { loadGis as loadSharedGis } from '../google-identity.js';
+import { recordFailure } from '../failures.js';
 
 /**
  * The narrowest scope that does the job.
@@ -298,6 +299,11 @@ async function upload(path, method, body, contentType = 'application/json') {
 }
 
 async function driveError(res) {
+  // The status is the only part of this worth keeping: the message that follows
+  // names the folder, and a count of 403s is what says "this install cannot
+  // write" to somebody who cannot see the install.
+  recordFailure('drive', res.status);
+
   let message = `Drive request failed (${res.status})`;
   try {
     const body = await res.json();

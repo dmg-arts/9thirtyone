@@ -619,7 +619,23 @@ async function tabDatabase(host, { panel } = {}) {
           'An anonymised export carries the feedback without the roster, the respondents, '
           + 'receipt names or the detachment\'s name, and rounds timestamps to the month. '
           + 'It is the version to keep off-site, and the only one appropriate to share.')
-        : null),
+        : null,
+
+      // Said here because this is where somebody looks for "a file I can send".
+      // The file itself lives in Settings, which is reachable signed out — and
+      // somebody who cannot sign in is exactly who most needs to send one. In
+      // proxy mode the buttons above are absent, so without this the card is a
+      // heading and a paragraph about something you cannot do.
+      el('p', { class: 'field__hint' },
+        'If you are sending something to whoever maintains this app, it is ',
+        el('strong', {}, 'Settings → Download diagnostics'),
+        ' you want, not a backup. That file describes how this installation is '
+        + 'behaving — versions, timings, what has failed — and contains no roster '
+        + 'and no feedback at all.',
+        el('span', { style: { display: 'block', marginTop: 'var(--sp-2)' } },
+          el('button', {
+            type: 'button', class: 'btn btn--sm', onclick: () => navigate('/settings'),
+          }, icon('settings'), 'Open Settings')))),
 
     canDoMaintenance() ? null : notice('info', 'Maintenance runs from the folder owner\'s device',
       el('p', {}, 'Backup, restore and wipe act on the whole folder, and this detachment routes '

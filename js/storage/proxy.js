@@ -29,6 +29,7 @@
  */
 
 import { LS } from '../config.js';
+import { recordFailure } from '../failures.js';
 
 /** Google's own redirect chain is slow on a bad campus connection. */
 const TIMEOUT_MS = 30000;
@@ -174,6 +175,7 @@ async function postJson(url, payload, { timeoutMs = TIMEOUT_MS } = {}) {
     });
 
     if (!response.ok) {
+      recordFailure('proxy', response.status);
       const err = new Error(`The submission service answered ${response.status}. `
         + 'Its deployment may need updating.');
       // 5xx is Apps Script having a bad moment, which a second attempt often
@@ -189,16 +191,23 @@ async function postJson(url, payload, { timeoutMs = TIMEOUT_MS } = {}) {
     } catch {
       // Apps Script serves a sign-in page when a deployment is set to anything
       // other than "anyone", which is the single most common misconfiguration.
+      // Counted under its own name because it is a setup fault, not an outage,
+      // and the two want different advice.
+      recordFailure('proxy', 'sign-in-page');
       throw new Error('The submission service returned a sign-in page instead of an answer. '
         + 'Its deployment access is probably not set to "Anyone".');
     }
   } catch (err) {
     if (err.name === 'AbortError') {
+      recordFailure('proxy', 'timeout');
       throw transient(new Error(
         'The submission service did not answer in time. Check your connection.'));
     }
     // fetch rejects with a TypeError when the request never reached anybody.
-    if (err instanceof TypeError) throw transient(err);
+    if (err instanceof TypeError) {
+      recordFailure('proxy', 'unreachable');
+      throw transient(err);
+    }
     throw err;
   } finally {
     clearTimeout(timer);

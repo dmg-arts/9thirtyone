@@ -3066,6 +3066,91 @@ await step('every route renders without throwing', async () => {
   if (broken.length) throw new Error(broken.join('; '));
 });
 
+/* ---------- the file a detachment sends back ---------- */
+
+/**
+ * The diagnostics download, checked the only way that means anything.
+ *
+ * A detachment's install runs on its own Drive and its own deployment, so the
+ * one channel back is a file somebody attaches to an email. It has to be safe
+ * enough that a cadre member can send it without thinking, which means the test
+ * cannot be a list of fields — a field-by-field assertion only proves the fields
+ * somebody thought of are clean, and the previous version of this file leaked
+ * the detachment name, the Drive folder id and the proxy URL precisely because
+ * nobody was checking the ones they had not thought of.
+ *
+ * So this seeds a detachment with known strings and then **searches the
+ * serialised text for them**. Anything that arrives by a route nobody predicted
+ * still gets caught, because the check does not care how it got there.
+ */
+await step('the diagnostics file contains nothing that identifies anybody', async () => {
+  const result = await page.evaluate(async () => {
+    const state = await import('/js/state.js');
+    const before = state.connection.get();
+
+    // Read while still in direct mode: setting a proxy URL below routes roster
+    // reads through the proxy, and the point of this list is the real names this
+    // suite has been seeding all along.
+    const roster = await (await import('/js/data-source.js')).loadRoster();
+    const people = roster.flatMap((a) => [a.email, a.name, a.username]).filter(Boolean);
+
+    // Distinctive, so a hit is unambiguous rather than a coincidence.
+    const secrets = {
+      orgName: 'Detachment Kilo Nine Three One',
+      folderId: 'FOLDERID_zzq7x4vunique',
+      folderName: 'Kilo Nine Three One Records',
+      folderUrl: 'https://drive.google.com/drive/folders/FOLDERID_zzq7x4vunique',
+      proxyUrl: 'https://script.google.com/macros/s/AKfycbUNIQUEDEPLOYMENT9931/exec',
+    };
+    // Answered here rather than reached: the URL above is deliberately
+    // realistic, and a real request to script.google.com would both fail slowly
+    // and put a console error in this suite's error list.
+    const realFetch = window.fetch;
+    window.fetch = async (url, opts) => {
+      if (String(url).includes('script.google.com')) {
+        return new Response(JSON.stringify({
+          ok: true, service: 'nine31-proxy', version: '1.1.0', configured: true,
+        }), { status: 200 });
+      }
+      return realFetch(url, opts);
+    };
+    state.connection.set(secrets);
+
+    try {
+      const { buildDiagnostics } = await import('/js/diagnostics.js');
+      const text = JSON.stringify(await buildDiagnostics(), null, 2);
+
+      const auth = await import('/js/auth.js');
+
+      return {
+        bytes: text.length,
+        leaked: [
+          ...Object.entries(secrets)
+            .filter(([, value]) => text.includes(value))
+            .map(([key]) => key),
+          ...people.filter((p) => text.includes(p)).map((p) => `roster:${p}`),
+        ],
+        // No timestamp finer than a month may appear anywhere.
+        times: (text.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/g) || []).slice(0, 3),
+        hasSignal: /"appVersion"/.test(text) && /"shellCaches"/.test(text),
+        signedIn: Boolean(auth.currentUser?.()),
+      };
+    } finally {
+      window.fetch = realFetch;
+      state.connection.set(before);
+    }
+  });
+
+  if (result.leaked.length) {
+    throw new Error(`the diagnostics file carried: ${result.leaked.join(', ')}`);
+  }
+  if (result.times.length) {
+    throw new Error(`a precise timestamp reached the file: ${result.times.join(', ')}`);
+  }
+  if (!result.hasSignal) throw new Error('the file carries none of the technical facts it exists for');
+  console.log(`       diagnostics: ${(result.bytes / 1024).toFixed(1)} KB, nothing identifying`);
+});
+
 await browser.close();
 console.log('\n' + (errors.length ? `${errors.length} problem(s):` : 'No runtime errors.'));
 for (const e of [...new Set(errors)]) console.log('  - ' + e);

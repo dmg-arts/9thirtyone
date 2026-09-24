@@ -14,7 +14,7 @@ import { hasAdmin, signOut, currentUser } from '../auth.js';
 import { db, adapters, parseFolderId, backendLabel } from '../storage/index.js';
 import { checkProxy } from '../storage/proxy.js';
 import { connectionStatus } from '../data-source.js';
-import { proxyTimings, proxyTimingSummary } from '../storage/proxy.js';
+import { buildDiagnostics, diagnosticsFilename } from '../diagnostics.js';
 import { navigate } from '../router.js';
 import { resetSetupDraft } from './setup.js';
 
@@ -576,19 +576,27 @@ function aboutSection() {
     install,
     updateButton(),
     el('div', { class: 'row row--wrap' },
+      // Deliberately here, in Settings, rather than beside the backup buttons in
+      // the Database tab. This screen is reachable *signed out*, and somebody who
+      // cannot sign in is exactly who most needs to send a diagnostic.
       el('button', {
         type: 'button', class: 'btn btn--sm',
-        onclick: () => download('nine31-diagnostics.json', JSON.stringify({
-          app: APP,
-          connection: { ...connection.get(), clientId: connection.get().clientId ? '(set)' : '' },
-          settings: settings.get(),
-          // Durations and action names, nothing that identifies anybody — so this
-          // file is no less safe to send than it was before it carried them.
-          proxy: { summary: proxyTimingSummary(), roundTrips: proxyTimings() },
-          userAgent: navigator.userAgent,
-          online: navigator.onLine,
-          generatedAt: new Date().toISOString(),
-        }, null, 2)),
+        onclick: async (e) => {
+          const button = e.currentTarget;
+          button.disabled = true;
+          try {
+            // It reads the folder and pings the submission server, so it is not
+            // instant. Everything it gathers is optional — see diagnostics.js —
+            // so a section that fails says so rather than failing the download.
+            const report = await buildDiagnostics();
+            download(diagnosticsFilename(), JSON.stringify(report, null, 2));
+            toast('Diagnostics downloaded. It contains no roster and no feedback.', 'ok', 5000);
+          } catch (err) {
+            toast(`Could not build diagnostics: ${err.message}`, 'danger', 7000);
+          } finally {
+            button.disabled = false;
+          }
+        },
       }, icon('download'), 'Download diagnostics'),
       // Google requires the privacy policy to be reachable from the product,
       // not only from a listing. This is the durable place for it.

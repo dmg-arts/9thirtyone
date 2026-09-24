@@ -29,7 +29,7 @@ export const GOOGLE_CLIENT_ID =
 export const APP = {
   name: '9ThirtyOne',
   shortName: '9ThirtyOne',
-  version: '1.0.12-beta.1',
+  version: '1.0.13-beta.1',
   /**
    * Bump when the on-disk record shape changes, and add a matching entry to
    * MIGRATIONS in js/migrations.js. The runner upgrades a detachment's existing
@@ -49,6 +49,9 @@ export const LS = {
   /* Round-trip times for the submission server, most recent last. Device-local
      measurements, kept so the delay can be read off rather than timed by hand. */
   proxyTimings: 'nine31.proxy.timings.v1',
+  /* How often each kind of failure has happened, by category. Counts and months
+     only — see failures.js for why it is not a log of events. */
+  failures: 'nine31.failures.v1',
 };
 
 /**

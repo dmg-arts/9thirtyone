@@ -635,6 +635,9 @@ js/
   spaces.js             how the restricted spaces are described to people
   session.js            the signed-in session and the token proving it
   export-anon.js        the anonymised backup export
+  diagnostics.js        the technical report a detachment sends back; carries no
+                        roster, no feedback and no time finer than a month
+  failures.js           counts what has gone wrong, by category, never by event
   audit.js              the activity log, append-only from the app's side
   migrations.js         forward-only schema upgrades, one entry per version
   analysis/

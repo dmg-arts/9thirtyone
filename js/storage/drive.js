@@ -20,6 +20,7 @@
 
 import { loadGis as loadSharedGis } from '../google-identity.js';
 import { recordFailure } from '../failures.js';
+import { connection } from '../state.js';
 
 /**
  * The narrowest scope that does the job.
@@ -263,9 +264,31 @@ export const driveAdapter = {
  * Drive REST plumbing
  * ------------------------------------------------------------------ */
 
+/**
+ * A token for a request nobody explicitly asked for.
+ *
+ * Escalating to Google's consent popup is right when someone has just asked to
+ * connect a folder, and wrong for every read that happens on its own. In proxy
+ * mode this device has no Drive grant and is never meant to get one, so a
+ * background read that escalated put the consent dialog in front of a cadre
+ * member who had only opened a tab — the one dialog the whole proxy
+ * architecture exists to spare them.
+ *
+ * Explicit paths are unaffected: `connect()`, `chooseFolder()` and `createRoot()`
+ * call `authorize({ interactive: true })` themselves and cache the token, so by
+ * the time anything reaches here there is one to find.
+ */
+async function backgroundToken() {
+  const silent = await driveAdapter.authorize({ interactive: false });
+  if (silent) return silent;
+  if (connection.get().proxyUrl) {
+    throw new Error('This device reads through the submission server, so it has no folder access of its own.');
+  }
+  return driveAdapter.authorize({ interactive: true });
+}
+
 async function api(path, options = {}, as = 'json') {
-  const token = await driveAdapter.authorize({ interactive: false })
-    ?? await driveAdapter.authorize({ interactive: true });
+  const token = await backgroundToken();
   const res = await fetch(`${API}${path}`, {
     ...options,
     headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) },
@@ -273,7 +296,9 @@ async function api(path, options = {}, as = 'json') {
 
   if (res.status === 401) {
     sessionStorage.removeItem(TOKEN_KEY);
-    const fresh = await driveAdapter.authorize({ interactive: true });
+    // Same rule on the retry: an expired token in proxy mode is not a reason to
+    // ask a cadre member for Drive access they were never supposed to grant.
+    const fresh = await backgroundToken();
     const retry = await fetch(`${API}${path}`, {
       ...options,
       headers: { Authorization: `Bearer ${fresh}`, ...(options.headers || {}) },
@@ -286,8 +311,7 @@ async function api(path, options = {}, as = 'json') {
 }
 
 async function upload(path, method, body, contentType = 'application/json') {
-  const token = await driveAdapter.authorize({ interactive: false })
-    ?? await driveAdapter.authorize({ interactive: true });
+  const token = await backgroundToken();
   const base = path.startsWith('/files?') || path.includes('uploadType=') ? UPLOAD : API;
   const res = await fetch(`${base}${path}`, {
     method,

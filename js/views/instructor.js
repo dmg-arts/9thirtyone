@@ -178,7 +178,16 @@ export const renderCadre = (root, options) =>
 async function tabRequests(host, { panel, spaces } = {}) {
   const view = panel || PANELS.instructor;
   const shown = spaces || view.spaces;
-  const [catalog, counts] = await Promise.all([loadCatalog(), db.responseCounts()]);
+  const [catalog, counts] = await Promise.all([
+    loadCatalog(),
+    // In proxy mode this device has no storage adapter it may use. Calling
+    // db.responseCounts() here reached the Drive adapter, whose api() falls
+    // back to authorize({ interactive: true }) — raising the Google consent
+    // popup that proxy mode exists to spare cadre, on the default tab of
+    // their own panel. The counts are the server's business here, and the
+    // same fork is made in tabDatabase below.
+    canDoMaintenance() ? db.responseCounts() : null,
+  ]);
   // The proxy already refused anything this account cannot read. This narrows
   // what is left to the space the person is actually looking at.
   const requests = catalog.requests.filter(inSpaces(shown));
@@ -215,7 +224,7 @@ async function tabRequests(host, { panel, spaces } = {}) {
 
     const rows = el('div', { class: 'list' });
     for (const request of visible) {
-      const count = counts.byRequest?.[request.id] || 0;
+      const count = counts ? (counts.byRequest?.[request.id] || 0) : null;
       const status = REQUEST_STATUS[request.status] || REQUEST_STATUS.draft;
       const audience = request.assignedUsernames?.length
         ? `${pluralize(request.assignedUsernames.length, 'student')} selected`
@@ -241,7 +250,7 @@ async function tabRequests(host, { panel, spaces } = {}) {
             request.dueAt ? `Due ${fmtDate(request.dueAt)}` : 'No due date',
             ` \u00b7 created ${fmtRelative(request.createdAt)}`)),
         el('span', { class: 'list__aside' },
-          badge(pluralize(count, 'response'), count ? 'info' : 'neutral', 'inbox'),
+          count === null ? null : badge(pluralize(count, 'response'), count ? 'info' : 'neutral', 'inbox'),
           badge(status.label, status.tone),
           icon('chevronRight', { cls: 'list__chev' }))));
     }

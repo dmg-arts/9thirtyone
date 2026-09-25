@@ -116,16 +116,85 @@ let cached = null;
  */
 let carried = null;
 
+/* ------------------------------------------------------------------ *
+ * The proxy read cache
+ *
+ * Direct mode has had a 20-second cache since the beginning, in
+ * `js/storage/index.js` — but it is keyed by Drive document path and sits
+ * *inside* `db`, so proxy mode never reaches it: every read below returns from
+ * its `usingProxy()` branch before `db` is touched. The result was that a cadre
+ * member editing one feedback request paid five sequential Apps Script
+ * executions, three of them the identical catalog.
+ *
+ * So the same idea, one level up, where the fork already lives. Same 20-second
+ * window, and the same rule that a write clears what it could have changed.
+ *
+ * Everything is cleared on IDENTITY_CHANGED alongside the bundle. `people` is
+ * additionally keyed by username, because it is narrowed per account and a
+ * shared office laptop signs one person out and the next one in without ever
+ * reloading the page.
+ * ------------------------------------------------------------------ */
+
+const PROXY_CACHE_MS = 20_000;
+const proxyCache = new Map();
+
+/** Serves a proxy read from cache, or fetches and remembers it. */
+async function viaCache(key, fetcher) {
+  const hit = proxyCache.get(key);
+  if (hit && Date.now() - hit.at < PROXY_CACHE_MS) return hit.value;
+  const value = await fetcher();
+  proxyCache.set(key, { at: Date.now(), value });
+  return value;
+}
+
+/**
+ * Drops cached reads by action name. No argument drops everything.
+ *
+ * Written as one table below rather than as `forget()` calls scattered through
+ * the writes, so that what a write invalidates can be read in one place and
+ * checked against what it changes.
+ */
+function forget(...actions) {
+  if (!actions.length) return proxyCache.clear();
+  for (const key of [...proxyCache.keys()]) {
+    if (actions.some((a) => key === a || key.startsWith(`${a}:`))) proxyCache.delete(key);
+  }
+  return undefined;
+}
+
+/**
+ * What each kind of write can change.
+ *
+ * Deliberately generous. A stale read is a real bug and a wasted round trip is
+ * only a slow screen, so where it was not obvious the entry clears more rather
+ * than less — `overview` counts forms, requests and responses, so every write
+ * touches it.
+ */
+const INVALIDATES = {
+  // A form or request changes the catalog, the counts, and the By-instructor
+  // view, which is built out of requests and forms.
+  catalogWrite: ['catalog', 'overview', 'people'],
+  // A deleted response changes the response sets and the counts.
+  responseWrite: ['allResponses', 'responses', 'overview', 'people'],
+  // An account change moves people between the roster and the tiers.
+  rosterWrite: ['roster', 'people', 'overview'],
+  auditWrite: ['audit'],
+};
+
 export function invalidateStudentData() {
   cached = null;
   carried = null;
+  // A submission changes the response sets and the counts. It is nearly always
+  // a cadet's own device, where nothing is reading those — but staff panels and
+  // the cadet list can share a browser, and a stale count is cheap to avoid.
+  forget(...INVALIDATES.responseWrite);
 }
 
 // The bundle belongs to one person. A shared office laptop signs one cadre
 // member out and the next one in without ever reloading the page, so holding it
 // past a sign-in would show them somebody else's feedback.
 if (typeof window !== 'undefined') {
-  window.addEventListener(IDENTITY_CHANGED, () => { cached = null; });
+  window.addEventListener(IDENTITY_CHANGED, () => { cached = null; forget(); });
 }
 
 async function loadBundle() {
@@ -234,7 +303,7 @@ const proxyUrl = () => connection.get().proxyUrl;
 
 /** Forms and requests together, so a panel opens in one round trip. */
 export async function loadCatalog() {
-  if (usingProxy()) return fetchCatalog(proxyUrl(), token());
+  if (usingProxy()) return viaCache('catalog', () => fetchCatalog(proxyUrl(), token()));
   const [forms, requests] = await Promise.all([db.listForms(), db.listRequests()]);
   return { forms, requests };
 }
@@ -266,7 +335,9 @@ export async function getForm(formId) {
 
 /** Responses and receipts for one request. */
 export async function loadResponsesFor(requestId) {
-  if (usingProxy()) return fetchResponses(proxyUrl(), token(), requestId);
+  if (usingProxy()) {
+    return viaCache(`responses:${requestId}`, () => fetchResponses(proxyUrl(), token(), requestId));
+  }
   const [responses, receipts] = await Promise.all([
     db.listResponses(requestId),
     db.listReceipts(requestId),
@@ -276,15 +347,17 @@ export async function loadResponsesFor(requestId) {
 
 /** Every response, for analysis that spans forms. */
 export async function loadAllResponses() {
-  if (usingProxy()) return fetchAllResponses(proxyUrl(), token());
+  if (usingProxy()) return viaCache('allResponses', () => fetchAllResponses(proxyUrl(), token()));
   return db.listAllResponses();
 }
 
 /** Org record and headline counts, without shipping the records. */
 export async function loadOverview() {
   if (usingProxy()) {
-    const { fetchOverview } = await import('./storage/proxy.js');
-    return fetchOverview(proxyUrl(), token());
+    return viaCache('overview', async () => {
+      const { fetchOverview } = await import('./storage/proxy.js');
+      return fetchOverview(proxyUrl(), token());
+    });
   }
   return { org: await db.getOrg(), stats: await db.stats() };
 }
@@ -298,7 +371,11 @@ export async function loadOverview() {
  * means for every other read. `js/people-scope.js` says so at more length.
  */
 export async function loadPeople() {
-  if (usingProxy()) return fetchPeople(proxyUrl(), token());
+  // Keyed by account: `people` is narrowed to what this person may see, and the
+  // next person to sign in on the same laptop must never be handed it.
+  if (usingProxy()) {
+    return viaCache(`people:${currentUser()?.username || ''}`, () => fetchPeople(proxyUrl(), token()));
+  }
 
   const me = currentUser();
   const [catalog, responses, roster] = await Promise.all([
@@ -320,7 +397,7 @@ export async function loadPeople() {
 }
 
 export async function loadRoster() {
-  if (usingProxy()) return fetchRoster(proxyUrl(), token());
+  if (usingProxy()) return viaCache('roster', () => fetchRoster(proxyUrl(), token()));
   return (await db.getUsers()).users || [];
 }
 
@@ -433,8 +510,13 @@ export async function loadStudents() {
  * nobody could reproduce.
  */
 export async function loadAudit(months = 6) {
+  // Keyed by the exact window. A 12-month fetch does contain every 6-month
+  // entry, but the server buckets by month folder while a client-side cutoff
+  // would filter by timestamp, and the two disagree at a month boundary. A
+  // read that returned different rows depending on what happened to be cached
+  // is worse than the round trip it saves.
   const entries = usingProxy()
-    ? await fetchAudit(proxyUrl(), token(), months)
+    ? await viaCache(`audit:${months}`, () => fetchAudit(proxyUrl(), token(), months))
     : await recentAudit({ months });
   return entries.slice().sort((a, b) => String(b.at).localeCompare(String(a.at)));
 }
@@ -464,7 +546,10 @@ export async function loadAudit(months = 6) {
  * modes really do differ here — see saveFormViaProxy.
  */
 export async function saveForm(form, options = {}) {
-  if (usingProxy()) return saveFormViaProxy(proxyUrl(), token(), form);
+  if (usingProxy()) {
+    forget(...INVALIDATES.catalogWrite);
+    return saveFormViaProxy(proxyUrl(), token(), form);
+  }
   return db.saveForm(form, options);
 }
 
@@ -477,7 +562,10 @@ export async function saveForm(form, options = {}) {
  * field, so it has to mean something.
  */
 export async function saveRequest(request, options = {}) {
-  if (usingProxy()) return saveRequestViaProxy(proxyUrl(), token(), request);
+  if (usingProxy()) {
+    forget(...INVALIDATES.catalogWrite);
+    return saveRequestViaProxy(proxyUrl(), token(), request);
+  }
 
   const me = currentUser();
   const existing = request.id ? await db.getRequest(request.id) : null;
@@ -489,12 +577,18 @@ export async function saveRequest(request, options = {}) {
 }
 
 export async function deleteForm(formId) {
-  if (usingProxy()) return deleteFormViaProxy(proxyUrl(), token(), formId);
+  if (usingProxy()) {
+    forget(...INVALIDATES.catalogWrite);
+    return deleteFormViaProxy(proxyUrl(), token(), formId);
+  }
   return db.deleteForm(formId);
 }
 
 export async function deleteRequest(requestId) {
-  if (usingProxy()) return deleteRequestViaProxy(proxyUrl(), token(), requestId);
+  if (usingProxy()) {
+    forget(...INVALIDATES.catalogWrite, ...INVALIDATES.responseWrite);
+    return deleteRequestViaProxy(proxyUrl(), token(), requestId);
+  }
   return db.deleteRequest(requestId);
 }
 
@@ -506,13 +600,17 @@ export async function deleteRequest(requestId) {
  */
 export async function deleteResponse(requestId, responseId, reason) {
   if (usingProxy()) {
+    forget(...INVALIDATES.responseWrite);
     return deleteResponseViaProxy(proxyUrl(), token(), requestId, responseId, reason);
   }
   return db.deleteResponse(requestId, responseId);
 }
 
 export async function createAccountRecord(account) {
-  if (usingProxy()) return createAccountViaProxy(proxyUrl(), token(), account);
+  if (usingProxy()) {
+    forget(...INVALIDATES.rosterWrite);
+    return createAccountViaProxy(proxyUrl(), token(), account);
+  }
   let created = null;
   await db.updateUsers((users) => {
     if (users.some((u) => String(u.email || '').toLowerCase() === account.email)) {
@@ -525,7 +623,10 @@ export async function createAccountRecord(account) {
 }
 
 export async function updateAccountRecord(id, patch, mutate) {
-  if (usingProxy()) return updateAccountViaProxy(proxyUrl(), token(), id, patch);
+  if (usingProxy()) {
+    forget(...INVALIDATES.rosterWrite);
+    return updateAccountViaProxy(proxyUrl(), token(), id, patch);
+  }
   let result = null;
   await db.updateUsers((users) => {
     const next = mutate(users);
@@ -548,7 +649,10 @@ export async function updateAccountRecord(id, patch, mutate) {
  * Irreversible on purpose; that is what makes it worth anything.
  */
 export async function deleteAccountRecord(id) {
-  if (usingProxy()) return deleteAccountViaProxy(proxyUrl(), token(), id);
+  if (usingProxy()) {
+    forget(...INVALIDATES.rosterWrite);
+    return deleteAccountViaProxy(proxyUrl(), token(), id);
+  }
 
   const roster = await db.getUsers();
   const target = (roster.users || []).find((a) => a.id === id);
@@ -590,7 +694,10 @@ async function anonymiseInDrive(username) {
 }
 
 export async function applyRollover(moves, deactivate) {
-  if (usingProxy()) return rolloverViaProxy(proxyUrl(), token(), moves, deactivate);
+  if (usingProxy()) {
+    forget(...INVALIDATES.rosterWrite);
+    return rolloverViaProxy(proxyUrl(), token(), moves, deactivate);
+  }
   return db.updateUsers((users) => users.map((user) => {
     if (!user.roles?.includes('student')) return user;
     const to = moves[user.asClass];
@@ -602,6 +709,9 @@ export async function applyRollover(moves, deactivate) {
 
 /** Writes one audit entry. The actor comes from the token, never the client. */
 export async function writeAudit(entry) {
-  if (usingProxy()) return recordAuditViaProxy(proxyUrl(), token(), entry);
+  if (usingProxy()) {
+    forget(...INVALIDATES.auditWrite);
+    return recordAuditViaProxy(proxyUrl(), token(), entry);
+  }
   return recordAuditDirect(entry.action, entry);
 }

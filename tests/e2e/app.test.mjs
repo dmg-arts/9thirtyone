@@ -1187,6 +1187,117 @@ await step('cadre reads go to the proxy when one is configured, with the right a
   if (named.length) throw new Error('a read named a path instead of an action');
 });
 
+/**
+ * The consent popup that proxy mode exists to prevent.
+ *
+ * `api()` in `js/storage/drive.js` used to fall back to
+ * `authorize({ interactive: true })` whenever a silent token was unavailable —
+ * from *any* read, including ones nobody asked for. In proxy mode a cadre
+ * member has no Drive grant and is never meant to acquire one, so opening the
+ * default tab of their own panel put Google's permission dialog in front of
+ * them, and the tab then died on a folder their browser had never created.
+ *
+ * The testbed could not show this, because the account it runs as owns the
+ * folder and is therefore always authorised. This asserts the rule directly:
+ * in proxy mode a background read refuses, and never asks.
+ */
+await step('a background Drive read in proxy mode refuses instead of asking for consent', async () => {
+  const outcome = await page.evaluate(async () => {
+    const state = await import('/js/state.js');
+    const original = state.connection.get().proxyUrl;
+    state.connection.set({ proxyUrl: `${location.origin}/manifest.json` });
+
+    const drive = await import('/js/storage/drive.js');
+    const realAuth = drive.driveAdapter.authorize;
+    let askedInteractively = false;
+    drive.driveAdapter.authorize = async ({ interactive = true } = {}) => {
+      if (interactive) { askedInteractively = true; return 'a-token-nobody-should-have-asked-for'; }
+      return null;   // no silent grant, which is a cadre member's situation
+    };
+
+    let message = null;
+    try {
+      await drive.driveAdapter.readDoc('config/org.json');
+    } catch (err) {
+      message = err.message;
+    } finally {
+      drive.driveAdapter.authorize = realAuth;
+      state.connection.set({ proxyUrl: original || '' });
+    }
+    return { askedInteractively, message };
+  });
+
+  if (outcome.askedInteractively) {
+    throw new Error('a background read raised the Google consent popup in proxy mode');
+  }
+  if (!outcome.message) throw new Error('the read resolved rather than refusing');
+  if (!/submission server/i.test(outcome.message)) {
+    throw new Error(`refused, but not for the documented reason: ${outcome.message}`);
+  }
+});
+
+/**
+ * The proxy read cache.
+ *
+ * Direct mode has had a 20-second cache since the beginning; proxy mode reached
+ * none of it, because every read in `js/data-source.js` returns from its
+ * `usingProxy()` branch before `db` is touched. A cadre member editing one
+ * feedback request paid five sequential Apps Script executions, three of them
+ * the identical catalog.
+ *
+ * Both halves matter. A cache that never serves a hit is pointless; a cache
+ * that serves one after a write is a bug, and the worse of the two.
+ */
+await step('a repeated proxy read is served from cache, and a write clears it', async () => {
+  const counts = await page.evaluate(async () => {
+    const session = await import('/js/session.js');
+    const state = await import('/js/state.js');
+    const original = state.connection.get().proxyUrl;
+    state.connection.set({ proxyUrl: `${location.origin}/manifest.json` });
+
+    // Anything cached by an earlier step would make the first read look free.
+    window.dispatchEvent(new Event(session.IDENTITY_CHANGED));
+
+    let posts = 0;
+    const real = window.fetch;
+    window.fetch = async (url, opts) => {
+      posts += 1;
+      const body = JSON.parse(opts.body);
+      return new Response(JSON.stringify({
+        ok: true, catalog: { forms: [], requests: [] }, form: body.form || null,
+      }), { status: 200 });
+    };
+
+    const ds = await import('/js/data-source.js');
+    try {
+      await ds.loadCatalog();
+      const afterFirst = posts;
+      await ds.loadCatalog();
+      await ds.loadCatalog();
+      const afterRepeats = posts;
+
+      await ds.saveForm({ id: 'form_cache_probe', name: 'Probe', sections: [] });
+      const afterWrite = posts;
+      await ds.loadCatalog();
+      const afterRefetch = posts;
+
+      return { afterFirst, afterRepeats, afterWrite, afterRefetch };
+    } finally {
+      window.fetch = real;
+      state.connection.set({ proxyUrl: original || '' });
+      window.dispatchEvent(new Event(session.IDENTITY_CHANGED));
+    }
+  });
+
+  if (counts.afterFirst !== 1) throw new Error(`the first read cost ${counts.afterFirst} posts, expected 1`);
+  if (counts.afterRepeats !== 1) {
+    throw new Error(`two more reads inside the window cost ${counts.afterRepeats - 1} extra posts`);
+  }
+  if (counts.afterRefetch !== counts.afterWrite + 1) {
+    throw new Error('the catalog was served from cache after a form was saved');
+  }
+});
+
 await step('maintenance disappears once a proxy is configured', async () => {
   // The unit suite pins how canDoMaintenance is written; this pins what it does.
   // Backup, restore, import and wipe act on the whole folder, and in proxy mode

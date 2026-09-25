@@ -894,12 +894,20 @@ Ranked by what would actually hurt, not by how alarming they sound.
    own header rather than relying on the reader remembering.
 
 3. **A whole flight submitting at once queues behind one lock.** `submit` takes a
-   script-wide `LockService` lock and holds it across its Drive work — about
-   thirteen round trips, measured — so every submission in the detachment is
-   serialised. `waitLock` gives up at twenty seconds, and Apps Script allows
-   thirty *simultaneous executions* across the account, which a queue of waiting
-   submissions fills. Forty-five cadets told to submit in the same five minutes
-   is the shape that finds this.
+   script-wide `LockService` lock and holds it across its Drive work, so every
+   submission in the detachment is serialised. `waitLock` gives up at twenty
+   seconds, and Apps Script allows thirty *simultaneous executions* across the
+   account, which a queue of waiting submissions fills. Forty-five cadets told to
+   submit in the same five minutes is the shape that finds this.
+
+   **How expensive a Drive call actually is was measured on 25 Sep 2026**, from a
+   diagnostics file sent back by the testbed: roughly **two seconds fixed per
+   Apps Script invocation plus 0.4–0.6s per document read**. That is four times
+   the figure this section previously assumed, and it moved the lock from an
+   estimated one-and-a-half seconds to five or more — about three concurrent
+   submitters before the twenty-second wait runs out, not the ten to twenty-eight
+   guessed at. The same file showed `allResponses` taking 28s against a 30s
+   client timeout, and `people` timing out outright, at only 63 responses.
 
    **Partly addressed, by spending less rather than by raising the ceiling.** A
    cadet's arrival is one round trip instead of three, the connection pill no
@@ -914,10 +922,19 @@ Ranked by what would actually hurt, not by how alarming they sound.
    concurrent executions cannot be reproduced offline — the in-memory Drive says
    so in its own header — so **the remaining check is a live rehearsal**: ten to
    fifteen people submitting at once against the real deployment, once, before
-   the first drill night. Two known inefficiencies are documented and not fixed,
-   both in `Code.gs` and both needing every detachment to redeploy: a refused
-   action still reads the whole roster first, and By-instructor re-reads it once
-   per request it evaluates.
+   the first drill night.
+
+   **The two documented inefficiencies are now fixed**, in `PROXY_VERSION 1.2.0`,
+   which every detachment must redeploy to get. `Code.gs` memoises resolved
+   folders and the roster for the life of one execution, so a refusal costs one
+   roster read rather than one per request evaluated, and By-instructor dropped
+   from five Drive operations per request to two. The submit path resolves both
+   of its folder paths *before* taking the lock, which cut the critical section
+   from thirteen operations to five for every cadet after the first — the first
+   still pays for creating the folders, and `ensureFolder` deliberately stays
+   inside the lock, because two simultaneous first submissions would otherwise
+   each create a folder of the same name and the duplicate this lock exists to
+   stop would get through. `tests/proxy/load.test.mjs` asserts both numbers.
 
 4. **One hosted copy is a supply-chain target.** With per-detachment deployments,
    compromising one account reached one detachment. With a single hosted copy and

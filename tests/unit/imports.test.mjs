@@ -40,7 +40,7 @@ function walk(dir, out = []) {
 const GLOBALS = new Set([
   'console', 'window', 'document', 'navigator', 'location', 'history', 'fetch',
   'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'queueMicrotask',
-  'requestAnimationFrame', 'matchMedia', 'alert', 'confirm', 'prompt', 'atob', 'btoa',
+  'requestAnimationFrame', 'matchMedia', 'IntersectionObserver', 'alert', 'confirm', 'prompt', 'atob', 'btoa',
   'localStorage', 'sessionStorage', 'indexedDB', 'crypto', 'structuredClone',
   'Promise', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Math', 'JSON', 'Date',
   'Map', 'Set', 'WeakMap', 'RegExp', 'Error', 'TypeError', 'Symbol', 'Proxy', 'Reflect',

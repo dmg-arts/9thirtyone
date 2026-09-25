@@ -453,6 +453,65 @@ await step('typing a filter redraws when it settles, not once per letter', async
 
 /* ---------- the demo detachment, which is already this size ---------- */
 
+/**
+ * Opening Analysis costs a fixed number of receipt reads, not one per request.
+ *
+ * This is the one that protects a drill night, and the reason is not latency.
+ * Every completion card used to fetch its own receipts, up to twenty-five of
+ * them, sequentially, on every filter change. In proxy mode each of those is an
+ * Apps Script execution — and the web app runs as the folder's owner, so all
+ * five staff share **one** pool of thirty simultaneous executions with every
+ * cadet trying to submit. One instructor opening this tab could take most of
+ * that pool and hand cadets "The server is busy."
+ *
+ * So the assertion is not "it is fast". It is that the cost of opening the tab
+ * does not grow with the size of the detachment: the first few cards load, the
+ * rest wait until they are scrolled to.
+ *
+ * Counted at `db.listReceipts`, which `loadResponsesFor` calls once per card.
+ * Patched on the `db` object rather than on the module export, because that is
+ * where the call actually resolves.
+ */
+await step('opening Analysis costs a fixed number of receipt reads, whatever the size', async () => {
+  const measure = (extra) => page.evaluate(async ([n]) => {
+    const m = await import('/js/storage/index.js');
+    for (let i = 0; i < n; i++) {
+      await m.db.saveRequest({
+        id: `req_bulk_${i}`, feedbackId: `FB-BULK-${i}`, title: `Bulk request ${i}`,
+        formId: 'form_llab', asClass: '', schoolYear: '2026-2027', semester: 'Fall',
+        anonymous: true, status: 'open', assignedUsernames: [],
+      });
+    }
+
+    const real = m.db.listReceipts.bind(m.db);
+    let reads = 0;
+    m.db.listReceipts = async (id) => { reads += 1; return real(id); };
+
+    location.hash = '#/home';
+    await new Promise((r) => setTimeout(r, 150));
+    location.hash = '#/instructor?tab=analysis';
+    // Long enough for the eager cards to resolve and any runaway loop to show.
+    await new Promise((r) => setTimeout(r, 2500));
+
+    m.db.listReceipts = real;
+    const requests = (await m.db.listRequests()).length;
+    return { reads, requests };
+  }, [extra]);
+
+  const small = await measure(9);
+  const large = await measure(20);
+
+  if (small.reads === 0) throw new Error('no receipts were read at all — completion never loaded');
+  // The view caps itself at twenty-five cards, so a per-card fetch would show
+  // up as a number climbing toward twenty-five as requests are added.
+  if (large.reads > small.reads + 2) {
+    throw new Error(`receipt reads grew from ${small.reads} to ${large.reads} as requests went `
+      + `from ${small.requests} to ${large.requests} — completion is still fetching per card`);
+  }
+  console.log(`       ${small.requests} requests: ${small.reads} receipt reads · `
+    + `${large.requests} requests: ${large.reads}`);
+});
+
 await step('the demo bundle imports and reports its own size back', async () => {
   const bundle = readFileSync(new URL('../../tools/demo/demo-detachment.json', import.meta.url), 'utf8');
   const result = await page.evaluate(async ([raw]) => {

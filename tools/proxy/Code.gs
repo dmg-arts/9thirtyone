@@ -61,7 +61,7 @@
  */
 
 /** Bump when the contract with the app changes. Reported by doGet. */
-var PROXY_VERSION = '1.1.0';
+var PROXY_VERSION = '1.2.0';
 
 /** Refuse anything larger; a submission is a few KB at most. */
 var MAX_BODY_BYTES = 96 * 1024;
@@ -336,6 +336,12 @@ function doGet() {
  */
 function doPost(e) {
   try {
+    // Both memos live for exactly one execution. Apps Script may reuse a warm
+    // instance between requests, so they are cleared here rather than relying
+    // on the globals being fresh.
+    forgetFolders();
+    ROSTER_MEMO = null;
+
     var cfg = config();
     if (!cfg.folderId || !cfg.clientId) {
       return fail('This proxy has not been configured. Set FOLDER_ID and CLIENT_ID in Script Properties.');
@@ -463,6 +469,25 @@ function doPost(e) {
     // The lock is what makes "one submission per cadet" a rule rather than a
     // convention: without it two taps on a slow connection can both pass the
     // receipt check before either writes one.
+    // Resolve both folder paths *before* taking the lock.
+    //
+    // The critical section used to spend eleven to sixteen Drive calls, and
+    // almost all of them were path walking: `hasReceipt` walked to the receipts
+    // folder, then each `writeJson` walked again, all three starting from the
+    // root that `locateRequest` had already resolved the space for. At roughly
+    // half a second per call that is five to nine seconds of a lock every
+    // submitting cadet queues behind — about three of them before the twenty
+    // second wait runs out and the rest are told the server is busy.
+    //
+    // Warming the memo here moves that walking outside the lock. Note this is
+    // `findFolder` and not `ensureFolder`: creating must stay inside, because
+    // two cadets submitting first to the same request would otherwise both find
+    // nothing and both create a folder — Drive allows duplicate names — after
+    // which the receipt check reads one and the write lands in the other, and
+    // the duplicate submission this lock exists to stop gets through.
+    findFolder(root, spacePath(located.space, 'responses', requestId));
+    findFolder(root, spacePath(located.space, 'receipts', requestId));
+
     var lock = LockService.getScriptLock();
     try {
       lock.waitLock(20000);
@@ -872,7 +897,11 @@ function removeRequest(root, account, requestId) {
 }
 
 function trashFolder(folder) {
-  if (folder) folder.setTrashed(true);
+  if (!folder) return;
+  folder.setTrashed(true);
+  // A trashed folder must not be handed back by the memo for the rest of this
+  // execution — the next lookup has to see that it is gone.
+  forgetFolders();
 }
 
 /**
@@ -942,7 +971,10 @@ function withRoster(mutate, actor, describe) {
 
   try {
     var root = DriveApp.getFolderById(cfg.folderId);
-    var users = readRoster(root);
+    // Deliberately past the memo: this is a read-modify-write under a lock, and
+    // the value it writes back must be what is in the folder right now, not
+    // what this execution happened to read before the lock was taken.
+    var users = readRosterFresh(root);
     var before = JSON.parse(JSON.stringify(users));
     var result = mutate(users);
     if (result && result.error) return fail(result.error);
@@ -1357,9 +1389,20 @@ function appendAudit(root, entry, account) {
 /** Reads every JSON file in a folder, skipping the roll-up index files. */
 function readFolderDocs(root, segments) {
   var folder = findFolder(root, segments);
-  var out = [];
-  if (!folder) return out;
+  if (!folder) return [];
+  return readDocsIn(folder, segments);
+}
 
+/**
+ * The documents in a folder already in hand.
+ *
+ * Split out because `readAllResponses` is handed each request's folder by
+ * `getFolders()` and used to throw it away, passing the *name* back through
+ * `readFolderDocs` so the whole path was walked again from the root — three or
+ * four wasted Drive calls per request folder, every time.
+ */
+function readDocsIn(folder, segments) {
+  var out = [];
   var files = folder.getFiles();
   while (files.hasNext()) {
     var file = files.next();
@@ -1371,7 +1414,7 @@ function readFolderDocs(root, segments) {
       out.push(JSON.parse(file.getBlob().getDataAsString('UTF-8')));
     } catch (err) {
       // One unreadable record must not take the whole listing down.
-      console.warn('unreadable: ' + segments.join('/') + '/' + name);
+      console.warn('unreadable: ' + (segments || []).join('/') + '/' + name);
     }
   }
   return out;
@@ -1538,7 +1581,7 @@ function readAllResponses(root, account) {
     var subs = parent.getFolders();
     while (subs.hasNext()) {
       var sub = subs.next();
-      var rows = readFolderDocs(root, spacePath(spaces[s], 'responses', sub.getName()));
+      var rows = readDocsIn(sub, spacePath(spaces[s], 'responses', sub.getName()));
       for (var i = 0; i < rows.length; i++) {
         rows[i].space = spaces[s];
         out.push(rows[i]);
@@ -1548,8 +1591,33 @@ function readAllResponses(root, account) {
   return out;
 }
 
+/**
+ * The roster, read once per execution.
+ *
+ * `users.json` is the largest document in the folder and it was being read over
+ * and over inside a single request: once in the prologue to identify the
+ * caller, again for the `roster` action, and — worst — once per feedback
+ * request in `readPeople`, because `requestInPeopleScope` calls
+ * `findByUsername` for every row. Thirty requests meant thirty full reads of
+ * the same file, which is most of why By-instructor timed out.
+ *
+ * Execution-scoped like FOLDER_MEMO, and **bypassed by `withRoster`**, which
+ * re-reads under its own lock to do a read-modify-write. Serving that read from
+ * here would let one roster edit clobber another.
+ */
+var ROSTER_MEMO = null;
+
 function readRoster(root) {
+  if (ROSTER_MEMO) return ROSTER_MEMO;
   var doc = readJson(root, ['users'], 'users.json');
+  ROSTER_MEMO = (doc && doc.users) || [];
+  return ROSTER_MEMO;
+}
+
+/** Reads the roster past the memo, for the read-modify-write under the lock. */
+function readRosterFresh(root) {
+  var doc = readJson(root, ['users'], 'users.json');
+  ROSTER_MEMO = null;
   return (doc && doc.users) || [];
 }
 
@@ -1601,8 +1669,7 @@ function findByUsername(root, username) {
 }
 
 function findAccount(root, email) {
-  var doc = readJson(root, ['users'], 'users.json');
-  var users = (doc && doc.users) || [];
+  var users = readRoster(root);
   for (var i = 0; i < users.length; i++) {
     if (String(users[i].email || '').trim().toLowerCase() === email) return users[i];
   }
@@ -1685,22 +1752,54 @@ function sanitizeAnswers(answers) {
  * No caller-supplied string ever reaches Drive as a path.
  * ------------------------------------------------------------------ */
 
+/**
+ * Folders already resolved during this execution, keyed by path.
+ *
+ * Every Drive call costs roughly half a second, and `findFolder` walked from
+ * the root on each one — so reading twenty request folders paid sixty
+ * `getFoldersByName` calls purely to re-derive folders it had already held.
+ *
+ * Execution-scoped, cleared at the top of `doPost`, so nothing here outlives a
+ * single request and there is no cache to go stale between callers.
+ *
+ * **Misses are never recorded.** A folder that does not exist has to keep
+ * looking absent, or `ensureFolder` would skip creating it.
+ */
+var FOLDER_MEMO = {};
+
+function memoKey(segments) {
+  return segments.join('/');
+}
+
+/** Forgets resolved folders. Called wherever a folder is trashed. */
+function forgetFolders() {
+  FOLDER_MEMO = {};
+}
+
 function findFolder(root, segments) {
+  var key = memoKey(segments);
+  if (FOLDER_MEMO[key]) return FOLDER_MEMO[key];
+
   var current = root;
   for (var i = 0; i < segments.length; i++) {
     var children = current.getFoldersByName(segments[i]);
     if (!children.hasNext()) return null;
     current = children.next();
   }
+  FOLDER_MEMO[key] = current;
   return current;
 }
 
 function ensureFolder(root, segments) {
+  var key = memoKey(segments);
+  if (FOLDER_MEMO[key]) return FOLDER_MEMO[key];
+
   var current = root;
   for (var i = 0; i < segments.length; i++) {
     var children = current.getFoldersByName(segments[i]);
     current = children.hasNext() ? children.next() : current.createFolder(segments[i]);
   }
+  FOLDER_MEMO[key] = current;
   return current;
 }
 

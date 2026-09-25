@@ -32,6 +32,46 @@ import { summariseSentiment, wordFrequencies, phraseFrequencies, screenAll, high
 import { renderWordCloud, renderTermTable } from '../analysis/wordcloud.js';
 
 /**
+ * How many completion cards may be fetching at once.
+ *
+ * Three, not twenty-five. Every fetch is an Apps Script execution out of the
+ * thirty the whole detachment shares — cadets submitting included — so this is
+ * a courtesy budget, not a throughput setting.
+ */
+const COMPLETION_PARALLEL = 3;
+
+/**
+ * How many completion cards fetch without being scrolled to.
+ *
+ * Pure scroll-triggered loading would mean a card that happens to sit below the
+ * fold never loads at all for someone who does not scroll, and would make what
+ * the screen shows depend on the window height. The first few always load —
+ * they are what anybody looking at this section looks at first — and the tail
+ * waits. The cost of opening the tab is therefore fixed, whether the filters
+ * match three forms or three hundred.
+ */
+const COMPLETION_EAGER = 3;
+
+/**
+ * Runs `fn` once, when `node` is near the viewport.
+ *
+ * Falls back to running immediately where IntersectionObserver is missing:
+ * loading late is an optimisation, and an environment without the observer
+ * should get the whole screen rather than an empty one.
+ */
+function whenVisible(node, fn) {
+  if (typeof IntersectionObserver !== 'function') { fn(); return; }
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      observer.disconnect();
+      fn();
+    }
+  }, { rootMargin: '600px' });
+  observer.observe(node);
+}
+
+/**
  * The anchor set the responses in scope were answered on. Forms record their
  * own wording, so a range that mixes scales falls back to the first one found
  * rather than describing a score in words it was never rated with.
@@ -79,6 +119,12 @@ export async function renderAnalysis(host, { spaces = null } = {}) {
   const state = {
     from: '', to: '', asClass: '', schoolYear: '', semester: '', feedbackId: '', search: '',
   };
+
+  // Bumped by every draw. Completion fetches carry the generation they were
+  // started in and abandon themselves when it moves on, so a run of filter
+  // changes cannot leave older requests writing into detached nodes — or, worse,
+  // a slower earlier answer landing on top of a newer one.
+  let generation = 0;
 
   const results = el('div', { class: 'stack-lg' });
   const years = schoolYears();
@@ -192,6 +238,7 @@ export async function renderAnalysis(host, { spaces = null } = {}) {
   }
 
   function draw() {
+    generation += 1;
     const all = filtered();
     const inScope = matchingRequests();
     const { visible, withheld } = partition(all);
@@ -825,7 +872,26 @@ export async function renderAnalysis(host, { spaces = null } = {}) {
       el('h3', { class: 'section-title' }, `Individual responses (${rows.length})`), list);
   }
 
-  /** Who has and has not submitted — from receipts, never from the answers. */
+  /**
+   * Who has and has not submitted — from receipts, never from the answers.
+   *
+   * Receipts are a genuinely separate document set and cannot be derived from
+   * the responses already in memory: on an anonymous form — the default —
+   * `respondent` is deliberately null, so the answers say that somebody
+   * responded and never who.
+   *
+   * So this has to make network calls, and how it makes them matters more than
+   * how fast they are. Each one is an Apps Script execution, and the web app
+   * runs as the folder's owner, so every member of staff shares one pool of
+   * thirty simultaneous executions **with every cadet trying to submit**. The
+   * old version fired twenty-five of them serially on every filter change. One
+   * instructor opening this tab on a drill night could take most of that pool
+   * and hand cadets "The server is busy".
+   *
+   * Hence: a card per request drawn immediately, its receipts fetched only when
+   * it is actually scrolled into view, at most three requests in flight, and
+   * everything abandoned the moment a new draw starts.
+   */
   function completion(inScope) {
     const section = el('section', {},
       el('h3', { class: 'section-title' }, 'Completion'),
@@ -833,13 +899,53 @@ export async function renderAnalysis(host, { spaces = null } = {}) {
         'Built from submission receipts, which are stored separately from the answers — '
         + 'so this works even for anonymous feedback.'));
 
-    const host2 = el('div', {}, spinner('Checking receipts…'));
-    mount(section, host2);
+    const shown = inScope.slice(0, 25);
+    if (!shown.length) {
+      mount(section, el('p', { class: 'muted' }, 'No forms match these filters.'));
+      return section;
+    }
 
-    (async () => {
-      const cards = el('div', { class: 'stack' });
-      for (const request of inScope.slice(0, 25)) {
-        const { receipts } = await loadResponsesFor(request.id);
+    const cards = el('div', { class: 'stack' });
+    mount(section, cards);
+
+    // The generation this render belongs to. `draw()` bumps it, so work started
+    // for an older set of filters lands in a detached node and stops.
+    const mine = generation;
+    const queue = [];
+    let running = 0;
+
+    const pump = () => {
+      while (running < COMPLETION_PARALLEL && queue.length) {
+        const job = queue.shift();
+        running += 1;
+        job().finally(() => { running -= 1; pump(); });
+      }
+    };
+
+    for (const [index, request] of shown.entries()) {
+      const aside = el('div', { class: 'row row--wrap' }, el('span', { class: 'muted' }, 'Checking…'));
+      const body = el('div', {});
+      const card = el('div', { class: 'card stack-sm' },
+        el('div', { class: 'row row--between row--wrap' },
+          el('div', {},
+            el('div', { style: { fontWeight: '570' } },
+              request.feedbackId ? `${request.feedbackId} — ${request.title}` : request.title),
+            el('div', { class: 'muted counts' }, '—')),
+          aside),
+        body);
+      mount(cards, card);
+
+      const fill = async () => {
+        if (mine !== generation) return;
+        let receipts;
+        try {
+          ({ receipts } = await loadResponsesFor(request.id));
+        } catch (err) {
+          if (mine === generation) remount(aside, badge('Could not read', 'danger', 'alert'));
+          return;
+        }
+        if (mine !== generation) return;
+
         const submitted = new Set(receipts.map((r) => r.username));
         const targeted = request.assignedUsernames?.length
           ? students.filter((s) => request.assignedUsernames.includes(s.username))
@@ -854,20 +960,18 @@ export async function renderAnalysis(host, { spaces = null } = {}) {
         const held = request.anonymous && submitted.size > 0
           && submitted.size < PRIVACY.minResponsesToShow;
 
-        mount(cards, el('div', { class: 'card stack-sm' },
-          el('div', { class: 'row row--between row--wrap' },
-            el('div', {},
-              el('div', { style: { fontWeight: '570' } },
-                request.feedbackId ? `${request.feedbackId} — ${request.title}` : request.title),
-              el('div', { class: 'muted' }, known
-                ? `${submitted.size} of ${targeted.length} submitted`
-                : `${pluralize(submitted.size, 'response')} received`)),
-            el('div', { class: 'row row--wrap' },
-              held && badge('Results withheld', 'warn', 'lock'),
-              known
-                ? badge(`${pct}%`, pct >= 80 ? 'ok' : pct >= 40 ? 'warn' : 'danger',
-                  pct >= 80 ? 'checkCircle' : 'clock')
-                : badge('No roster match', 'neutral', 'users'))),
+        card.querySelector('.counts').textContent = known
+          ? `${submitted.size} of ${targeted.length} submitted`
+          : `${pluralize(submitted.size, 'response')} received`;
+
+        remount(aside,
+          held && badge('Results withheld', 'warn', 'lock'),
+          known
+            ? badge(`${pct}%`, pct >= 80 ? 'ok' : pct >= 40 ? 'warn' : 'danger',
+              pct >= 80 ? 'checkCircle' : 'clock')
+            : badge('No roster match', 'neutral', 'users'));
+
+        remount(body,
           known
             ? el('div', { class: 'meter' }, el('div', { class: 'meter__fill', style: { width: `${pct}%` } }))
             : null,
@@ -882,11 +986,13 @@ export async function renderAnalysis(host, { spaces = null } = {}) {
                 el('div', { class: 'row row--wrap', style: { marginTop: 'var(--sp-2)' } },
                   ...outstanding.map((s) => el('span', { class: 'chip' }, s.name,
                     el('span', { class: 'mono faint' }, s.username)))))
-              : el('div', { class: 'muted' }, 'Everyone targeted has responded.')));
-      }
-      remount(host2, cards.childNodes.length ? cards
-        : el('p', { class: 'muted' }, 'No forms match these filters.'));
-    })();
+              : el('div', { class: 'muted' }, 'Everyone targeted has responded.'));
+      };
+
+      const schedule = () => { queue.push(fill); pump(); };
+      if (index < COMPLETION_EAGER) schedule();
+      else whenVisible(card, schedule);
+    }
 
     return section;
   }

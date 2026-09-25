@@ -608,20 +608,27 @@ function rolloverCard(reload) {
   };
 
   const draw = async () => {
-    const [{ moves, untouched, students }, prior] = await Promise.all([
-      preview(), priorRolloverThisYear(),
-    ]);
+    const { moves, untouched, students } = await preview();
     remount(host);
 
-    if (prior) {
-      mount(host, notice('warn', `Already advanced for ${currentSchoolYear()}`,
+    // Twelve months of audit to answer one question, and it used to be awaited
+    // before this card drew anything — twelve to fourteen seconds of Apps
+    // Script on the way into a page that mostly is not about rollover. It fills
+    // in behind instead. What makes that safe is that `apply` re-checks it
+    // itself, at the moment it matters, rather than trusting a value read when
+    // the page was drawn.
+    const warning = el('div', {});
+    mount(host, warning);
+    priorRolloverThisYear().then((prior) => {
+      if (!prior) return;
+      mount(warning, notice('warn', `Already advanced for ${currentSchoolYear()}`,
         el('p', {}, `${prior.actor?.username || 'Someone'} ran this on `
           + `${fmtDateTime(prior.at)}. ${prior.summary || ''}`),
         el('p', {}, 'Running it again moves every cadet up a second level — an AS100 '
           + 'would become AS300 — and there is no undo. If you are unsure whether the '
           + 'first run worked, check the levels in the roster above rather than running '
           + 'it again.')));
-    }
+    });
 
     if (!students.length) {
       mount(host, el('p', { class: 'muted' }, 'No active cadet accounts to advance.'));
@@ -660,13 +667,18 @@ function rolloverCard(reload) {
       el('div', { class: 'row row--wrap' },
         el('button', {
           type: 'button', class: 'btn btn--primary',
-          onclick: () => apply(moves, deactivateBox.checked, prior),
+          onclick: () => apply(moves, deactivateBox.checked),
         }, icon('refresh'), 'Advance the academic year')));
   };
 
-  const apply = async (moves, deactivate, prior = null) => {
+  const apply = async (moves, deactivate) => {
     const total = moves.reduce((n, m) => n + m.people.length, 0);
     const graduating = moves.filter((m) => m.to === null).reduce((n, m) => n + m.people.length, 0);
+
+    // Read here rather than taken from the card, because this is the moment the
+    // answer is load-bearing. The card may have been drawn minutes ago, or
+    // before its own lookup finished; a destructive action checks for itself.
+    const prior = await priorRolloverThisYear();
 
     // A second run is warned about, not refused. There is a legitimate one: a
     // detachment that rolled over, then restored a backup taken before it, has

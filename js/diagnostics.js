@@ -49,9 +49,29 @@
 import { APP, GOOGLE_CLIENT_ID, DB_LAYOUT } from './config.js';
 import { connection, settings } from './state.js';
 import { db } from './storage/index.js';
-import { proxyTimings, proxyTimingSummary, checkProxy, isProxyUrl } from './storage/proxy.js';
+import {
+  proxyTimings, proxyTimingSummary, checkProxy, isProxyUrl, fetchOverview,
+} from './storage/proxy.js';
 import { queueState } from './storage/queue.js';
 import { failureCounts } from './failures.js';
+import { currentIdToken } from './session.js';
+
+/**
+ * Proxy mode, asked locally.
+ *
+ * `usingProxy()` lives in `js/data-source.js`, and this asks `connection`
+ * directly instead — one line, and the same answer.
+ *
+ * The reason is dependency direction rather than any bug. `js/app.js` imports
+ * `js/views/settings.js`, which imports this file, so anything this file
+ * imports is pulled into the app's startup path. Diagnostics is a leaf concern:
+ * it reads state, it does not drive it. `js/failures.js` was split out of this
+ * same file on the same principle, when storage needed to record a failure and
+ * importing diagnostics would have dragged storage in behind it.
+ *
+ * `state`, `session` and `storage/proxy` are all narrow; data-source is not.
+ */
+const viaProxy = () => Boolean(connection.get().proxyUrl);
 
 /** Dates become months — the same reduction, and for the same reason, as export-anon.js. */
 function toMonth(value) {
@@ -230,6 +250,11 @@ async function proxy() {
  * unavailable rather than pretending to an answer.
  */
 async function layout() {
+  // In proxy mode this device never reads the folder directly, so an empty or
+  // failing listing says nothing about the detachment's tree — only about this
+  // laptop. Reporting it as a missing-folder finding would send somebody
+  // looking for damage that is not there.
+  if (viaProxy()) return 'not readable from this device (proxy mode)';
   if (typeof db.adapter?.listFolders !== 'function') return 'unavailable';
   const expected = Object.values(DB_LAYOUT.folders);
   const present = (await db.adapter.listFolders('')).map((f) => f.name || f);
@@ -288,8 +313,13 @@ export async function buildDiagnostics() {
     // somebody looking for a bug in a detachment that simply has not been read
     // yet. `students` and `requests` are counted directly and are exact.
     scale: await section(async () => {
-      const stats = await db.stats();
-      const counts = await db.responseCounts();
+      // Proxy mode has no storage adapter to ask, so the counts come from the
+      // server — the same fork the Home screen and the Database tab make. This
+      // is a round trip, but the file is generated deliberately and rarely.
+      const stats = viaProxy()
+        ? (await fetchOverview(connection.get().proxyUrl, currentIdToken())).stats
+        : await db.stats();
+      const counts = viaProxy() ? { byRequest: {} } : await db.responseCounts();
       // Named rather than spread, like everything else here: a field added to
       // `db.stats()` later should have to be let in, not arrive.
       return {
@@ -301,14 +331,18 @@ export async function buildDiagnostics() {
         admins: stats.admins,
         responses: stats.responses,
         responsesPerRequest: counts.byRequest || {},
-        responseCountSource: 'index — best-effort, repaired when a panel reads responses',
+        responseCountSource: viaProxy()
+          ? 'server totals; per-request counts are not available in proxy mode'
+          : 'index — best-effort, repaired when a panel reads responses',
       };
     }),
 
     health: {
       // The code, never the detail: every adapter's detail is a sentence with
       // the folder name in it.
-      storage: await section(async () => (await db.status()).status),
+      storage: await section(async () => (
+        viaProxy() ? 'proxy — this device holds no folder access' : (await db.status()).status
+      )),
       folders: await section(layout),
       queue: await section(async () => {
         const state = await queueState();

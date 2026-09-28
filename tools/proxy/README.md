@@ -141,11 +141,6 @@ version — or, for a detachment you cannot reach, ask them for
 Either way it is what distinguishes a detachment that redeployed from one that
 pasted the file and stopped.
 
-| Version | What changed |
-|---|---|
-| `1.2.0` | Resolved folders and the roster are memoised for the life of one execution, and `submit` resolves its folder paths before taking the lock. By-instructor no longer re-reads the roster once per request, which is what used to make it time out on a detachment with a term's worth of feedback. |
-| `1.1.0` | Spaces: cadre and commander folders, with every read scoped by the caller's spaces. |
-
 ---
 
 ## What it serves

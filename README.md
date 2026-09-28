@@ -922,19 +922,25 @@ Ranked by what would actually hurt, not by how alarming they sound.
    concurrent executions cannot be reproduced offline — the in-memory Drive says
    so in its own header — so **the remaining check is a live rehearsal**: ten to
    fifteen people submitting at once against the real deployment, once, before
-   the first drill night.
+   the first drill night. Two known inefficiencies are documented and not fixed,
+   both in `Code.gs` and both needing every detachment to redeploy: a refused
+   action still reads the whole roster first, and By-instructor re-reads it once
+   per request it evaluates.
 
-   **The two documented inefficiencies are now fixed**, in `PROXY_VERSION 1.2.0`,
-   which every detachment must redeploy to get. `Code.gs` memoises resolved
-   folders and the roster for the life of one execution, so a refusal costs one
-   roster read rather than one per request evaluated, and By-instructor dropped
-   from five Drive operations per request to two. The submit path resolves both
-   of its folder paths *before* taking the lock, which cut the critical section
-   from thirteen operations to five for every cadet after the first — the first
-   still pays for creating the folders, and `ensureFolder` deliberately stays
-   inside the lock, because two simultaneous first submissions would otherwise
-   each create a folder of the same name and the duplicate this lock exists to
-   stop would get through. `tests/proxy/load.test.mjs` asserts both numbers.
+   **A fix for both was written, deployed and withdrawn on 27 Sep 2026**, and the
+   next person to attempt it should read this first. `PROXY_VERSION 1.2.0`
+   memoised resolved folders and the roster for the life of one execution and
+   moved the submit path's folder lookups outside the lock — thirteen operations
+   under the lock down to five, By-instructor from five Drive operations per
+   request to two, all of it green across ninety-three proxy checks.
+
+   It was deployed to the testbed twice and service degraded both times, and both
+   times rolling back restored it. **No mechanism was ever found.** Four were
+   proposed and all four were disproved — including, twice, by measurements that
+   contradicted them outright. The code parses, passes its tests through a shared
+   warm instance, and answered in 1.18 seconds immediately after deploy. What is
+   left is a correlation with no explanation, which was enough to withdraw it and
+   not enough to call it faulty. The attempt is in git history at `ce63db8`.
 
 4. **One hosted copy is a supply-chain target.** With per-detachment deployments,
    compromising one account reached one detachment. With a single hosted copy and

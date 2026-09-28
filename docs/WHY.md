@@ -155,7 +155,9 @@ done by the submission server before anything reaches the screen.
 
 ## 6. What it asks of a detachment
 
-- The **Det Google Account** you already have.
+- The **Det Google Account** you already have — or a new one named for the unit,
+  which takes about two minutes. What it must not be is a person's own account:
+  the records would leave with them.
 - Nothing at Google beyond that account. Sign-in runs through one verified
   application registered for the whole programme, so there is no Cloud project to
   create and no list of cadets to authorise. About 25 minutes, once, following the

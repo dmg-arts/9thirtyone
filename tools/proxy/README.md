@@ -215,9 +215,19 @@ will need paging if one runs for years.
 
 ## Limits
 
-- **Quota.** A consumer Gmail account gets about 90 minutes of script runtime a
-  day. A submission takes roughly a second, so a detachment of fifty is nowhere
-  near it.
+- **Quota.** The ceilings that apply here are **thirty simultaneous executions**
+  across the account and **six minutes per execution**. Every read and every
+  submission takes one of those slots for as long as it runs, so what matters is
+  how many calls each person makes and how long each one holds a slot — not a
+  daily total. A detachment of fifty is nowhere near either limit.
+
+  Google publishes a 90-minute-a-day runtime figure for consumer accounts and an
+  earlier version of this section quoted it. **It does not apply to this script.**
+  That quota covers *triggers* — scheduled and event-driven runs — and this script
+  has none; a web app request is not charged against it. The daily limit that does
+  apply is 20,000 UrlFetch calls, spent one per sign-in token and cached for the
+  life of the token, which is why a stranger cannot drain it by shouting at the
+  endpoint.
 - **Folder maintenance is not offered here.** Backup, restore, wipe, reindex and
   migrate act on the whole folder, and an endpoint that could empty a
   detachment's records on request is not one worth having. They stay with

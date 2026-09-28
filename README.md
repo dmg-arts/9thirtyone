@@ -33,7 +33,7 @@ and no shared database, and writes only to storage the detachment controls.
 |---|---|---|
 | `WHY.md` | Cadre and commanders | Why this exists: the centralized detachment model and what it costs, the cadet-instructor gap, how the app works in plain English, and the guarantees with their limits. **The argument the other documents are built on.** |
 | `STYLE.md` | Anyone writing copy | The content lexicon — terminology, object definitions, voice, and the claims that must not be softened. Applied by hand; there is no build step that reads it. |
-| `9ThirtyOne-Setup-Guide.pdf` | Whoever installs it | 26 pages: creating the detachment's Google account, opening the app, the wizard, the submission server, the roster, join links, a verification checklist, and troubleshooting. There is no Cloud setup any more. |
+| `9ThirtyOne-Setup-Guide.pdf` | Whoever installs it | 27 pages: creating the detachment's Google account, opening the app, the wizard, the submission server, the roster, join links, a verification checklist, and troubleshooting. There is no Cloud setup any more. |
 | `9ThirtyOne-User-Introduction.pdf` | Everyone, at rollout | 8 slides: why and how on one slide, then what instructors, cadre and commanders do, what a cadet sees, and a diagram of where an answer actually goes. |
 | `9ThirtyOne-Overview.pdf` | A handout, or a projector | The same argument on one landscape page — why, how, both sides of the app, and the data-flow diagram. |
 | `9ThirtyOne-How-To-Guide.pdf` | Anyone using it | 20 pages, a chapter per role, every screen with its screenshot, and a closing matrix of what each role cannot reach. |
@@ -166,9 +166,12 @@ backed up by Google, and recoverable from the Drive trash for 30 days.
 
 Done once by the detachment, on the account the detachment owns:
 
-1. **Create a Google account for the detachment**, if it does not have one. A
-   personal account works, but an account the unit owns survives the person who
-   made it.
+1. **Create a Google account for the detachment**, if it does not have one.
+   Name it for the unit, not for a person: this account owns every record, and on
+   somebody's own account the folder leaves with them — the next person has to
+   export and rebuild every few years, and the receipts and audit trail do not
+   survive the move. An account issued by the school, where one is available, is
+   better still. The setup guide's Part 2a is the long version.
 2. **Open the app and run the setup wizard.** Choose Google Drive, sign in as that
    account, and grant access. The app creates its own `9ThirtyOne` folder.
 3. **Deploy the submission server** (below) if cadets are going to submit —
@@ -962,10 +965,19 @@ Ranked by what would actually hurt, not by how alarming they sound.
    part of the honest answer is that anonymous responses cannot be deleted for
    one person by design.
 
-7. **A rostered cadet can exhaust the detachment's Apps Script quota** by looping
-   the bundle call — roughly 90 minutes of runtime a day, shared by everyone.
-   No rate limiting and no detection. Trivial to do, unlikely to happen, cheap
-   to add later.
+7. **A rostered cadet can deny service to the detachment** by looping the bundle
+   call. Apps Script allows **thirty simultaneous executions** across the whole
+   account, and every read and every submission takes one of them, so a loop can
+   hold the pool open and refuse everybody else while it runs. No rate limiting
+   and no detection. Trivial to do, unlikely to happen, cheap to add later.
+
+   **This entry used to say the attack drained "roughly 90 minutes of runtime a
+   day, shared by everyone." That was wrong**, and it was wrong in a way worth
+   recording, because the same mistake was made twice. Google's 90-minute figure
+   is the *triggers* total runtime for a consumer account. A web app request is
+   not a trigger execution and is not charged against it; there is no published
+   daily runtime allowance for web apps at all. What bounds this app is the
+   thirty simultaneous executions above and six minutes per execution.
 
 8. **The audit trail protects against everyone except the folder owner**, who is
    now the only account with Drive access. Always true; sharper now.

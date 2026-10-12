@@ -157,6 +157,30 @@ check('the commander cap in prose matches MAX_COMMANDERS', () => {
   if (wrong.length) throw new Error(`no "${word}" commander cap in: ${wrong.join(', ')}`);
 });
 
+/**
+ * The two places the version is written, and why they are not one place.
+ *
+ * `js/config.js` is what the running app reports in Settings and stamps into
+ * every record it writes. `package.json` is what the PDF builders interpolate
+ * into a cover. Nothing connected them, so they drifted: config.js reached
+ * 1.0.14 while package.json stayed at 1.0.13, and the covers of three shipped
+ * guides went four and eight releases stale without anything going red.
+ *
+ * Both build scripts already carry a comment saying this exact failure happened
+ * once before, when the version was typed into the cover by hand. This is the
+ * check that was missing.
+ */
+check('package.json and js/config.js state the same version', () => {
+  const pkg = /"version":\s*"([^"]+)"/.exec(read('package.json'));
+  const app = /version:\s*'([^']+)'/.exec(read('js/config.js'));
+  if (!pkg) throw new Error('no version in package.json');
+  if (!app) throw new Error('no version in js/config.js');
+  if (pkg[1] !== app[1]) {
+    throw new Error(`package.json says ${pkg[1]}, js/config.js says ${app[1]} `
+      + '— the PDF covers are built from package.json');
+  }
+});
+
 check('the session length in prose matches SESSION_MS', () => {
   const ms = /SESSION_MS\s*=\s*(\d+)\s*\*\s*60\s*\*\s*60/.exec(read('js/session.js'));
   if (!ms) throw new Error('could not read SESSION_MS from js/session.js');

@@ -38,6 +38,19 @@ KEY_FILE = CERT_DIR / "dev-key.pem"
 class Handler(http.server.SimpleHTTPRequestHandler):
     """Static handler with the MIME types and cache rules this app needs."""
 
+    # HTTP/1.1, so one connection serves many requests.
+    #
+    # The default is HTTP/1.0, which closes after every response — a separate TCP
+    # connection for each of the app's forty-odd ES modules, and another for each
+    # of the fifty-five entries the service worker precaches on install. Chrome
+    # opens six at a time, so a cold load arrives as a burst the accept queue
+    # could not absorb, and the kernel reset the overflow. In the browser that
+    # surfaced as net::ERR_CONNECTION_RESET and a page that never rendered.
+    #
+    # SimpleHTTPRequestHandler sends an accurate Content-Length for every file it
+    # serves, which is what makes keep-alive safe to turn on here.
+    protocol_version = "HTTP/1.1"
+
     extensions_map = {
         **http.server.SimpleHTTPRequestHandler.extensions_map,
         ".js": "text/javascript",
@@ -98,6 +111,13 @@ def ensure_cert() -> bool:
 class ReusableServer(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
     daemon_threads = True
+    # The listen backlog. socketserver's default is 5, which a cold load of this
+    # app overruns on its own: the browser asks for the shell, the modules and
+    # the icons faster than a thread-per-connection server can accept them, and
+    # everything past the fifth queued connection is refused by the kernel rather
+    # than by anything in this file. That is what made the browser suites fail
+    # intermittently on a page that had simply never rendered.
+    request_queue_size = 128
 
 
 def main() -> int:

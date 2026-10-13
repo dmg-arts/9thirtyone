@@ -196,6 +196,9 @@ export function createProxy({
   clientId = 'test-client.apps.googleusercontent.com',
   tokens = {},
   configured = true,
+  properties: extraProperties = {},
+  mailQuota = 100,
+  mailApp = 'record',
 } = {}) {
   const root = new FakeFolder('9ThirtyOne');
   const cache = new Map();
@@ -233,9 +236,39 @@ export function createProxy({
   /** Every tokeninfo URL fetched, so a test can count network calls. */
   const fetches = [];
 
-  const properties = configured
-    ? { FOLDER_ID: 'folder-1', CLIENT_ID: clientId }
-    : {};
+  const properties = {
+    ...(configured ? { FOLDER_ID: 'folder-1', CLIENT_ID: clientId } : {}),
+    ...extraProperties,
+  };
+
+  /**
+   * Every message the script tried to send.
+   *
+   * `mailApp` picks the behaviour:
+   *   'record'    — collect them, the normal case
+   *   'forbidden' — throw on any access, for proving the feature is inert
+   *   'failing'   — throw on send, for proving a failure cannot fail the save
+   *
+   * 'forbidden' earns its keep. The notify call sits inside a swallowing catch,
+   * so an accidental MailApp reference with the switch off would be eaten
+   * silently and `mails.length === 0` would still pass. Making the object itself
+   * explode is the only way to see it.
+   */
+  const mails = [];
+  const mailStub = {
+    record: {
+      getRemainingDailyQuota: () => mailQuota,
+      sendEmail: (options) => { mails.push(options); },
+    },
+    failing: {
+      getRemainingDailyQuota: () => mailQuota,
+      sendEmail: () => { throw new Error('mail service unavailable'); },
+    },
+    forbidden: {
+      getRemainingDailyQuota: () => { throw new Error('MailApp touched while off'); },
+      sendEmail: () => { throw new Error('MailApp touched while off'); },
+    },
+  }[mailApp];
 
   const sandbox = {
     console: { error() {}, warn() {}, log() {} },
@@ -302,6 +335,8 @@ export function createProxy({
       }),
     },
 
+    MailApp: mailStub,
+
     UrlFetchApp: {
       fetch(url) {
         fetches.push(url);
@@ -354,6 +389,8 @@ export function createProxy({
     lockedOps,
     /** tokeninfo calls made so far — the quota an attacker would burn. */
     fetches,
+    /** Messages the script tried to send, newest last. */
+    mails,
     /** The JWT a label encodes to, for tests that need the raw string. */
     jwtFor: (label) => jwtByLabel.get(label),
   };

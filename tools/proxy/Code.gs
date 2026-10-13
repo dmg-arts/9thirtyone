@@ -61,7 +61,10 @@
  */
 
 /** Bump when the contract with the app changes. Reported by doGet. */
-var PROXY_VERSION = '1.1.0';
+// 1.2.0 is skipped deliberately: it was deployed, degraded a testbed twice for
+// reasons never found, and was withdrawn. No deployment should ever claim it
+// again, and a doGet reporting 1.1.0 is how a rollback from here is confirmed.
+var PROXY_VERSION = '1.3.0';
 
 /** Refuse anything larger; a submission is a few KB at most. */
 var MAX_BODY_BYTES = 96 * 1024;
@@ -214,6 +217,12 @@ function byteLength(text) {
 /** Ids come from the client, so they are pattern-checked before use in a path. */
 var ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
+/** Identical for every request, so the arrival of the mail discloses nothing. */
+var NOTIFY_SUBJECT = 'A feedback request is waiting';
+
+/** A loop bound, not a policy. The daily recipient quota is the real ceiling. */
+var MAX_NOTIFY_RECIPIENTS = 60;
+
 /**
  * Every action this script will perform, and who may perform it.
  *
@@ -303,6 +312,11 @@ function config() {
   return {
     folderId: props.getProperty('FOLDER_ID'),
     clientId: props.getProperty('CLIENT_ID'),
+    // Optional. Absent is the normal state and means no mail is ever sent.
+    // doPost's configuration guard deliberately does not mention these: a proxy
+    // with no mail switch must serve every action exactly as before.
+    notifyEmail: props.getProperty('NOTIFY_EMAIL'),
+    appUrl: props.getProperty('APP_URL'),
   };
 }
 
@@ -817,6 +831,164 @@ function removeForm(root, account, formId) {
  * so an instructor cannot file into the commander's space and a cadre member
  * cannot quietly move an existing request out of one.
  */
+/* ------------------------------------------------------------------ *
+ * notification on issuance
+ *
+ * One mail, to the cadets a feedback request is addressed to, saying only that
+ * something is waiting. It exists so cadets stop opening the app speculatively
+ * to check, which costs an Apps Script execution every time.
+ *
+ * Off unless an administrator sets NOTIFY_EMAIL to exactly "on" and APP_URL to
+ * where the app is served from. Turning it on is a Script Properties edit and
+ * needs no redeploy, which is the point: the deployment risk is paid once, with
+ * the feature inert, and enabling it afterwards cannot break a detachment.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Strict on purpose.
+ *
+ * A loose truthiness test would mail a detachment that typed NOTIFY_EMAIL=false,
+ * which is the worst possible way to discover the feature exists.
+ */
+function notifyEnabled(cfg) {
+  return String(cfg.notifyEmail || '').trim().toLowerCase() === 'on'
+    && /^https:\/\//.test(String(cfg.appUrl || '').trim());
+}
+
+/** The permissive sense of open that the submit path and readStats already use. */
+function alreadyOpen(status) {
+  return !status || String(status) === 'open';
+}
+
+/** True when a request is dated to open later, so there is nothing to answer yet. */
+function opensLater(request) {
+  if (!request.opensAt) return false;
+  var at = new Date(request.opensAt).getTime();
+  return !isNaN(at) && at > Date.now();
+}
+
+/**
+ * The cadets a request is addressed to, as deliverable addresses.
+ *
+ * `isAddressedTo` is reused rather than restated — it is already the one
+ * audience rule, mirrored from the client because the client is the thing being
+ * guarded against, and a third copy would be a third thing to drift.
+ *
+ * The student filter is not decoration. An empty assignedUsernames with an empty
+ * asClass addresses *everyone on the roster*, cadre and commander included, and
+ * the link goes to a cadet screen they cannot use.
+ */
+function recipientsFor(root, request) {
+  var users = readRoster(root);
+  var out = [];
+  var seen = {};
+  for (var i = 0; i < users.length && out.length < MAX_NOTIFY_RECIPIENTS; i++) {
+    var user = users[i];
+    if (user.active === false) continue;
+    if (!hasAnyRole(user, ['student'])) continue;
+    if (!isAddressedTo(request, user)) continue;
+    // Accounts with no address are legitimate — the v4 migration left them on
+    // the roster flagged rather than deleting them. They simply cannot be mailed.
+    var email = String(user.email || '').trim().toLowerCase();
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) continue;
+    if (seen[email]) continue;
+    seen[email] = true;
+    out.push(email);
+  }
+  return out;
+}
+
+/**
+ * The message, built by naming every field that goes into it.
+ *
+ * Never interpolate the record. The discipline is the one js/export-anon.js and
+ * js/diagnostics.js use: a field is in this mail because somebody decided it
+ * should be, so a field added to a request later cannot arrive in fifty inboxes.
+ *
+ * The title and the event name are deliberately absent, and this is the
+ * important exclusion: **the wording of a feedback request is the disclosure,
+ * not the response to it.** "Describe the complaint against Capt Reyes" sitting
+ * in a cadet's personal Gmail — possibly a shared family account, previewed on a
+ * lock screen — is exactly what the cadre and commander spaces exist to prevent.
+ * A commander-space request that mailed its own title would have routed
+ * restricted content out of the restricted folder.
+ *
+ * The subject line is identical for every request in every detachment, so the
+ * arrival of the mail discloses nothing on its own.
+ */
+function notifyBody(request, cfg) {
+  var base = String(cfg.appUrl || '').trim().replace(/\/+$/, '');
+  var lines = [];
+  lines.push('A feedback request has been issued to you.');
+  lines.push('');
+  lines.push('Open it here:');
+  lines.push(base + '/#/student/fill/' + request.id);
+  lines.push('');
+
+  var reference = request.feedbackId ? 'Reference ' + request.feedbackId + '.' : '';
+  var due = '';
+  if (request.dueAt) {
+    var at = new Date(request.dueAt);
+    // A date, never a time. A timestamp is a correlation hazard, which is why
+    // the anonymised export reduces every date it carries.
+    if (!isNaN(at.getTime())) due = 'Due ' + Utilities.formatDate(at, 'UTC', 'd MMMM yyyy') + '.';
+  }
+  if (reference || due) lines.push([reference, due].join(' ').trim());
+
+  lines.push('');
+  lines.push('This message says only that something is waiting. The questions, your');
+  lines.push('answers, and who they are about stay inside the app.');
+  lines.push('');
+  lines.push('If 9ThirtyOne is already set up on your phone, that link opens straight to');
+  lines.push('it. If it is not, ask your cadre for your join link first.');
+  lines.push('');
+  lines.push('You are on your detachment\'s 9ThirtyOne roster. This was sent by your');
+  lines.push('detachment\'s own Google account.');
+  return lines.join('\n');
+}
+
+/**
+ * Sends one message per recipient.
+ *
+ * One address per message rather than one message with fifty addresses: Gmail
+ * charges by recipient either way, so the cost is identical, and a shared To
+ * line would disclose the whole flight's addresses to every cadet in it.
+ *
+ * All or nothing on quota. A partial batch is worse than none — it covers part
+ * of a flight while cadre believe everyone was told, and nothing in the app
+ * would reveal which part.
+ */
+function notifyAddressed(root, request, cfg) {
+  var recipients = recipientsFor(root, request);
+  if (!recipients.length) return;
+
+  var remaining = MailApp.getRemainingDailyQuota();
+  if (remaining < recipients.length) {
+    console.log('notify: skipped for ' + request.id + ' — ' + recipients.length
+      + ' recipients, ' + remaining + ' left in today\'s quota');
+    return;
+  }
+
+  var body = notifyBody(request, cfg);
+  var sent = 0;
+  for (var i = 0; i < recipients.length; i++) {
+    try {
+      MailApp.sendEmail({
+        to: recipients[i],
+        subject: NOTIFY_SUBJECT,
+        body: body,
+        name: '9ThirtyOne',
+      });
+      sent++;
+    } catch (err) {
+      // One bad address must not cost the other forty-four theirs.
+      console.warn('notify: one recipient failed for ' + request.id);
+    }
+  }
+  // Counts, never addresses. A log line listing who was mailed is a roster.
+  console.log('notify: sent ' + sent + ' of ' + recipients.length + ' for ' + request.id);
+}
+
 function saveRequestInSpace(root, account, request) {
   if (!request || typeof request !== 'object') return fail('That request is missing.');
 
@@ -855,7 +1027,57 @@ function saveRequestInSpace(root, account, request) {
   }
 
   request.space = space;
-  return writeRecordAt(root, spacePath(space, 'requests'), request, 'req_');
+
+  // Is this save an issuance? The server has no "issue" action to watch — the
+  // client sends status as a plain field — so it is inferred, and deliberately
+  // asymmetrically:
+  //
+  //   existing   incoming          notify
+  //   none       open              yes
+  //   none       draft / absent    no
+  //   draft      open              yes
+  //   open       open (an edit)    no
+  //   open       draft             no
+  //   absent     open              no    <- a cadet could already submit to it
+  //
+  // Strict on the way in, because a save carrying no status at all is not an
+  // announcement and several callers send none. Permissive on the way out,
+  // because a record a cadet could already answer is not news.
+  //
+  // notifiedAt is carried forward from the stored record and never trusted from
+  // the body: the form creator rebuilds its outgoing request from a fixed field
+  // list and silently drops anything it does not know about, so a round trip
+  // through the browser would otherwise clear it and re-notify on the next edit.
+  // The same reason createdBy is stamped above rather than accepted.
+  var cfg = config();
+  request.notifiedAt = existing ? existing.request.notifiedAt || null : null;
+  var issuing = notifyEnabled(cfg)
+    && String(request.status || '') === 'open'
+    && !(existing && alreadyOpen(existing.request.status))
+    && !request.notifiedAt
+    && !opensLater(request);
+
+  // Stamped before the write, not after. Fifty sends can outrun the client's
+  // thirty-second timeout, and a cadre member who sees a failed save will press
+  // the button again; with the stamp already on disk that retry sends nothing.
+  // The cost is that a batch which fails outright is never retried, so the
+  // guarantee is "notified once, or never" — which is the right way round.
+  if (issuing) request.notifiedAt = new Date().toISOString();
+
+  var out = writeRecordAt(root, spacePath(space, 'requests'), request, 'req_');
+
+  if (issuing && ID_PATTERN.test(String(request.id || ''))) {
+    try {
+      notifyAddressed(root, request, cfg);
+    } catch (err) {
+      // A notification is a convenience. Failing a cadre member's issuance
+      // because Gmail hiccuped would lose the thing that matters and leave the
+      // record written but reported as failed. Deliberately not appendAudit,
+      // which is unwrapped on purpose so a failed audit fails its action.
+      console.error(err);
+    }
+  }
+  return out;
 }
 
 /** Removing a request takes its responses and receipts with it. */
@@ -1785,4 +2007,26 @@ function checkSetUp() {
   var name = DriveApp.getFolderById(cfg.folderId).getName();
   console.log('Configured and authorised. Folder: ' + name);
   console.log('Deploy as a web app: execute as me, access to anyone.');
+
+  // The mail switch, reported here for the same reason Drive is touched here.
+  var switchedOn = String(cfg.notifyEmail || '').trim().toLowerCase() === 'on';
+  if (!switchedOn) {
+    console.log('Email notification: off. NOTIFY_EMAIL is not set to "on".');
+    return;
+  }
+  if (!/^https:\/\//.test(String(cfg.appUrl || '').trim())) {
+    throw new Error(
+      'NOTIFY_EMAIL is on but APP_URL is missing or is not an https:// address. '
+      + 'Cadets would be mailed a link to nowhere, so nothing will be sent until '
+      + 'this is fixed.');
+  }
+  // The only mail call outside a send, and that is deliberate: it is what makes
+  // Google ask for the mail authorisation here, with somebody watching, rather
+  // than silently failing the first time a request is issued.
+  //
+  // It also answers a question nobody can answer by looking: a hundred means
+  // this is a consumer Gmail account, fifteen hundred means Workspace. On a
+  // consumer account one all-cadets issuance is the whole day's allowance.
+  console.log('Email notification: ON. Links point at ' + cfg.appUrl);
+  console.log('Recipients remaining today: ' + MailApp.getRemainingDailyQuota());
 }

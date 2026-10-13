@@ -1095,5 +1095,243 @@ check('a cadet cannot call the people action at all', () => {
   if (out.ok) throw new Error('a cadet reached the By-instructor data');
 });
 
+/* ---------- notification on issuance ---------- */
+
+/**
+ * The mail a cadet gets when feedback is issued to them.
+ *
+ * Off unless an administrator sets two script properties, so the first check
+ * here is that an untouched detachment never goes near MailApp — and it is
+ * proved with the `forbidden` stub rather than by counting messages, because the
+ * notify call sits inside a swallowing catch. A stray MailApp reference with the
+ * switch off would be eaten silently and a count of zero would still pass.
+ */
+const ON = { NOTIFY_EMAIL: 'on', APP_URL: 'https://9thirtyone.app/' };
+
+/** A detachment with the mail switch wired however a check needs it. */
+function mailDet({ properties = ON, mailQuota = 100, mailApp = 'record', extra = [] } = {}) {
+  const people = [
+    account('cadet', 'cadet@x.edu', ['student']),
+    account('cadre', 'cadre@x.edu', ['cadre']),
+    account('commander', 'commander@x.edu', ['commander']),
+    ...extra,
+  ];
+  const tokens = {};
+  for (const person of people) tokens[`tok-${person.username}`] = validToken(person.email);
+  const proxy = createProxy({ tokens, properties, mailQuota, mailApp });
+  seedRoster(proxy.root, people);
+  proxy.root.put(['forms'], 'form_1.json', { id: 'form_1', name: 'Form', sections: [] });
+  return proxy;
+}
+
+/** Files a request and returns the server's answer. Cadre unless told otherwise. */
+const file = (proxy, request, actor = 'cadre') => proxy.post({
+  action: 'saveRequest', idToken: as(actor), request,
+});
+
+/**
+ * Every check below that asserts something is *absent* from the mail has to
+ * prove mail was sent at all first. The privacy check originally filed into the
+ * commander space as cadre, who cannot reach it — so the save was refused, no
+ * message existed, and a search for leaked words through an empty list passed
+ * while proving nothing.
+ */
+const sentAtLeast = (proxy, n) => {
+  if (proxy.mails.length < n) {
+    throw new Error(`only ${proxy.mails.length} messages sent — the check proves nothing`);
+  }
+};
+
+const issue = (overrides = {}) => ({
+  id: 'req_new', formId: 'form_1', title: 'Leadership Lab 3',
+  status: 'open', asClass: 'AS200', anonymous: true, space: 'shared',
+  assignedUsernames: [], feedbackId: 'FB-2026-0007', ...overrides,
+});
+
+check('with the switch untouched, nothing goes near the mail service', () => {
+  const proxy = mailDet({ properties: {}, mailApp: 'forbidden' });
+  const out = file(proxy, issue());
+  if (!out.ok) throw new Error(`the save failed: ${out.error}`);
+});
+
+check('issuing a new open request mails the addressed cadet', () => {
+  const proxy = mailDet();
+  file(proxy, issue());
+  if (proxy.mails.length !== 1) throw new Error(`${proxy.mails.length} messages, expected 1`);
+  if (proxy.mails[0].to !== 'cadet@x.edu') throw new Error(`addressed to ${proxy.mails[0].to}`);
+});
+
+check('saving a draft mails nobody', () => {
+  const proxy = mailDet({ mailApp: 'forbidden' });
+  const out = file(proxy, issue({ status: 'draft' }));
+  if (!out.ok) throw new Error(`the save failed: ${out.error}`);
+});
+
+check('a save carrying no status at all mails nobody', () => {
+  const proxy = mailDet({ mailApp: 'forbidden' });
+  const out = file(proxy, issue({ status: undefined }));
+  if (!out.ok) throw new Error(`the save failed: ${out.error}`);
+});
+
+check('a draft that becomes open is an issuance', () => {
+  const proxy = mailDet();
+  file(proxy, issue({ status: 'draft' }));
+  file(proxy, issue({ status: 'open' }));
+  if (proxy.mails.length !== 1) throw new Error(`${proxy.mails.length} messages, expected 1`);
+});
+
+check('editing an already-open request mails nobody again', () => {
+  const proxy = mailDet();
+  file(proxy, issue());
+  file(proxy, issue({ title: 'Leadership Lab 3 — corrected' }));
+  if (proxy.mails.length !== 1) throw new Error(`${proxy.mails.length} messages, expected 1`);
+});
+
+/**
+ * The form creator rebuilds its outgoing request from a fixed field list and
+ * drops anything it does not know about, so every edit arrives with notifiedAt
+ * missing. If the server trusted the body, reopening would mail the flight twice.
+ */
+check('notifiedAt survives an edit whose body omits it, so a reopen is silent', () => {
+  const proxy = mailDet();
+  file(proxy, issue());
+  file(proxy, issue({ status: 'closed' }));
+  file(proxy, issue({ status: 'open' }));
+  if (proxy.mails.length !== 1) throw new Error(`${proxy.mails.length} messages, expected 1`);
+  const stored = proxy.root.read(['requests'], 'req_new.json');
+  if (!stored.notifiedAt) throw new Error('notifiedAt was lost on the way through');
+});
+
+check('a cadet with no address is skipped, and the others still get theirs', () => {
+  const proxy = mailDet({ extra: [
+    account('noaddress', '', ['student'], { needsEmail: true }),
+    account('other', 'other@x.edu', ['student']),
+  ] });
+  file(proxy, issue());
+  const to = proxy.mails.map((m) => m.to).sort();
+  if (to.join(',') !== 'cadet@x.edu,other@x.edu') throw new Error(`mailed ${to.join(', ')}`);
+});
+
+check('a deactivated cadet is not mailed', () => {
+  const proxy = mailDet({ extra: [account('gone', 'gone@x.edu', ['student'], { active: false })] });
+  file(proxy, issue());
+  sentAtLeast(proxy, 1);
+  if (proxy.mails.some((m) => m.to === 'gone@x.edu')) throw new Error('a deactivated account was mailed');
+});
+
+/**
+ * An empty assignedUsernames with an empty asClass addresses everyone on the
+ * roster — cadre and commander included. Without a student filter, issuing to
+ * the whole detachment would mail the staff a link to a cadet screen.
+ */
+check('staff are not mailed by a request addressed to everyone', () => {
+  const proxy = mailDet();
+  file(proxy, issue({ asClass: '' }));
+  sentAtLeast(proxy, 1);
+  const to = proxy.mails.map((m) => m.to);
+  if (to.includes('cadre@x.edu') || to.includes('commander@x.edu')) {
+    throw new Error(`staff were mailed: ${to.join(', ')}`);
+  }
+});
+
+check('a named audience wins over the AS level', () => {
+  const proxy = mailDet({ extra: [account('other', 'other@x.edu', ['student'])] });
+  file(proxy, issue({ assignedUsernames: ['other'] }));
+  const to = proxy.mails.map((m) => m.to);
+  if (to.length !== 1 || to[0] !== 'other@x.edu') throw new Error(`mailed ${to.join(', ')}`);
+});
+
+/**
+ * The important exclusion. The wording of a feedback request is the disclosure,
+ * not the response to it — a commander-space request that mailed its own title
+ * would have routed restricted content out of the restricted folder and into a
+ * cadet's personal inbox, where it can be previewed on a lock screen.
+ */
+check('the message carries neither the title nor the space', () => {
+  const proxy = mailDet();
+  // Filed by the commander: cadre cannot reach that space, and a refused save
+  // would leave nothing to search.
+  const out = file(proxy, issue({
+    id: 'req_secret', space: 'commander', title: 'Complaint against Capt Reyes',
+    eventName: 'Board hearing', instructions: 'Describe what you saw.',
+  }), 'commander');
+  if (!out.ok) throw new Error(`the save was refused: ${out.error}`);
+  sentAtLeast(proxy, 1);
+  const text = JSON.stringify(proxy.mails);
+  for (const leak of ['Capt Reyes', 'Complaint', 'Board hearing', 'Describe what you saw', 'commander']) {
+    if (text.includes(leak)) throw new Error(`the mail carried "${leak}"`);
+  }
+});
+
+check('the message carries the configured link and no other address', () => {
+  const proxy = mailDet();
+  file(proxy, issue());
+  const body = proxy.mails[0].body;
+  if (!body.includes('https://9thirtyone.app/#/student/fill/req_new')) {
+    throw new Error('the deep link is missing');
+  }
+  const urls = body.match(/https?:\/\/\S+/g) || [];
+  if (urls.length !== 1) throw new Error(`${urls.length} links in the body: ${urls.join(' ')}`);
+});
+
+check('the subject is identical whatever the request', () => {
+  const proxy = mailDet();
+  file(proxy, issue({ id: 'req_a', title: 'One' }));
+  file(proxy, issue({ id: 'req_b', title: 'Two' }));
+  const subjects = [...new Set(proxy.mails.map((m) => m.subject))];
+  if (proxy.mails.length !== 2) throw new Error(`${proxy.mails.length} messages, expected 2`);
+  if (subjects.length !== 1) throw new Error(`subjects differ: ${subjects.join(' | ')}`);
+});
+
+check('the switch on with no app url sends nothing, and the save still succeeds', () => {
+  const proxy = mailDet({ properties: { NOTIFY_EMAIL: 'on' }, mailApp: 'forbidden' });
+  const out = file(proxy, issue());
+  if (!out.ok) throw new Error(`the save failed: ${out.error}`);
+});
+
+/**
+ * All or nothing. A partial batch covers part of a flight while cadre believe
+ * everyone was told, and nothing in the app would reveal which part.
+ */
+check('a quota too small for the whole flight sends none of it', () => {
+  const proxy = mailDet({
+    mailQuota: 1,
+    extra: [account('b', 'b@x.edu', ['student']), account('c', 'c@x.edu', ['student'])],
+  });
+  const out = file(proxy, issue());
+  if (!out.ok) throw new Error(`the save failed: ${out.error}`);
+  if (proxy.mails.length) throw new Error(`${proxy.mails.length} partial messages went out`);
+});
+
+check('one bad address does not cost the others theirs, or fail the save', () => {
+  const proxy = mailDet({ mailApp: 'failing' });
+  const out = file(proxy, issue());
+  if (!out.ok) throw new Error(`a send failure failed the save: ${out.error}`);
+  if (!proxy.root.read(['requests'], 'req_new.json')) throw new Error('the request was not written');
+});
+
+/**
+ * The outer guard, which the check above does not reach: `notifyAddressed`
+ * catches each recipient individually, so a failing send never escapes it. What
+ * escapes is the service being unavailable before the loop starts — the quota
+ * read. If that propagated, a cadre member would be told their issuance failed
+ * when it had in fact been written.
+ */
+check('a mail service that is unreachable does not fail the issuance', () => {
+  const proxy = mailDet({ mailApp: 'forbidden' });
+  const out = file(proxy, issue());
+  if (!out.ok) throw new Error(`an unreachable mail service failed the save: ${out.error}`);
+  if (!proxy.root.read(['requests'], 'req_new.json')) throw new Error('the request was not written');
+});
+
+check('a request dated to open later is not announced yet', () => {
+  const proxy = mailDet({ mailApp: 'forbidden' });
+  const later = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const out = file(proxy, issue({ opensAt: later }));
+  if (!out.ok) throw new Error(`the save failed: ${out.error}`);
+  const stored = proxy.root.read(['requests'], 'req_new.json');
+  if (stored.notifiedAt) throw new Error('it was stamped as notified without being sent');
+});
+
 console.log(failures ? `\n${failures} behaviour check(s) failed.` : '\nAll proxy behaviour checks passed.');
 process.exit(failures ? 1 : 0);

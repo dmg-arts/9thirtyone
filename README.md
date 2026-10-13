@@ -590,8 +590,11 @@ What follows is what the app genuinely does not do, or does imperfectly.
   detachment gets in without a shared credential. It is only as controlled as
   the folder's Drive sharing, so set that before anyone signs in.
 - **Concurrent edits are checked, not locked.** See below.
-- **No self-service enrolment.** There is no email out of this app, so someone
-  not on the roster is added by an admin rather than requesting access.
+- **No self-service enrolment.** Somebody not on the roster is added by an admin
+  rather than requesting access. The one message this app can send is a
+  notification that a feedback request is waiting — from the detachment's own
+  Google account, to addresses already on its roster, and only if an
+  administrator switched it on. There is no route in.
 - **Sentiment reads words, not meaning.** Sarcasm, quotation and context all
   defeat it. It is a triage aid for deciding what to read first.
 - **The safety lexicon is English-only and literal.** It will miss disclosures

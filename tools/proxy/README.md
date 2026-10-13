@@ -143,6 +143,58 @@ pasted the file and stopped.
 
 ---
 
+## Email notification (optional, off by default)
+
+When a cadre member issues a feedback request, the script can email the cadets it
+is addressed to, saying only that something is waiting. It exists so cadets stop
+opening the app to check, which costs an execution every time.
+
+**It is off unless two Script Properties are set**, and setting them needs **no
+redeploy** — properties are read on every execution:
+
+| Property | Value |
+|---|---|
+| `NOTIFY_EMAIL` | exactly `on`. Anything else, including `true` or `yes`, is off. |
+| `APP_URL` | where the app is served from, e.g. `https://9thirtyone.app/`. Must start `https://`. |
+
+Then run `checkSetUp` once from the editor. That is where Google asks for the mail
+authorisation, with somebody watching, and where the log tells you how many
+recipients the account has left today — **100 means consumer Gmail, 1,500 means
+Workspace**.
+
+**What the message contains:** that a request was issued, its reference, a due
+date if it has one, and a link. **What it never contains:** the title, the event
+name, the questions, who the feedback is about, the detachment's name, or any
+other cadet's address. The subject line is identical for every request in every
+detachment, so the arrival of the message discloses nothing on its own. The
+reason is that the wording of a feedback request is the disclosure, not the
+response to it — a commander-space request that mailed its own title would carry
+restricted content into a personal inbox.
+
+**When it sends:** once per request, when it first becomes open. Saving a draft
+sends nothing, editing an open request sends nothing, and closing and reopening
+sends nothing. A request dated to open later is never announced, because nothing
+re-examines it — issue it on the day if cadets should be told.
+
+**When it does not send:** the switch is off, `APP_URL` is unset or not `https://`,
+the remaining daily quota will not cover everyone addressed, or nobody addressed
+has a usable address on the roster. In every case the issuance itself still
+succeeds — a notification is a convenience and must never cost a cadre member
+their feedback request.
+
+| Symptom | Likely cause |
+|---|---|
+| No cadet got anything | `NOTIFY_EMAIL` is not exactly `on`, or `APP_URL` is unset |
+| Some got it, some did not | The others have no address on the roster, or are deactivated |
+| Nobody got it and the log mentions quota | The day's recipients are spent; it sends all or nothing |
+| Nothing for a request issued days early | Post-dated requests are not announced; re-issue on the day |
+| An edit sent nothing | By design — only the first open sends |
+
+The scope this adds is `script.send_mail`, which is send-only. `GmailApp` is
+deliberately not used: it would need full access to the owner's mailbox.
+
+---
+
 ## What it serves
 
 Every action is named and carries its own role requirement. **The caller never
@@ -228,6 +280,12 @@ will need paging if one runs for years.
   apply is 20,000 UrlFetch calls, spent one per sign-in token and cached for the
   life of the token, which is why a stranger cannot drain it by shouting at the
   endpoint.
+
+  **One daily total does apply, once notification is switched on:** Google allows
+  **100 email recipients a day** on a consumer Gmail account and **1,500** on a
+  Workspace one. Fifty cadets is one all-cadets issuance per day on a consumer
+  account, and the script sends nothing at all rather than part of a flight when
+  the remaining quota will not cover everybody.
 - **Folder maintenance is not offered here.** Backup, restore, wipe, reindex and
   migrate act on the whole folder, and an endpoint that could empty a
   detachment's records on request is not one worth having. They stay with

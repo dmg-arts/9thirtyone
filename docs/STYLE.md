@@ -113,6 +113,13 @@ not read.
 4. **Removing names cannot change what someone wrote.** (`privacy.html`, "What anonymity cannot do") — distinct from claim 3; worth protecting separately because it is the caveat that keeps claim 3 honest.
 5. **The app can only reach files it created itself.** The `drive.file` scope — the `SCOPE` constant in `js/storage/drive.js`. A specific, checkable security claim — generalizing it to "the app only accesses what it needs" quietly loses the thing that makes it verifiable. Note it is *narrower* than "only the Drive owner can see the folder", which is not true anyway: cadre and instructors hold Drive access too.
 
+7. **The notification says that a request exists and nothing about what it asks.** Added Oct 2026 with the optional email feature. The message carries a reference, a due date and a link — never the title, the event name, the questions, or who the feedback is about, because *the wording of a feedback request is the disclosure, not the response to it.* A commander-space request that mailed its own title would carry restricted content into a personal inbox. Pinned by a source check in `tests/unit/proxy.test.mjs` and a seeded search in `tests/proxy/behaviour.test.mjs`.
+
+**Two locked claims that the email feature does *not* break, written down so nobody softens them out of caution:**
+
+- **Claim 2 survives.** The mail goes from the detachment's own Google account to a cadet on its own roster. Nothing reaches the publisher, who still has no copy of any address.
+- **Claim 5 survives.** `script.send_mail` is a scope on the Apps Script project, which is a different OAuth client from the browser app. The `drive.file` claim is about what the app in the browser can reach, and that has not moved.
+
 **Overclaim guard — the one place our copy has been wrong rather than vague:**
 
 6. **"No external dependencies" needs its exception stated.** The app bundles nothing: no third-party script tags, no build step, nothing in `js/` imported from `node_modules` (`package.json` pins test tooling only). But it injects Google's Identity Services script at runtime from `https://accounts.google.com/gsi/client` (`GIS_SRC` in `js/google-identity.js`, loaded for the Drive adapter too), because Google sign-in requires it.

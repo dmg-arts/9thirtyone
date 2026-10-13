@@ -298,5 +298,73 @@ check('a submitted answer is filed in its request\'s own space', () => {
   }
 });
 
+/* ---------- the notification, and what it must not become ---------- */
+
+/**
+ * MailApp sends. GmailApp would read.
+ *
+ * `MailApp.sendEmail` needs `script.send_mail`, which is send-only. `GmailApp`
+ * needs `https://mail.google.com/` — a restricted scope granting full access to
+ * the mailbox of the account that owns the folder. Somebody fixing a send by
+ * reaching for the more capable class would quietly turn a notification feature
+ * into a request for the detachment's entire inbox.
+ */
+check('mail goes out through MailApp, never GmailApp', () => {
+  if (!SOURCE.includes('MailApp.sendEmail')) throw new Error('nothing sends mail any more');
+  if (/\bGmailApp\b/.test(SOURCE)) {
+    throw new Error('GmailApp appears — that is the full-mailbox scope, not send-only');
+  }
+});
+
+/**
+ * Inert means inert.
+ *
+ * A proxy with no mail switch configured must serve every action exactly as it
+ * did before. If the configuration guard ever grows to mention the mail
+ * properties, an unset switch would start refusing submissions.
+ */
+check('the configuration guard still asks only for the folder and the client id', () => {
+  const guard = /if \(!cfg\.folderId \|\| !cfg\.clientId\)/.test(SOURCE);
+  if (!guard) throw new Error('doPost no longer guards on exactly folderId and clientId');
+  if (/cfg\.notifyEmail[^)]*\)\s*\{\s*\n\s*return fail\('This proxy has not been configured/.test(SOURCE)) {
+    throw new Error('the mail switch has been folded into the configuration guard');
+  }
+});
+
+/**
+ * The wording of a feedback request is the disclosure, not the response to it.
+ *
+ * A commander-space request that mailed its own title would have carried
+ * restricted content out of the restricted folder and into a personal inbox,
+ * where it can be read from a lock screen. The behaviour suite seeds a title and
+ * searches the sent message; this is the same rule stated against the text, so
+ * the field cannot be reintroduced by someone who does not run that suite.
+ */
+check('the message is built without the title, the questions, or who it is about', () => {
+  const start = SOURCE.indexOf('function notifyBody');
+  if (start < 0) throw new Error('notifyBody is gone — this check needs rewriting');
+  const body = SOURCE.slice(start, SOURCE.indexOf('\n}\n', start));
+  const banned = ['request.title', 'request.eventName', 'request.instructions', 'request.subject'];
+  const found = banned.filter((name) => body.includes(name));
+  if (found.length) throw new Error(`the message reads ${found.join(', ')}`);
+});
+
+/**
+ * A notification is a convenience; an issuance is not. Losing a cadre member's
+ * feedback request because Gmail hiccuped would trade the thing that matters for
+ * the thing that does not, and leave the record written but reported as failed.
+ */
+check('a failed notification cannot fail the issuance that triggered it', () => {
+  // The semicolon matters: without it this finds the function's own definition,
+  // which naturally has no try above it.
+  const call = SOURCE.indexOf('notifyAddressed(root, request, cfg);');
+  if (call < 0) throw new Error('nothing calls notifyAddressed any more');
+  const before = SOURCE.slice(Math.max(0, call - 200), call);
+  const after = SOURCE.slice(call, call + 300);
+  if (!/try\s*\{/.test(before) || !/catch\s*\(/.test(after)) {
+    throw new Error('the notify call is not wrapped in a try/catch');
+  }
+});
+
 console.log(failures ? `\n${failures} proxy check(s) failed.` : '\nAll proxy checks passed.');
 process.exit(failures ? 1 : 0);

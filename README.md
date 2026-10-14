@@ -912,8 +912,19 @@ Ranked by what would actually hurt, not by how alarming they sound.
    the figure this section previously assumed, and it moved the lock from an
    estimated one-and-a-half seconds to five or more — about three concurrent
    submitters before the twenty-second wait runs out, not the ten to twenty-eight
-   guessed at. The same file showed `allResponses` taking 28s against a 30s
-   client timeout, and `people` timing out outright, at only 63 responses.
+   guessed at. The same file showed `allResponses` taking 28s against what was
+   then a 30s client timeout, and `people` timing out outright, at only 63
+   responses.
+
+   **The client timeout is now 60s** (`TIMEOUT_MS` in `js/storage/proxy.js`).
+   That is runway, not a fix: aborting in the browser does not cancel the Apps
+   Script execution, which runs to completion and holds one of the account's
+   thirty slots regardless — so a short timeout only discarded an answer the
+   server was always going to produce. Sixty seconds moves the point at which
+   Responses & analysis and By instructor stop working from roughly sixty stored
+   responses to roughly a hundred and thirty. Both screens read every response
+   file, so the real fix is making those reads cheaper, and until that lands the
+   two screens are **slow by design** rather than fast.
 
    **Partly addressed, by spending less rather than by raising the ceiling.** A
    cadet's arrival is one round trip instead of three, the connection pill no

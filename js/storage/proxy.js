@@ -31,8 +31,26 @@
 import { LS } from '../config.js';
 import { recordFailure } from '../failures.js';
 
-/** Google's own redirect chain is slow on a bad campus connection. */
-const TIMEOUT_MS = 30000;
+/**
+ * How long to wait for an answer before giving up.
+ *
+ * Sixty seconds, not thirty, and the reason is that **aborting here does not
+ * cancel the execution.** Apps Script runs the request to completion on Google's
+ * side whatever the browser does, holding one of the account's thirty execution
+ * slots until it finishes. So a short timeout buys no capacity back — it only
+ * throws away an answer the server was always going to produce.
+ *
+ * At the measured cost of a Drive document read, the two staff screens that read
+ * every response — Responses & analysis, and By instructor — cross thirty
+ * seconds at roughly sixty stored responses and sixty seconds at roughly a
+ * hundred and thirty. Sixty is not a fix, and it is not meant to be one: it is
+ * runway while the reads themselves are made cheaper. See the known risks in
+ * README.md.
+ *
+ * It is also why Google's own redirect chain, slow on a bad campus connection,
+ * is not the binding term here any more.
+ */
+const TIMEOUT_MS = 60000;
 
 /* ------------------------------------------------------------------ *
  * how long the server takes

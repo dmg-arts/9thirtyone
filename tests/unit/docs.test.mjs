@@ -393,6 +393,88 @@ check('user-visible strings are spelled en-GB', () => {
  * 5. instructions the app must no longer give
  * ------------------------------------------------------------------ */
 
+/**
+ * Every document a person outside this repo might read. Distinct from STRINGS,
+ * which is `js/` string literals only — the spelling check above cannot see a
+ * single word of the prose, which is how `centralized` survived in two
+ * cadre-facing documents through fourteen releases.
+ */
+const USER_DOCS = [
+  'docs/WHY.md', 'about.html', 'privacy.html', 'terms.html',
+  'tools/docs/overview.html', 'tools/docs/how-to-guide.html',
+  'tools/docs/user-introduction.html', 'tools/docs/setup-guide.html',
+  'README.md',
+];
+
+check('no document offers the submission server as optional', () => {
+  // It stopped being optional when `drive.file` made a join link depend on it:
+  // a device that did not create the folder cannot reach it, so without the
+  // server there is no way to set anyone else up (setup guide Part 6).
+  // Documents went on hedging it for several releases afterwards — privacy.html
+  // in two places, README.md in a section opening — and a hedge here is not a
+  // style problem. It tells a detachment the step it can least afford to skip
+  // is a matter of taste.
+  //
+  // Literals rather than a window around "optional": that word appears
+  // legitimately beside CSV columns and roster fields, and a proximity search
+  // flagged every one of them.
+  const hedges = [
+    'if your organisation deployed one',
+    'if your organisation has deployed',
+    'where an organisation has deployed',
+    'if a detachment deploys',
+    'if one is deployed',
+    'optional, and the setting',
+  ];
+  const hits = [];
+  for (const doc of USER_DOCS) {
+    const text = read(doc).toLowerCase();
+    for (const hedge of hedges) {
+      if (text.includes(hedge)) hits.push(`"${hedge}" in ${doc}`);
+    }
+  }
+  if (hits.length) throw new Error(hits.join('; '));
+});
+
+check('the documents that explain access say the folder is shared with nobody', () => {
+  // The positive half of the check above, and the more durable one: banning
+  // phrasings only catches the wording that happened to be used last time.
+  //
+  // This is the claim crawl A found inverted in the setup guide, which had told
+  // administrators to "confirm the folder is shared with the right people".
+  // Under `drive.file` sharing the folder grants raw Drive access to every
+  // response — it does not grant access to the app, which is what a reader
+  // would assume it was for. These three documents are where someone decides
+  // whether to share it.
+  const required = ['privacy.html', 'README.md', 'tools/docs/setup-guide.html'];
+  const missing = required.filter((doc) => !/shared with nobody/i.test(read(doc)));
+  if (missing.length) {
+    throw new Error(`no "shared with nobody" statement in ${missing.join(', ')}`);
+  }
+});
+
+check('document prose is spelled en-GB', () => {
+  // STYLE.md §1. The existing spelling check reads `js/` string literals, so no
+  // amount of US spelling in the prose could ever trip it.
+  // `centraliz` is a stem: settled Oct 2026 (STYLE.md §1 note 5) as our own
+  // description rather than an AFROTC term being quoted.
+  // Scoped away from URLs and HTML tokens by excluding the two contexts where a
+  // z-spelling is specified by someone else: `autocomplete="organization"` and
+  // anything inside a link target.
+  const words = ['anonymized', 'organization', 'authorized', 'recognize', 'centraliz'];
+  const hits = [];
+  for (const doc of USER_DOCS) {
+    const text = read(doc)
+      .replace(/https?:\/\/[^\s"'<>)]+/g, '')
+      .replace(/autocomplete="organization"/g, '');
+    for (const word of words) {
+      const m = new RegExp(`\\w*${word}\\w*`, 'gi').exec(text);
+      if (m) hits.push(`"${m[0]}" in ${doc}`);
+    }
+  }
+  if (hits.length) throw new Error(hits.join('; '));
+});
+
 check('the app does not instruct anyone past a warning that no longer appears', () => {
   // The join mail and the join screen told every cadet to expect an unverified-app
   // warning and to choose Advanced. The app has been published and brand verified

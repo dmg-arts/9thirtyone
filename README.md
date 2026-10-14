@@ -1,7 +1,7 @@
 # 9ThirtyOne
 
 A progressive web app for the cadet ↔ instructor feedback cycle, built for
-AFROTC detachments. Every organization owns its own data: the app has no server
+AFROTC detachments. Every organisation owns its own data: the app has no server
 and no shared database, and writes only to storage the detachment controls.
 
 - **Cadet** — signs in with their Google account, then sees the feedback
@@ -31,7 +31,7 @@ and no shared database, and writes only to storage the detachment controls.
 
 | File | For | Contents |
 |---|---|---|
-| `WHY.md` | Cadre and commanders | Why this exists: the centralized detachment model and what it costs, the cadet-instructor gap, how the app works in plain English, and the guarantees with their limits. **The argument the other documents are built on.** |
+| `WHY.md` | Cadre and commanders | Why this exists: the centralised detachment model and what it costs, the cadet-instructor gap, how the app works in plain English, and the guarantees with their limits. **The argument the other documents are built on.** |
 | `STYLE.md` | Anyone writing copy | The content lexicon — terminology, object definitions, voice, and the claims that must not be softened. Applied by hand; there is no build step that reads it. |
 | `9ThirtyOne-Setup-Guide.pdf` | Whoever installs it | 27 pages: creating the detachment's Google account, opening the app, the wizard, the submission server, the roster, join links, a verification checklist, and troubleshooting. There is no Cloud setup any more. |
 | `9ThirtyOne-User-Introduction.pdf` | Everyone, at rollout | 8 slides: why and how on one slide, then what instructors, cadre and commanders do, what a cadet sees, and a diagram of where an answer actually goes. |
@@ -196,21 +196,28 @@ folder link to paste.
 > on work that cannot succeed.
 
 The OAuth client ID is public by design — it identifies the app, it is not a
-password. Who can read the data is governed by Google sign-in and the folder's
-sharing settings.
+password. Who can read the data is governed by Google sign-in and the roster.
+The folder itself is shared with nobody: with the submission server mandatory,
+nobody but the owner needs Drive access, and sharing it would hand out raw
+read access to every response rather than access to the app.
 
 ---
 
 ## The submission server
 
-Optional, and the setting that decides whether "anonymous" means anonymous from
-*other cadets*. Deployment instructions are in `tools/proxy/README.md`.
+**Required**, and the setting that decides whether "anonymous" means anonymous
+from *other cadets*. Deployment instructions are in `tools/proxy/README.md`.
 
-Without it, a cadet's phone writes its own response into Drive, which requires
-Editor on the folder, which also grants read. With it, cadets have no Drive
-access at all: their device posts to a Google Apps Script running in the
-detachment's own account, which verifies their Google ID token **server-side**,
-checks the roster, and writes the files as the folder's owner.
+It used to be optional. Without it a cadet's phone wrote its own response into
+Drive, which required Editor on the folder, which also granted read — so any
+cadet could open Drive and read every response. That fallback is gone: under
+`drive.file` a device that did not create the folder cannot reach it, so without
+the server a join link cannot set up anyone else's device at all.
+
+With it, cadets have no Drive access at all: their device posts to a Google
+Apps Script running in the detachment's own account, which verifies their
+Google ID token **server-side**, checks the roster, and writes the files as the
+folder's owner.
 
 That closes the loop `js/google-identity.js` describes — the browser-side token
 check "stops mistakes, not attackers", and this is the server-side check it

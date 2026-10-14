@@ -10,13 +10,13 @@ argument; that one governs the words.*
 
 ## 1. The problem is structural, not technical
 
-AFROTC runs a **centralized detachment model**. One host facility serves cadets
+AFROTC runs a **centralised detachment model**. One host facility serves cadets
 from several Crosstown universities across a geographic area. That is the whole
 point of the model, and it is also the reason none of the ordinary tooling fits.
 
 A detachment cannot operate through any single university's IT system. It has
 cadets at schools that system has never heard of. So detachments do the sensible
-thing and stand up a **Det Google Account** to centralize communications — which
+thing and stand up a **Det Google Account** to centralise communications — which
 solves the mail problem and creates a second one. A university IT system comes
 with a suite of educational tools attached: a course platform, a survey tool, a
 gradebook, somewhere for evaluations to live. A Google account comes with none of

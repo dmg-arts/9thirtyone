@@ -98,7 +98,7 @@
 <header class="masthead">
   <h1>9ThirtyOne Privacy Policy</h1>
   <p class="sub">How this application handles your information.</p>
-  <p class="updated">Last updated: <!--DATE-->3 September 2026<!--/DATE--> &middot; Applies to: 9ThirtyOne</p>
+  <p class="updated">Last updated: <!--DATE-->14 October 2026<!--/DATE--> &middot; Applies to: 9ThirtyOne</p>
 </header>
 
 <div class="callout callout--ok">
@@ -131,8 +131,8 @@
     <td>Writes the software, serves its files from a public web address, and operates the
     verified Google OAuth client that signs you in. That client identifies the application to
     Google; it grants us nothing in your organisation's Drive, which the app reaches under a
-    permission <em>you</em> grant at sign-in. We do not host your data, do not receive it, and
-    cannot access it.</td>
+    permission <em>your administrator</em> grants when setting the folder up. We do not host your
+    data, do not receive it, and cannot access it.</td>
   </tr>
 </table>
 </div>
@@ -157,8 +157,9 @@
 </p>
 <p>
   <strong>Your organisation may email that address.</strong> If it has switched the feature on, its
-  own Google account sends you a short message when feedback is issued to you, saying only that a
-  request is waiting and carrying a link to it. The message does not contain the questions, your
+  own Google account sends you a short message when feedback is issued to you. It says that a
+  request is waiting and carries a link to it, a reference number, and the date it is due —
+  and that is the whole message. The message does not contain the questions, your
   answers, who the feedback is about, or anyone else's address, and its subject line is the same for
   every request so that its arrival discloses nothing. The mail comes from your organisation's
   account, not from us &mdash; we have no copy of your address and send you nothing.
@@ -201,8 +202,11 @@
   Every written answer is checked automatically against word lists covering hazing, harassment,
   discrimination, threats of violence, self-harm, substance misuse and academic integrity. A match is
   shown to cadre so that someone can read it quickly. This happens <strong>inside your
-  organisation's own installation</strong> — the check runs on your device against a word list
-  shipped with the app. Nothing is sent anywhere to perform it, and no such match ever reaches us.
+  organisation's own installation</strong> — the check runs in the browser of the cadre
+  member looking at the results, against a word list shipped with the app. Nothing is sent
+  anywhere to perform it, no outside service is involved, and no such match ever reaches us.
+  It runs when someone opens the results rather than when you submit, so a match is noticed
+  when the feedback is next read.
 </p>
 <div class="callout callout--warn">
   <span class="t">This screening is not subject to the three-response threshold</span>
@@ -253,7 +257,12 @@ submission server. 9ThirtyOne sets <strong>no cookies</strong>.</p>
     <td><!--SCOPE--><code>https://www.googleapis.com/auth/drive.file</code><!--/SCOPE--></td>
     <td>Reading and writing the feedback records inside the folder <strong>this app created</strong>
     in your organisation's Drive. This permission covers only files the app made itself. It gives
-    the app no access to anything else in your Google Drive, and no way to ask for any.</td>
+    the app no access to anything else in your Google Drive, and no way to ask for any.
+    <strong>Most people never grant this one.</strong> It is granted once, by the administrator who
+    sets the detachment up, because the submission server reaches the folder on everyone else's
+    behalf. If you joined by a link, you were asked only for the sign-in permissions above &mdash;
+    and if you were asked for Drive access, something is misconfigured and you should tell your
+    administrator.</td>
   </tr>
 </table>
 </div>
@@ -295,8 +304,8 @@ submission server. 9ThirtyOne sets <strong>no cookies</strong>.</p>
     The app sends data to exactly three places, all of them Google's or your organisation's:
     Google's sign-in service (through the OAuth client we operate, which carries your sign-in to
     Google and returns the result to your browser — it is not a stop the data makes with us),
-    Google Drive (your organisation's account), and — if your organisation deployed one — a
-    submission server running inside your organisation's own Google account. There
+    Google Drive (your organisation's account), and the submission server running inside your
+    organisation's own Google account. There
     is no fourth destination. There are no analytics, no error reporting services, no advertising
     networks, and no third-party components of any kind. (Fetching the app's own files from where
     they are published is a separate matter — see section 10.)
@@ -325,10 +334,13 @@ submission server. 9ThirtyOne sets <strong>no cookies</strong>.</p>
   We do not sell, rent, or share your information with anyone. We have none to share.
 </p>
 <p>
-  Within your organisation, who can see what is decided by your organisation's own roster and by
-  Google Drive's sharing settings. Broadly: cadets see only what is assigned to them and never see
-  anyone's responses; instructors see the detachment's feedback; restricted spaces are visible only
-  to the roles your organisation grants. On an anonymous form, results are withheld entirely until
+  Within your organisation, who can see what is decided by <strong>your organisation's roster, and
+  only by the roster</strong>. The Drive folder itself is shared with nobody &mdash; not with cadets,
+  not with cadre &mdash; so there is no second control to get wrong. Broadly: cadets see only what is
+  assigned to them and never see anyone's responses; an instructor sees their own results; cadre see
+  the whole instructor pool, and their own results as an instructor but not another cadre
+  member's; only a commander sees the cadre. Restricted spaces are separate folders, visible only to
+  the roles your organisation grants. On an anonymous form, results are withheld entirely until
   <strong>three</strong> responses exist, so no single answer can be picked out by elimination.
   Below that line, only the count of who has taken part is shown.
 </p>
@@ -361,9 +373,10 @@ submission server. 9ThirtyOne sets <strong>no cookies</strong>.</p>
 <p>
   You can revoke 9ThirtyOne's access to your Google account at any time at
   <a href="https://myaccount.google.com/permissions" rel="noopener">myaccount.google.com/permissions</a>.
-  Signing out inside the app also revokes the Drive token it was holding. Revoking access stops the
-  app working for you; it does not delete feedback already submitted, which belongs to your
-  organisation's records.
+  Signing out inside the app also revokes any Drive token it was holding &mdash; on most devices
+  there is none to revoke, because they reach the folder through the submission server rather than
+  directly. Revoking access stops the app working for you; it does not delete feedback already
+  submitted, which belongs to your organisation's records.
 </p>
 
 <h3>Clearing your device</h3>
@@ -378,9 +391,9 @@ submission server. 9ThirtyOne sets <strong>no cookies</strong>.</p>
   <li>The app holds <strong>no passwords</strong> — sign-in is Google's.</li>
   <li>Sign-in tokens are short-lived, kept only for the current browser tab, and discarded on
   sign-out. They are never written to long-term storage.</li>
-  <li>Where an organisation has deployed the submission server, cadets are given <strong>no access
-  to the Drive folder at all</strong>. Their submissions are verified and written by that server, so
-  no participant can read, alter, or delete anyone else's feedback.</li>
+  <li>Cadets are given <strong>no access to the Drive folder at all</strong>, and neither is anyone
+  else but the administrator who owns it. Submissions are verified and written by the submission
+  server, so no participant can read, alter, or delete anyone else's feedback.</li>
   <li>Destructive actions are recorded in an activity log with the reason and who performed them.</li>
   <li>The app has <strong>no third-party code</strong> — no libraries, no frameworks, no CDNs —
   other than Google's own sign-in script.</li>

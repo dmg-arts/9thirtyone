@@ -210,7 +210,7 @@
     <tr>
       <td><strong>Google Drive</strong><br><span style="color:var(--ok-line);font-size:8.6pt">RECOMMENDED</span></td>
       <td>Any detachment with more than one device</td>
-      <td>Records live in a Drive folder on your Google account. Works on phones, tablets and computers, and everyone sees the same data. Needs the one-time Google setup in Part 2.</td>
+      <td>Records live in a Drive folder on your Google account. Works on phones, tablets and computers, and everyone sees the same data. Needs the detachment Google account created in Part 2 &mdash; there is no registration to do any more.</td>
     </tr>
     <tr>
       <td><strong>Synced folder</strong></td>
@@ -232,8 +232,8 @@
   </div>
 
   <p><strong>If you are evaluating the app</strong>, choose <em>This device only</em>, skip to Part 4,
-  and come back to Part 2 when you are ready to go live. Nothing is lost — Part 8 explains how to
-  carry your trial data across.</p>
+  and come back to Part 2 when you are ready to go live. Nothing is lost — <em>Moving trial data
+  into Drive</em>, at the start of Part 9, explains how to carry it across.</p>
 </section>
 
 <!-- ============================= PART 2 ============================= -->
@@ -275,8 +275,11 @@
       A Google Workspace account &mdash; the kind a university issues, usually ending in
       <code>.edu</code> &mdash; is the better home for this, if you can get one in the detachment's
       name. It belongs to the institution rather than to a password in a shared folder, and it
-      carries substantially higher Google limits: six hours a day of scheduled-task runtime against
-      ninety minutes, and fifteen hundred email recipients a day against one hundred.
+      carries higher Google limits. The one that applies here is email: a Workspace account may send
+      to fifteen hundred recipients a day where an ordinary account may send to a hundred, which
+      decides whether a detachment can tell a whole flight about new feedback more than once in a
+      day. Google publishes the current figures under <em>Apps Script quotas</em> in its developer
+      documentation.
     </p>
     <p>
       Do not hold up the install waiting for one. Every school sets its own policy on who may be
@@ -345,11 +348,13 @@
   </div>
 
   <div class="note">
-    <strong class="title">What you are agreeing to at sign-in has not changed</strong>
-    <p>Google still asks each person's permission before the app touches their Drive, and the
-    permission it asks for is still <code>drive.file</code> — files this app created, and nothing
-    else in that account. A verified badge changes who vouches for the app's identity. It does not
-    widen what the app may reach, and the folder still belongs to your detachment.</p>
+    <strong class="title">Who is asked for Drive permission, and who never is</strong>
+    <p>Only the account that owns the folder is ever asked, and only while you are setting it up in
+    Part 4. The permission is <code>drive.file</code> — files this app created, and nothing else
+    in that account. Once the submission server is deployed in Part 6, <strong>nobody else is asked
+    at all</strong>: cadets and cadre sign in with Google to prove who they are, and reach their data
+    through the server rather than through Drive. A verified badge changes who vouches for the app's
+    identity; it does not widen what the app may reach.</p>
   </div>
 
 </section>
@@ -460,8 +465,7 @@
   an account that is not on it is turned away, whoever it belongs to.</p>
 
   <ol class="steps">
-    <li><strong>Confirm the folder is shared with the right people before you start.</strong> Drive
-    sharing is the control that actually matters — see the note below.</li>
+    <li><strong>Leave the folder shared with nobody.</strong> You do not need to share it, and sharing it would not help anyone use the app — see the note below.</li>
     <li><strong>From the home screen, open <em>Database Administration</em>.</strong> It should say
     this detachment has no roster yet.</li>
     <li><strong>Click Sign in with Google</strong> and choose the account you want to administer
@@ -474,12 +478,27 @@
     <li><strong>Check the access setting.</strong> Go to <em>Settings &rarr; Access</em>. It should read "Google sign-in only".</li>
   </ol>
 
-  <div class="note note--danger">
-    <strong class="title">Share the folder before the first sign-in, not after</strong>
-    <p>Whoever can reach the app and open the folder can claim an unclaimed one. That is deliberate —
-    it is how a new detachment gets in without a shared password that would be published in a guide
-    like this one. It also means the window between creating the folder and claiming it should be
-    short, and the folder should be shared only with the people who need it.</p>
+  <div class="note note--warn">
+    <strong class="title">Sharing the folder does not give anybody access to the app</strong>
+    <p>
+      Worth getting right, because an earlier version of this guide said the opposite. The app asks
+      Google only for the files <em>it created itself</em>, so it can open this folder for the
+      account that made it and for nobody else. Share the folder with a colleague and the app still
+      will not open it for them — what they get instead is raw access to the Drive folder, where
+      every response sits in the open, including the anonymous ones.
+    </p>
+    <p>
+      <strong>So Drive sharing is not the access control. The roster is</strong>, and from Part 6 it
+      is enforced by the submission server rather than by Drive. Add people to the roster; leave the
+      folder to yourself.
+    </p>
+    <p>
+      Claiming is the one exception, and it closes on its own. A roster with nobody on it is taken
+      by the first Google account to sign in — which is how a new detachment gets in without a
+      shared password printed in a guide like this one. Only an account that can already reach the
+      folder can do it, which at this point is yours alone; and once the server is deployed the door
+      shuts for good, because an address that is not on the roster is refused outright.
+    </p>
   </div>
 
   <div class="note">
@@ -551,8 +570,10 @@
   <ol class="steps">
     <li><strong>Open script.google.com</strong> signed in as the account that owns the Drive
     folder. This matters: the script files everything using that account's access.</li>
-    <li><strong>New project</strong>, named <code>9ThirtyOne Server</code>. Delete what is
-    there and paste in <code>tools/proxy/Code.gs</code> from the app's files.</li>
+    <li><strong>New project</strong>, named <code>9ThirtyOne Server</code>. Delete what is there
+    and paste in <code>tools/proxy/Code.gs</code>, downloaded from the project's public
+    repository at <code>github.com/dmg-arts/9thirtyone</code> — open the file and use its
+    <em>Raw</em> view, so you copy the script and not the page around it.</li>
     <li><strong>Project Settings &rarr; Script Properties</strong> &mdash; the gear icon in the
     left sidebar. Add these two, then <em>Save script properties</em>. The names are
     case-sensitive.
@@ -627,7 +648,7 @@
     <tr><th style="width:22%">Role</th><th>Can do</th></tr>
     <tr><td><strong>Cadet</strong></td><td>See feedback assigned to them and submit it once.</td></tr>
     <tr><td><strong>Instructor</strong></td><td>Create feedback, read responses, run analysis. In <em>By instructor</em>, their own results.</td></tr>
-    <tr><td><strong>Cadre</strong></td><td>Everything an instructor can, plus the <em>Cadre Panel</em> &mdash; the same screen again, holding feedback instructors cannot see. Not a hidden tab: a separate folder they have no access to. In <em>By instructor</em>, cadre see every instructor&rsquo;s results, for oversight.</td></tr>
+    <tr><td><strong>Cadre</strong></td><td>Everything an instructor can, plus the <em>Cadre Panel</em> &mdash; the same screen again, holding feedback instructors cannot see. Not a hidden tab: a separate folder they have no access to. In <em>By instructor</em>, cadre see the whole instructor pool, plus their own results as an instructor &mdash; but not another cadre member&rsquo;s. Only a commander sees the cadre.</td></tr>
     <tr><td><strong>Commander</strong></td><td>Sees every space including its own, which nobody else can read. Their own space appears inside the Cadre Panel, marked. In <em>By instructor</em> a commander sees everyone, cadre included. <strong>At most two at a time</strong>, so a change of command overlaps.</td></tr>
     <tr><td><strong>Database admin</strong></td><td>Add and remove people, maintain the database, delete feedback &mdash; always with a recorded reason.</td></tr>
   </table>

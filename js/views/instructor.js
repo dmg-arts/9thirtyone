@@ -382,9 +382,11 @@ async function tabStudents(host) {
       el('h2', { class: 'section-title', style: { margin: '0' } }, `Cadets (${students.length})`),
       el('button', { type: 'button', class: 'btn btn--sm', onclick: () => navigate('/admin') },
         icon('database'), 'Manage accounts')),
-    notice('info', 'Usernames are how cadets identify themselves',
-      el('p', {}, 'A cadet types their username on the feedback form. It is checked against this '
-        + 'list at submission, and each username can submit a given form only once.')),
+    notice('info', 'Usernames are how receipts are filed, not how cadets sign in',
+      el('p', {}, 'Cadets sign in with Google and never type a username. Each one is derived when '
+        + 'the account is created and is what a submission receipt is filed under, which is how '
+        + 'the same person can answer a given form only once \u2014 and how completion can be '
+        + 'tracked without reading anybody\u2019s answers.')),
     el('div', { class: 'card', style: { padding: 'var(--sp-4)', margin: 'var(--sp-4) 0' } },
       el('div', { class: 'filters' },
         field('AS level', select(

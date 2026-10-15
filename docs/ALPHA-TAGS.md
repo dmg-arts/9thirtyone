@@ -119,3 +119,37 @@ Treat a release as unfinished until it appears below.
 | `v1.0.13-beta.1` | `1f27c4a` | A diagnostics file that describes the installation rather than the browser, because no detachment's Drive is reachable from here. |
 | `v1.0.14-beta.1` | `ce63db8` | A real measurement, and the four things it said were wrong — including a consent dialog on a cadre member's own panel. |
 | `v1.0.15-beta.1` | `e097391` | A 60-second client timeout. Runway, not a fix: the two staff analysis screens cross the usable ceiling at roughly sixty stored responses. |
+| `v1.0.16-beta.1` | `2c543bf` | The cold-start retry gets the full timeout it already claimed — 1.0.15 raised the transport ceiling and left a second copy of the old number behind. |
+
+---
+
+## 1.1 and 1.2 do not exist, and that is deliberate
+
+The app goes **1.0.16 straight to 1.3.0**. Nothing was lost; the two numbers were
+never used.
+
+There are two version lines in this project and they had drifted apart. The app was
+on 1.0.16 while `PROXY_VERSION` in `tools/proxy/Code.gs` was on 1.3.0, so a
+diagnostics file showed two unrelated numbers side by side and every conversation
+about "1.3.0" had to say which one it meant. From the Det 752 deployment they are
+aligned on purpose:
+
+> **The minor version is shared and means "these were designed together".
+> The patch belongs to the app alone.** App 1.4.x expects proxy 1.4.0.
+
+That matters because the analysis work is **one** proxy deployment lighting up
+**three** client releases: the app will run 1.4.0, then 1.4.1, then 1.4.2 against a
+proxy that stays at 1.4.0. The minors matching is the claim; the patch drifting is
+normal and expected.
+
+**The one legitimate divergence**, recorded so nobody chases it as a fault: a client
+rollback without a server rollback is supported by design — the old `people` action
+is kept alive across the analysis release precisely so that rolling back static
+files needs no re-paste of `Code.gs`. When that happens the app returns to 1.3.x
+while the proxy stays 1.4.0. That is the system working, not a mismatch.
+
+## The deployment releases
+
+| Tag | Commit | What it was |
+|---|---|---|
+| `v1.3.0-beta.1` | — | **The build Det 752 installs, 23 Oct 2026.** Identical code to 1.0.16; the number is a release designation, not a change. Paired with `PROXY_VERSION 1.3.0`, which carries the email notification shipped dark. |

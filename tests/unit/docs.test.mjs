@@ -492,6 +492,117 @@ check('the app does not instruct anyone past a warning that no longer appears', 
   if (hits.length) throw new Error(hits.join('; '));
 });
 
+/* ------------------------------------------------------------------ *
+ * 6. documents that promise to date their own changes
+ *
+ * privacy.html section 11 and terms.html section 13 both say the date at the top
+ * of the page moves whenever the document changes. For 32 days privacy.html
+ * broke that promise about itself: 7860cf7 added the email disclosure and left
+ * "3 September 2026" in place.
+ *
+ * This is the first check here whose source of truth is git history rather than
+ * the code or a built artefact. That is deliberate. The alternative — a committed
+ * file of expected hashes — would be a second copy of the expectation, which the
+ * header of this file rejects, and would be the first of its kind in the repo.
+ * Git already knows when the prose changed and stores nothing extra to say so.
+ *
+ * It does not contradict the header's "cannot catch a sentence that was true when
+ * it was written". This catches an *undated change*, never staleness: a document
+ * nobody has touched in a year passes, correctly.
+ *
+ * The rule is "the stated date must not be older than the day the prose last
+ * changed", and the "day" matters. The obvious rule — prose changed since the
+ * date last moved — was measured against the real history of both files and
+ * produces four false alarms, because the four commits of 31 Aug 2026 each edited
+ * prose on the day the date already said 31 August. Those documents were right.
+ * ------------------------------------------------------------------ */
+
+const DATE_MARK = /<!--DATE-->([^<]*)<!--\/DATE-->/;
+const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july',
+  'august', 'september', 'october', 'november', 'december'];
+
+/**
+ * A document reduced to the words a person reads, so that a change which only a
+ * machine can see does not demand a new date.
+ *
+ * The date itself goes first, or moving it would read as a change to the prose it
+ * is supposed to be dating. `<style>` goes too: a colour token is not a policy.
+ * Entities are decoded so `&mdash;` and an em dash compare equal, and `&amp;`
+ * decodes last so `&amp;mdash;` cannot turn into a dash. Collapsing whitespace at
+ * the end is what makes a rewrap invisible.
+ */
+function prose(html) {
+  return html
+    .replace(DATE_MARK, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&mdash;/g, '—')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&middot;/g, '·')
+    .replace(/&rsquo;/g, '’')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** "14 October 2026" -> "2026-10-14", sortable as a string. */
+function statedDate(html, path) {
+  const m = DATE_MARK.exec(html);
+  if (!m) throw new Error(`${path} has no <!--DATE--> marker`);
+  const parts = /^(\d{1,2}) ([A-Za-z]+) (\d{4})$/.exec(m[1].trim());
+  if (!parts) throw new Error(`${path} states "${m[1].trim()}", which is not "D Month YYYY"`);
+  const month = MONTHS.indexOf(parts[2].toLowerCase());
+  if (month < 0) throw new Error(`${path} names no month: "${parts[2]}"`);
+  return `${parts[3]}-${String(month + 1).padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+}
+
+check('the legal pages are dated no earlier than their last change', () => {
+  let git = true;
+  try { execFileSync('git', ['rev-parse', '--git-dir'], { cwd: ROOT, stdio: 'ignore' }); }
+  catch { git = false; }
+  if (!git) { console.log('       (not a git checkout — document dates not checked)'); return; }
+
+  const run = (args) => execFileSync('git', args,
+    { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26 });
+  const today = new Date().toISOString().slice(0, 10);
+  const wrong = [];
+
+  for (const path of ['privacy.html', 'terms.html']) {
+    const live = read(path);
+    const stated = statedDate(live, path);
+
+    // An uncommitted edit has no commit date to compare against, so it is dated
+    // today. This is the branch that fires while the change is still being made,
+    // which is the only moment the fix is free.
+    if (prose(live) !== prose(run(['show', `HEAD:${path}`]))) {
+      if (stated < today) {
+        wrong.push(`${path} says "${stated}" but its prose has uncommitted changes — date it ${today}`);
+      }
+      continue;
+    }
+
+    // Newest first. The commit that changed the prose is the newest one whose
+    // prose differs from the commit before it; `git log -- <path>` lists only
+    // commits that touched the file, so the next entry is the right comparison.
+    const shas = run(['log', '--format=%H', '--', path]).trim().split('\n');
+    let changed = shas[shas.length - 1];
+    for (let i = 0; i < shas.length - 1; i++) {
+      if (prose(run(['show', `${shas[i]}:${path}`])) !== prose(run(['show', `${shas[i + 1]}:${path}`]))) {
+        changed = shas[i];
+        break;
+      }
+    }
+    const when = run(['log', '-1', '--format=%ad', '--date=short', changed]).trim();
+    if (stated < when) {
+      const subject = run(['log', '-1', '--format=%h %s', changed]).trim();
+      wrong.push(`${path} says "${stated}" but its prose last changed ${when} (${subject})`);
+    }
+  }
+
+  if (wrong.length) throw new Error(wrong.join('; '));
+});
+
 console.log(failures
   ? `\n${failures} documentation check(s) failed.`
   : '\nThe documents agree with the code.');

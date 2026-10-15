@@ -7,7 +7,7 @@ and no shared database, and writes only to storage the detachment controls.
 - **Cadet** — signs in with their Google account, then sees the feedback
   assigned to them, filtered by school year, semester, class and due date.
 - **Instructor Panel** — behind an instructor sign-in. **Create Feedback**
-  builds a standardized form; **Feedback Response and Analysis** filters
+  builds a standardised form; **Feedback Response and Analysis** filters
   responses, runs statistics on the ratings, reads the written answers, and
   screens everything for safety concerns.
 - **Cadre Panel** — the same screen, pointed at the restricted folders. Cadre
@@ -37,8 +37,9 @@ and no shared database, and writes only to storage the detachment controls.
 | `9ThirtyOne-User-Introduction.pdf` | Everyone, at rollout | 8 slides: why and how on one slide, then what instructors, cadre and commanders do, what a cadet sees, and a diagram of where an answer actually goes. |
 | `9ThirtyOne-Overview.pdf` | A handout, or a projector | The same argument on one landscape page — why, how, both sides of the app, and the data-flow diagram. |
 | `9ThirtyOne-How-To-Guide.pdf` | Anyone using it | 20 pages, a chapter per role, every screen with its screenshot, and a closing matrix of what each role cannot reach. |
-| `ALPHA-TAGS.md` | The maintainer | The twelve alpha releases of 21–24 Aug 2026, with their commit SHAs and what each shipped. The tags themselves say a name and a line; this says why four of them are one movement. |
+| `ALPHA-TAGS.md` | The maintainer | Every release so far: the twelve alphas of 21–24 Aug 2026 and the betas since, with their commit SHAs and what each shipped. The tags themselves say a name and a line; this says why four of the alphas are one movement, and which releases were tagged only in hindsight. |
 | `9ThirtyOne-Introduction.pdf` | Briefing cadre or a commander | 22 slides with speaker notes: why it exists, what it does, how each role uses it, and the anonymity and safety design. |
+| `9ThirtyOne USER Installation Guide.pdf` | A cadet or cadre member installing the app on their own device | Written by hand in Pages, with the `.pages` source committed beside it. The only document here that nothing rebuilds, greps or tests &mdash; keep that in mind when the app changes under it. |
 | `ROSTER-FORMAT.md` | Whoever builds the roster | The CSV the roster importer accepts, column by column, with a prompt written to be handed to an assistant along with the detachment's existing list. |
 | `roster-template.csv` | The same person | A worked example of that format, staff and cadets, to attach alongside the prompt. |
 
@@ -666,7 +667,7 @@ js/
     home.js             the three entry points + settings
     student.js          username filter, fill-out, one-submission guard
     instructor.js       panel shell (both panels), forms, cadets, database
-    formCreator.js      the standardized form builder
+    formCreator.js      the standardised form builder
     analysis.js         filtering, statistics, completion tracking
     people.js           the commander's review, grouped by person
     admin.js            roster maintenance, invite links, audit, rollover

@@ -3,23 +3,28 @@
 A small Google Apps Script that runs inside your detachment's own Google account
 and files cadets' feedback for them.
 
-**About 15 minutes to deploy. Optional, but do it before you field the app.**
+**About 15 minutes to deploy. Required &mdash; the app cannot field without it.**
 
 ---
 
 ## Why bother
 
-Without it, a cadet's phone writes their response straight into your Drive
-folder. Google requires **Editor** permission to write, and Drive has no
-write-without-read. So every cadet who can submit can also:
+This used to be a choice, and the choice is gone: under `drive.file` a cadet's
+device cannot reach a folder it did not create, so without this script a join
+link cannot set up anyone else's device at all.
+
+It is worth knowing what the old arrangement cost, because it is why the script
+exists. A cadet's phone wrote their response straight into your Drive folder.
+Google requires **Editor** permission to write, and Drive has no
+write-without-read. So every cadet who could submit could also:
 
 - open the folder and read **every response to every form**, including anonymous ones
 - line up receipt and response timestamps to work out **who wrote what**
 - **alter or delete** other cadets' feedback
 - **delete the audit log**, which exists specifically so deletions leave a trace
 
-The app's anonymity design is real inside its own screens and worth nothing
-against a cadet who opens Drive directly.
+The app's anonymity design is real inside its own screens and would be worth
+nothing against a cadet who opened Drive directly.
 
 With the proxy, cadets need **no Drive access at all**. They never see the
 folder, and they are never asked to approve access to their own Google Drive —

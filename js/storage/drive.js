@@ -2,20 +2,29 @@
  * `drive` backend — the org's own Google Drive, via the Drive REST API.
  *
  * This is the backend that works everywhere, including phones. The detachment
- * owns the Google account, the Cloud project, and the folder; this app only ever
- * holds a short-lived access token issued to the person sitting at the device.
+ * owns the Google account and the folder; this app only ever holds a short-lived
+ * access token issued to the person sitting at the device.
  *
- * Setup on the org's side (once):
- *   1. Sign in to the detachment's Google account.
- *   2. console.cloud.google.com -> new project -> enable the Google Drive API.
- *   3. OAuth consent screen -> Internal (Workspace) or External + add testers.
- *   4. Credentials -> OAuth client ID -> Web application.
- *      Authorised JavaScript origins must include wherever this app is served.
- *   5. Paste the Client ID into setup, and paste the folder's share link.
+ * Setup on the org's side is the wizard and nothing else. This comment used to
+ * carry five steps of Google Cloud console work — new project, enable the Drive
+ * API, consent screen, an OAuth client, a test-user list holding every cadet —
+ * and every one of them is gone. There is one verified Client ID for the whole
+ * programme (`GOOGLE_CLIENT_ID` in `js/config.js`, published to Production), so a
+ * detachment configures no Cloud project at all. A stored `clientId` still
+ * overrides the default for anyone who set one up before that change.
  *
- * A browser OAuth client ID is public by design; it is an identifier, not a
- * secret. Access is still gated by Google's sign-in and the folder's own
- * sharing settings.
+ * Setup *creates* the folder rather than asking for a link to one. That is forced
+ * by the scope below, not a preference: under `drive.file` a folder made by hand
+ * in Drive is invisible to this app, because the app did not create it.
+ *
+ * What gates access is Google sign-in and the detachment's roster. Not the
+ * folder's sharing settings — the folder is shared with nobody, and sharing it
+ * would hand out raw read access to every response rather than access to the app.
+ *
+ * With the submission server configured this adapter is largely bypassed: the
+ * device holds no Drive grant and is never meant to get one. See
+ * `backgroundToken()` below, which refuses rather than escalating to a consent
+ * dialog.
  */
 
 import { loadGis as loadSharedGis } from '../google-identity.js';

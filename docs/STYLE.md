@@ -47,6 +47,22 @@ Recorded because this file itself drifted: it prescribed *"Anonymized export"* w
 everything it governs said *anonymised*. Code identifiers are exempt — they are addressed,
 not read.
 
+**The nine rating anchors are exempt, and stay US-spelled.** `SCALE_ANCHORS` in
+`js/config.js` reads *Unfavorable* (3) and *Favorable* (7). The reason is not cost:
+`drawCreator` in `js/views/formCreator.js` builds every scale question with
+`anchors: { ...SCALE_ANCHORS }`, so
+the vocabulary is **snapshotted into each form** and old responses keep the wording they
+were collected under. Changing a label therefore forks the corpus instead of migrating it —
+one detachment would hold forms spelled both ways, and no amount of care fixes the ones
+already stored. That makes these values closer to a data schema than to copy, the same
+reasoning that exempts `js/analysis/lexicon.js`.
+
+The consequence worth stating, because it looks like a mistake and is not: **prose about
+the scale is still en-GB, while the labels are quoted verbatim.** The comment above
+`SCALE_ANCHORS` does both in one sentence — it lists *"Detrimental, Unfavorable, Neutral,
+Favorable, Outstanding"* as labels, then calls 8 "the strong step on the *favourable*
+side" as ordinary prose. That is correct. Do not reconcile them.
+
 ---
 
 ## 2. Object definitions

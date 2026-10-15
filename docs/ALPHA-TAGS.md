@@ -88,10 +88,18 @@ are ever pruned from both, this file is what they were.
 
 ## The beta releases
 
-Tagged as they shipped, except 1.0.3 to 1.0.5, which were tagged afterwards — they went
-out as commits during a week of fixes and the tags were added once the gap was noticed.
+Tagged as they shipped, except 1.0.3 to 1.0.5, and then 1.0.6 and 1.0.12 to 1.0.15 —
+all of which went out as commits and were tagged afterwards, once the gap was noticed.
 A file whose purpose is release provenance stopping three releases short is the kind of
 thing that only shows up when someone goes looking.
+
+It happened again, and worse. On 15 Oct 2026 this table still ended at 1.0.5 while the
+app was on 1.0.15: **ten releases unrecorded**, in the file whose entire job is to record
+them. Five of them had no tag either. Both were fixed in the same pass, which is why the
+retroactive list above is longer than it was. The lesson the first gap was supposed to
+teach did not take, because nothing enforces this file — no test reads it, and the version
+check in `tests/unit/docs.test.mjs` ties `package.json` to `js/config.js` and stops there.
+Treat a release as unfinished until it appears below.
 
 | Tag | Commit | What it was |
 |---|---|---|
@@ -101,3 +109,13 @@ thing that only shows up when someone goes looking.
 | `v1.0.3-beta.1` | `86ac7a8` | Proxy mode could never sign anybody in — the roster read needed a session that sign-in had not yet created. |
 | `v1.0.4-beta.1` | `49c5e92` | Roster import reads the columns the export writes, instead of demoting every staff member to cadet. |
 | `v1.0.5-beta.1` | `37da2aa` | Setup looks for an existing folder before making another. |
+| `v1.0.6-beta.1` | `ce4f3b8` | The documents reconciled with the app and with each other, by hand. |
+| `v1.0.7-beta.1` | `9c8bc75` | A second rollover, a button that could not work, and two clocks disagreeing. |
+| `v1.0.8-beta.1` | `6d162e5` | The sign-in screen says what it is waiting for instead of sitting blank. |
+| `v1.0.9-beta.1` | `388bc22` | Stopped telling cadets to click past an unverified-app warning that no longer appears. |
+| `v1.0.10-beta.1` | `4411703` | A test for documents that had stopped being true, and the drift it immediately found. |
+| `v1.0.11-beta.1` | `11897f4` | Measured the proxy's cold start, then hid it behind the sign-in popup. |
+| `v1.0.12-beta.1` | `8654995` | Counted what a drill night costs in Apps Script executions, then spent less of it. |
+| `v1.0.13-beta.1` | `1f27c4a` | A diagnostics file that describes the installation rather than the browser, because no detachment's Drive is reachable from here. |
+| `v1.0.14-beta.1` | `ce63db8` | A real measurement, and the four things it said were wrong — including a consent dialog on a cadre member's own panel. |
+| `v1.0.15-beta.1` | `e097391` | A 60-second client timeout. Runway, not a fix: the two staff analysis screens cross the usable ceiling at roughly sixty stored responses. |

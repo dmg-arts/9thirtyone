@@ -403,7 +403,7 @@ const USER_DOCS = [
   'docs/WHY.md', 'about.html', 'privacy.html', 'terms.html',
   'tools/docs/overview.html', 'tools/docs/how-to-guide.html',
   'tools/docs/user-introduction.html', 'tools/docs/setup-guide.html',
-  'README.md',
+  'README.md', 'tools/proxy/README.md',
 ];
 
 check('no document offers the submission server as optional', () => {
@@ -461,7 +461,8 @@ check('document prose is spelled en-GB', () => {
   // Scoped away from URLs and HTML tokens by excluding the two contexts where a
   // z-spelling is specified by someone else: `autocomplete="organization"` and
   // anything inside a link target.
-  const words = ['anonymized', 'organization', 'authorized', 'recognize', 'centraliz'];
+  const words = ['anonymized', 'organization', 'authorized', 'recognize', 'centraliz',
+    'standardiz'];
   const hits = [];
   for (const doc of USER_DOCS) {
     const text = read(doc)

@@ -26,8 +26,10 @@ naming because they are easy to overlook when adding a test:
 | `docs.test.mjs` | The documents against the code they describe. It states its own limits in its header; read them before trusting a green run. |
 | `imports.test.mjs` | Nothing in `js/` reaches into `node_modules`. |
 
-`npm run test:e2e` starts its own server on port 8123, runs **both** browser
-suites against it, and shuts it down afterwards. When iterating it is faster to
+`npm run test:e2e` starts its own server on port 8123, runs the **app and Drive**
+suites against it, and shuts it down afterwards. The other three browser suites
+have their own scripts — `test:volume`, `test:memory` and `test:layout` — and
+`npm test` runs all five. When iterating it is faster to
 leave one running:
 
 ```bash

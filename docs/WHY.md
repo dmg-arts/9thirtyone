@@ -24,7 +24,7 @@ that. The detachment gets the communications and loses the tooling.
 
 Four consequences follow, and they compound:
 
-- **AFROTC has no feedback system standardized across detachments** that captures
+- **AFROTC has no feedback system standardised across detachments** that captures
   the AFROTC program itself. Nothing rolls up, because nothing has a common shape.
 - **Aerospace Studies runs through the host university's system**, with varying
   degrees of return. Whatever AS100 evaluation exists at one school is not what

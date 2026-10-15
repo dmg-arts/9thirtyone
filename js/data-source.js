@@ -444,6 +444,12 @@ export async function resolveIdentity(email, idToken, { onSlow = null } = {}) {
    * script is never made to wait for a cold one's budget; the second gets the
    * full timeout, since by then the script is either waking or genuinely down.
    *
+   * The retry passes no ceiling of its own, so "the full timeout" means whatever
+   * `TIMEOUT_MS` currently is rather than a second copy of the number. It was a
+   * copy until 1.0.16: the transport went to 60s in 1.0.15 and this line stayed
+   * at 30s, so the sentence above quietly stopped being true and the retry was
+   * capped at half what it claimed.
+   *
    * Deliberately not in `postJson`: `submitViaProxy` shares it, and a retried
    * submission whose first attempt succeeded but whose answer was lost would be
    * refused as a duplicate — telling a cadet their feedback failed when it is
@@ -456,7 +462,7 @@ export async function resolveIdentity(email, idToken, { onSlow = null } = {}) {
     } catch (err) {
       if (!err.transient) throw err;
       if (onSlow) onSlow();
-      return ask(fn, { timeoutMs: 30000 });
+      return ask(fn);
     }
   };
 

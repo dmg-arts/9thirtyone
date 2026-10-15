@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs';
 
 const SOURCE = readFileSync(new URL('../../tools/proxy/Code.gs', import.meta.url), 'utf8');
 const CLIENT = readFileSync(new URL('../../js/storage/proxy.js', import.meta.url), 'utf8');
+const CALLERS = readFileSync(new URL('../../js/data-source.js', import.meta.url), 'utf8');
 
 let failures = 0;
 const check = (label, fn) => {
@@ -363,6 +364,33 @@ check('a failed notification cannot fail the issuance that triggered it', () => 
   const after = SOURCE.slice(call, call + 300);
   if (!/try\s*\{/.test(before) || !/catch\s*\(/.test(after)) {
     throw new Error('the notify call is not wrapped in a try/catch');
+  }
+});
+
+check('nothing keeps a second copy of the request timeout', () => {
+  // 1.0.15 raised TIMEOUT_MS in js/storage/proxy.js from 30s to 60s and missed
+  // the retry in resolveIdentity, which carried its own `timeoutMs: 30000`. The
+  // comment above it says the retry "gets the full timeout", so the sentence
+  // stopped being true and the cold-start retry stayed capped at half of what
+  // the transport allowed. A real diagnostics export is what found it.
+  //
+  // The rule: a caller may shorten a request deliberately, but nothing restates
+  // the ceiling. Omitting the option inherits TIMEOUT_MS, so there is one number
+  // and it cannot drift.
+  //
+  // 10000 is the one allowed literal — resolveIdentity's first attempt is
+  // deliberately short so a warm script never waits for a cold one's budget.
+  const ALLOWED = new Set([10000]);
+  const bad = [];
+  for (const [file, source] of [['js/data-source.js', CALLERS],
+    ['js/storage/proxy.js', CLIENT]]) {
+    for (const m of source.matchAll(/timeoutMs:\s*(\d+)/g)) {
+      const ms = Number(m[1]);
+      if (!ALLOWED.has(ms)) bad.push(`${file} sets timeoutMs: ${ms}`);
+    }
+  }
+  if (bad.length) {
+    throw new Error(`${bad.join('; ')} — omit the option and inherit TIMEOUT_MS`);
   }
 });
 

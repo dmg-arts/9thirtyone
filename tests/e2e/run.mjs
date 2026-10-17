@@ -20,6 +20,32 @@ const PORT = process.env.PORT || '8123';
 const BASE = `http://127.0.0.1:${PORT}/index.html`;
 
 /*
+ * Refuse to run on a Node too old to have the things this file assumes.
+ *
+ * Checked here rather than left to fail naturally, because of how it failed on
+ * 17 Oct 2026: a stale Node 16 from a 2022 installer took the front of PATH, and
+ * the very next line threw `ReferenceError: fetch is not defined`. npm exited 1
+ * correctly, but the unit and proxy suites had already printed 390 passing
+ * checks above the stack trace, so the run looked like a pass to anyone reading
+ * the count — and the browser, volume, memory and layout suites had not run at
+ * all. A cryptic crash in the launcher is indistinguishable from a product bug.
+ *
+ * `fetch` landed in Node 18. The repo pins 26 in .nvmrc and package.json's
+ * engines field; this is the check that makes a mismatch say so.
+ */
+const major = Number(process.versions.node.split('.')[0]);
+if (major < 18) {
+  console.error(`This suite needs Node 18 or newer. You are on ${process.version}.`);
+  console.error('`fetch` is not defined before 18, so the launcher cannot start.');
+  console.error('');
+  console.error('  nvm use          # reads .nvmrc');
+  console.error('');
+  console.error('If `node -v` still disagrees, a non-interactive shell skipped the nvm');
+  console.error('init in ~/.zshrc and fell through to an older node earlier on PATH.');
+  process.exit(1);
+}
+
+/*
  * Refuse to run against a server we did not start.
  *
  * `ready()` below only asks whether *something* answers on the port. If a stale

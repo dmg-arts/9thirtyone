@@ -421,6 +421,47 @@ check('a recorded deletion names the account that did it, from the token', () =>
   if (entry.reason !== 'duplicate submission') throw new Error('the reason was not recorded');
 });
 
+check('deleting a request records it server-side, with the responses it took', () => {
+  // The hole this closes: deleteResponse is admin-only, demands a reason and
+  // writes its own audit entry — because, as its comment says, that trail exists
+  // so someone who is the subject of a complaint cannot quietly remove it. But
+  // deleteRequest is open to an instructor and takes every response with it, and
+  // until now the server wrote nothing. The only record came from a second call
+  // the client made afterwards, which a client that never makes it simply skips.
+  //
+  // The cascade itself stays — a request without its responses is wreckage, and
+  // the test above pins that. What must not stay is the silence.
+  const proxy = detachment();
+  proxy.post({ action: 'submit', idToken: as('cadet'), requestId: 'req_shared', answers: { q1: 5 } });
+  proxy.post({ action: 'deleteRequest', idToken: as('instructor'), requestId: 'req_shared' });
+
+  const entry = Object.entries(proxy.root.snapshot())
+    .find(([k]) => k.startsWith('audit/'))?.[1];
+  if (!entry) throw new Error('the deletion left no server-side audit entry');
+  if (entry.action !== 'request.deleted') throw new Error(`action was ${entry.action}`);
+  if (entry.actor?.username !== 'instructor') {
+    throw new Error(`actor recorded as ${entry.actor?.username}`);
+  }
+  if (entry.target !== 'req_shared') throw new Error(`target was ${entry.target}`);
+  // The count is the fact an investigator needs: "deleted a request" and
+  // "deleted a request holding twelve responses" are different events.
+  if (!/\b1\b/.test(String(entry.summary || ''))) {
+    throw new Error(`summary does not say how many responses went with it: ${entry.summary}`);
+  }
+  if (entry.severe !== true) throw new Error('a cascading delete was not marked severe');
+});
+
+check('deleting an empty request is recorded, but not as severe', () => {
+  // A mistaken draft with nobody's answers in it is housekeeping, and marking it
+  // severe would train people to ignore the flag that matters.
+  const proxy = detachment();
+  proxy.post({ action: 'deleteRequest', idToken: as('instructor'), requestId: 'req_shared' });
+  const entry = Object.entries(proxy.root.snapshot())
+    .find(([k]) => k.startsWith('audit/'))?.[1];
+  if (!entry) throw new Error('the deletion left no server-side audit entry');
+  if (entry.severe === true) throw new Error('an empty request was marked severe');
+});
+
 check('a client cannot forge the actor on an audit entry', () => {
   const proxy = detachment();
   proxy.post({

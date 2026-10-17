@@ -64,7 +64,7 @@
 // 1.2.0 is skipped deliberately: it was deployed, degraded a testbed twice for
 // reasons never found, and was withdrawn. No deployment should ever claim it
 // again, and a doGet reporting 1.1.0 is how a rollback from here is confirmed.
-var PROXY_VERSION = '1.3.0';
+var PROXY_VERSION = '1.3.1';
 
 /** Refuse anything larger; a submission is a few KB at most. */
 var MAX_BODY_BYTES = 96 * 1024;
@@ -1080,7 +1080,26 @@ function saveRequestInSpace(root, account, request) {
   return out;
 }
 
-/** Removing a request takes its responses and receipts with it. */
+/**
+ * Removing a request takes its responses and receipts with it.
+ *
+ * The cascade is deliberate — a request stripped of its answers is wreckage
+ * nobody can interpret — but it makes this the widest-reaching delete in the
+ * app, and it is reachable by an instructor.
+ *
+ * So it is recorded here, server-side, from the verified token. `removeResponse`
+ * is admin-only and demands a reason precisely because the audit trail exists so
+ * that someone who is the subject of a complaint cannot quietly remove it; until
+ * this was added, deleting the parent request achieved exactly that and the
+ * server wrote nothing. The only account of it came from a second call the
+ * client chose to make afterwards, which is not an account at all.
+ *
+ * No reason is demanded, which is the deliberate difference from
+ * `removeResponse`. The confirm dialog does not collect one, and requiring it
+ * here would refuse every deletion from an app that cannot yet ask — a worse
+ * failure than an unexplained entry. The entry says who, what, and how many
+ * answers went with it; the reason can follow when the client can ask for one.
+ */
 function removeRequest(root, account, requestId) {
   if (!ID_PATTERN.test(String(requestId || ''))) return fail('That id is not valid.');
   var located = locateRequest(root, requestId);
@@ -1088,9 +1107,34 @@ function removeRequest(root, account, requestId) {
   if (!mayReach(account, located.space)) {
     return fail('That feedback is not available to this account.');
   }
+
+  // Counted before anything is trashed, and by listing names rather than reading
+  // documents: "deleted a request" and "deleted a request holding forty answers"
+  // are different events, and the second one should cost one round trip to say.
+  var doomed = countFolderFiles(findFolder(root, spacePath(located.space, 'responses', requestId)));
+
   trashFolder(findFolder(root, spacePath(located.space, 'responses', requestId)));
   trashFolder(findFolder(root, spacePath(located.space, 'receipts', requestId)));
-  return removeRecord(root, spacePath(located.space, 'requests'), requestId);
+  var result = removeRecord(root, spacePath(located.space, 'requests'), requestId);
+
+  appendAudit(root, {
+    action: 'request.deleted',
+    summary: 'Deleted feedback request ' + requestId + ' and ' + doomed + ' response(s) with it',
+    target: requestId,
+    // An empty draft is housekeeping. Marking that severe would teach people to
+    // scroll past the flag on the day it means something.
+    severe: doomed > 0
+  }, account);
+  return result;
+}
+
+/** Names only — a count must not cost one document read per file. */
+function countFolderFiles(folder) {
+  if (!folder) return 0;
+  var files = folder.getFiles();
+  var n = 0;
+  while (files.hasNext()) { files.next(); n++; }
+  return n;
 }
 
 function trashFolder(folder) {

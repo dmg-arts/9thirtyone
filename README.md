@@ -980,12 +980,33 @@ Ranked by what would actually hurt, not by how alarming they sound.
    centralisation decision. Hardware-key 2FA, branch protection and never
    deploying from an unattended machine are the controls that matter.
 
-5. **The legal question is unanswered, and is not a technical one.** FERPA
-   governs education records at US universities. Feedback by a student about an
-   instructor probably is not one, but the roster is personal data, this is a
-   federal programme, and Privacy Act or DoD considerations may apply. It needs
-   whoever advises AFROTC, and it needs settling before the beta rather than
-   after, because the answer could change retention or hosting.
+5. **The legal question has a working position, which is not the same as a
+   ruling.** FERPA governs education records at US universities. Feedback by a
+   student *about an instructor* is unlikely to be one: it is not held by the
+   institution, it lives in the detachment's own Google account rather than any
+   university system, and it is attached to nobody's academic standing. The
+   Privacy Act attaches to federal agency systems of records, which a
+   detachment-run consumer account fits awkwardly at best.
+
+   **Working position for the beta, 18 Oct 2026: these are not expected to
+   apply.** Written as a position and not a determination, deliberately — nobody
+   on this project is qualified to make one, and asserting a conclusion would
+   take on an obligation that has not been accepted. If whoever advises AFROTC
+   says otherwise, that governs, and the answer could still change retention or
+   hosting.
+
+   **What does not change either way: the roster is personal data.**
+   `users/users.json` holds names and email addresses, attributed feedback
+   carries a respondent's name, and the activity log retains a removed person's
+   address on purpose (`privacy.html`, "One deliberate exception"). *"The app
+   holds no PII"* is not an available claim — one file disproves it — and the
+   case above does not need it. The argument is that this is not an education
+   record, not that there is nothing personal in it.
+
+   The grey area is genuine and predates the app: a detachment already asks
+   cadets for information at private email addresses and then moves it through
+   USAF channels under different handling rules. Nothing here creates that
+   tension or resolves it.
 
 6. **There is no way to delete one person's data.** Removing an account
    anonymises their responses — attribution and receipts are rewritten to name

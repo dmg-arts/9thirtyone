@@ -33,7 +33,6 @@
 ² "Roster" the term maps to the `users/` folder, which holds the live data. `roster/` is the legacy folder migrated into `users/` on setup — a consistency pass should not rename `users/` toward `roster/`; that direction is backwards.
 ³ AFROTC's own word, and the one the beta detachment uses. Visible text only: `ROLES.student`, the `/student` route, `students.json`, `js/views/student.js` and `nine31.student.prefs.v1` are stored or addressed identifiers and do not move — only `ROLE_LABELS.student` changes, which is the seam that exists for exactly this. The gap between the id and the label is deliberate; there is a comment in `js/config.js` saying so.
 ⁴ This row previously ran the other way — "Handle" preferred, "Username" banned — on the reasoning that username is ambiguous with the sign-in identity. Reversed by decision: the sign-in identity is the *email*, and the app, the roster, the setup guide and the on-disk field have all said `username` from the beginning. Keeping "handle" would have meant a migration across ~344 sites to introduce an ambiguity nobody had reported. The few identity-sense uses of "handle" that existed were changed to username instead.
-⁵ **"Centralised", not "centralized"** — settled Oct 2026 against the en-GB rule below. The phrase "centralised detachment model" in `about.html` is *our* description of how AFROTC organises detachments, not a doctrinal term being quoted: "Crosstown universities" in the same sentence is capitalised because it is AFROTC's, and this is not. If anyone finds it in an AFROTC publication spelled with a *z*, quote it and capitalise it like Crosstown.
 
 
 ### Spelling
@@ -46,6 +45,8 @@ records", `js/export-anon.js` `nine31-anonymised`), as are `privacy.html`, `term
 Recorded because this file itself drifted: it prescribed *"Anonymized export"* while
 everything it governs said *anonymised*. Code identifiers are exempt — they are addressed,
 not read.
+
+**"Centralised", not "centralized"** — settled Oct 2026 against the en-GB rule below. The phrase "centralised detachment model" in `about.html` is *our* description of how AFROTC organises detachments, not a doctrinal term being quoted: "Crosstown universities" in the same sentence is capitalised because it is AFROTC's, and this is not. If anyone finds it in an AFROTC publication spelled with a *z*, quote it and capitalise it like Crosstown.
 
 **The nine rating anchors are exempt, and stay US-spelled.** `SCALE_ANCHORS` in
 `js/config.js` reads *Unfavorable* (3) and *Favorable* (7). The reason is not cost:
@@ -128,9 +129,9 @@ side" as ordinary prose. That is correct. Do not reconcile them.
 3. **Anonymous results are withheld below exactly three responses.** Not "enough," not "several" — the number is a verifiable engineering guarantee, and vaguing it up loses the thing that makes it checkable.
 
 4. **Removing names cannot change what someone wrote.** (`privacy.html`, "What anonymity cannot do") — distinct from claim 3; worth protecting separately because it is the caveat that keeps claim 3 honest.
-5. **The app can only reach files it created itself.** The `drive.file` scope — the `SCOPE` constant in `js/storage/drive.js`. A specific, checkable security claim — generalizing it to "the app only accesses what it needs" quietly loses the thing that makes it verifiable. Note it is *narrower* than "only the Drive owner can see the folder" — but as of the mandatory submission server (setup guide Part 6) that broader claim is also true: the folder is shared with nobody, and cadre and instructors reach it through the server rather than holding Drive access of their own. Do not merge the two. The `drive.file` claim is about what the browser app *could* reach and is pinned to a constant; the sharing claim is about how one install happens to be configured, and an administrator can change it by hand in Drive.
+5. **The app can only reach files it created itself.** The `drive.file` scope — the `SCOPE` constant in `js/storage/drive.js`. A specific, checkable security claim — generalising it to "the app only accesses what it needs" quietly loses the thing that makes it verifiable. Note it is *narrower* than "only the Drive owner can see the folder" — but as of the mandatory submission server (setup guide Part 6) that broader claim is also true: the folder is shared with nobody, and cadre and instructors reach it through the server rather than holding Drive access of their own. Do not merge the two. The `drive.file` claim is about what the browser app *could* reach and is pinned to a constant; the sharing claim is about how one install happens to be configured, and an administrator can change it by hand in Drive.
 
-7. **The notification says that a request exists and nothing about what it asks.** Added Oct 2026 with the optional email feature. The message carries a reference, a due date and a link — never the title, the event name, the questions, or who the feedback is about, because *the wording of a feedback request is the disclosure, not the response to it.* A commander-space request that mailed its own title would carry restricted content into a personal inbox. Pinned by a source check in `tests/unit/proxy.test.mjs` and a seeded search in `tests/proxy/behaviour.test.mjs`.
+6. **The notification says that a request exists and nothing about what it asks.** Added Oct 2026 with the optional email feature. The message carries a reference, a due date and a link — never the title, the event name, the questions, or who the feedback is about, because *the wording of a feedback request is the disclosure, not the response to it.* A commander-space request that mailed its own title would carry restricted content into a personal inbox. Pinned by a source check in `tests/unit/proxy.test.mjs` and a seeded search in `tests/proxy/behaviour.test.mjs`.
 
 **Two locked claims that the email feature does *not* break, written down so nobody softens them out of caution:**
 
@@ -139,7 +140,7 @@ side" as ordinary prose. That is correct. Do not reconcile them.
 
 **Overclaim guard — the one place our copy has been wrong rather than vague:**
 
-6. **"No external dependencies" needs its exception stated.** The app bundles nothing: no third-party script tags, no build step, nothing in `js/` imported from `node_modules` (`package.json` pins test tooling only). But it injects Google's Identity Services script at runtime from `https://accounts.google.com/gsi/client` (`GIS_SRC` in `js/google-identity.js`, loaded for the Drive adapter too), because Google sign-in requires it.
+7. **"No external dependencies" needs its exception stated.** The app bundles nothing: no third-party script tags, no build step, nothing in `js/` imported from `node_modules` (`package.json` pins test tooling only). But it injects Google's Identity Services script at runtime from `https://accounts.google.com/gsi/client` (`GIS_SRC` in `js/google-identity.js`, loaded for the Drive adapter too), because Google sign-in requires it.
 
    > Say: no third-party dependencies, no build step, no vendor libraries — the only external code is Google's own sign-in script, loaded from Google.
 
@@ -154,4 +155,4 @@ side" as ordinary prose. That is correct. Do not reconcile them.
 - **The maintainer receiving anything about a deployment.** No longer an open question: **nothing is transmitted.** The app reports no deployment, and the only record that exists is what an administrator supplies by contacting support, which `privacy.html` §5 already describes. Copy may state this flatly — it is a property of the design, not a policy. Do not reintroduce it as a trade-off to be weighed.
 - **The engineering constants themselves** (the "3" in the disclosure threshold, the `drive.file` scope, the safety-screen word lists). This lexicon governs how they're described, never what they are.
 - **The safety-screen patterns.** `js/analysis/lexicon.js` uses "cadet" *inside* its matching regexes and stopword list. Those were tuned to 100% precision and 80% holdout recall against a 600-sample corpus; rewording them changes what the screen detects and invalidates the results in `tools/tuning/README.md`. The `note:` fields in that file *are* in scope — they render to whoever reviews a flag.
-- **The product name.** Still being decided, and a second rename is expected before the move to a clean host. Everything here uses "9ThirtyOne" as a token, not a commitment: write copy so the name can be swapped without restructuring a paragraph around it.
+- **The company name**, which is still open — it is the publisher line in `NOTICE` and `privacy.html`. **The product name is settled:** the app is 9ThirtyOne, on `9thirtyone.app`, and the rename has shipped. Earlier drafts of this file expected a second rename; it is not coming.

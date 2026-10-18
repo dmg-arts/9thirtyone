@@ -25,12 +25,12 @@ that. The detachment gets the communications and loses the tooling.
 Four consequences follow, and they compound:
 
 - **AFROTC has no feedback system standardised across detachments** that captures
-  the AFROTC program itself. Nothing rolls up, because nothing has a common shape.
+  the AFROTC programme itself. Nothing rolls up, because nothing has a common shape.
 - **Aerospace Studies runs through the host university's system**, with varying
   degrees of return. Whatever AS100 evaluation exists at one school is not what
   exists at another, and neither belongs to the detachment.
 - **Leadership Laboratory has no feedback capture at all.** LLAB is where cadets
-  lead cadets. It is the part of the program most worth measuring and the part
+  lead cadets. It is the part of the programme most worth measuring and the part
   with the least instrumentation.
 - **Upperclassmen improvise.** A cadet builds something in a consumer form tool
   to get feedback on a lab. It works, sometimes well — and it has no oversight, no
@@ -117,8 +117,9 @@ cadet would need direct access to the Drive folder to file an answer — and any
 with folder access can read the folder, so "anonymous" would mean anonymous from
 the screen while being readable by any cadet who opened Drive. With it, cadets get
 **no Drive access at all**: they send an answer to the detachment's own script,
-which verifies them and writes the file. Nobody can read, alter, or delete anyone
-else's feedback, because nobody but the server can reach where it lives.
+which verifies them and writes the file. No cadet or cadre member can read, alter
+or delete anyone else's feedback, because nobody but the server and the Det Google
+Account can reach where it lives.
 
 The same mechanism carries the **join link**. Because the link holds the
 configuration — the Client ID, the folder, the server — a cadet taps it, signs in,

@@ -31,7 +31,8 @@ folder, and they are never asked to approve access to their own Google Drive —
 which also means they never meet the alarming full-Drive consent screen.
 
 **Nobody but the folder's owner needs Drive access.** Cadre reads *and* writes
-come through this script now, which means the app asks for no Drive scope at all
+come through this script now, which means nobody but the folder's owner is asked for Drive access
+at all
 in proxy mode — no verification, no annual assessment, and no unverified-app
 warning for anyone.
 
@@ -116,6 +117,9 @@ You need the two values from your existing setup:
    script and is never asked for Drive access.
 
 ## 5. Take back the folder access nobody needs any more
+
+> **Only if you are upgrading an install from before 0.8.** A fresh install has
+> never shared the folder with anyone, so there is nothing here to take back.
 
 The proxy stops *new* exposure. It does not revoke what you already granted.
 

@@ -25,7 +25,7 @@ absent beforehand because nothing has ever been written to those spaces;
 | | |
 |---|---|
 | People | 45 cadets (AS100 14 · AS200 13 · AS300 11 · AS400 7), 4 instructors, 2 cadre, 1 commander, 1 database admin, and you |
-| Requests | 6 — four in the shared space, one cadre, one commander; five open, one closed from last Spring |
+| Requests | 6 — four in the shared space, one cadre, one commander; five open, one closed from last spring |
 | Responses | 63, of which the Instructor Panel sees 51 — the cadre and commander ones are genuinely out of its reach |
 | Receipts | 18, so "still owes feedback" is a real number rather than none or all |
 

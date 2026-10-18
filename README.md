@@ -20,7 +20,7 @@ and no shared database, and writes only to storage the detachment controls.
   and is explicit about where it stops being a boundary.
 - **Database Administration** — behind an admin sign-in. Keeps the roster of
   Google accounts that may use the app, and what each one is allowed to do.
-- **Settings** — where the database lives, plus light/dark, color-vision
+- **Settings** — where the database lives, plus light/dark, colour-vision
   palettes, contrast and text size.
 
 ---
@@ -627,7 +627,7 @@ tools/demo/             the demo detachment, as an importable backup bundle
 tools/tuning/           the 600-item synthetic corpus the lexicons were tuned on
 docs/                   the six PDFs, WHY.md, STYLE.md, ALPHA-TAGS.md,
                         ROSTER-FORMAT.md and its CSV template
-css/styles.css          design system: tokens, themes, color-vision palettes
+css/styles.css          design system: tokens, themes, colour-vision palettes
 js/
   app.js                bootstrap, routes, app bar, PWA plumbing
   config.js             constants + the shape of every record
@@ -687,9 +687,9 @@ tests/                  unit, proxy-behaviour, end-to-end, memory and layout sui
 
 ## Accessibility
 
-Both color-vision palettes and status colors are handled together: every status
+Both colour-vision palettes and status colours are handled together: every status
 carries an **icon and a text label** as well as a hue, so no meaning depends on
-color alone. Palettes for deuteranopia, protanopia, tritanopia and monochrome
+colour alone. Palettes for deuteranopia, protanopia, tritanopia and monochrome
 remap the status hues to separable pairs. Also: full keyboard operation, visible
 focus rings, a skip link, `prefers-reduced-motion` support, 2.75rem touch
 targets, and heading focus on navigation.
@@ -1130,7 +1130,7 @@ never see it.** `SCALE_ANCHORS` in `js/config.js` defines both at once:
 
 All nine points are named, so the full 1-9 resolution is actually reachable.
 The vocabulary alternates by design: **odd points carry the direction**
-(Detrimental -> Unfavorable -> Neutral -> Favorable -> Outstanding) and **even
+(Detrimental → Unfavorable → Neutral → Favorable → Outstanding) and **even
 points carry the magnitude** of the step either side of centre: Minor (4)
 mirrors Slight (6), and Major (8) is the strong step on the favourable side.
 

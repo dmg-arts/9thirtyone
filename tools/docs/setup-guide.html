@@ -161,7 +161,8 @@
   <p class="lead">
     9ThirtyOne is a web app that runs in a browser and stores every record in a Google Drive
     folder your detachment owns. You get the app from us, at one fixed address; your records
-    never come to us. There is no server and no shared database — which is why setup involves
+    never come to us. There is no server of ours and no shared database — which is why setup
+    involves
     your own Google account rather than an account with us.
   </p>
 
@@ -622,7 +623,7 @@
     Everything after it is immediate, because the script is then warm.</p>
     <p>So a sign-in that appears to do nothing, or reports that the submission service did
     not answer in time, is worth <strong>one more attempt</strong> before you go looking for
-    a fault. Wait for it rather than pressing again: each press starts its own thirty-second
+    a fault. Wait for it rather than pressing again: each press starts its own sixty-second
     request instead of hurrying the one already running, so repeated pressing makes a slow
     sign-in look like a broken one.</p>
     <p>This is a property of Apps Script, not a misconfiguration, and there is no setting
@@ -723,7 +724,9 @@
   </div>
 
   <h3>Telling them how to get in</h3>
-  <p>Adding someone to the roster does not notify them &mdash; this app sends no mail. Once they are
+  <p>Adding someone to the roster does not notify them. The one message this app can send is an
+  optional notice when a feedback request opens, which is off unless an administrator switches it
+  on &mdash; see <code>tools/proxy/README.md</code>. Once they are
   on the list, send them the join link from <em>Invite people</em> at the top of this same screen.
   <strong>Copy link</strong> for chat, <strong>Email it</strong> to open a pre-written message, or
   <strong>Share</strong> on a phone.</p>
@@ -997,12 +1000,14 @@
 
   <h4>Sign-in is not encryption</h4>
   <p>Anyone with access to the Drive folder can read every record directly, regardless of what the
-  app shows them. Folder sharing is the real access control. Share it only with people entitled to
-  read all of it.</p>
+  app shows them. The folder is shared with nobody, so that means whoever can sign in to the Det
+  Google Account. Keep that account to as few people as possible &mdash; it is the access
+  control.</p>
   <p>The app stores no credentials at all &mdash; <code>users/users.json</code> holds emails and
   roles, nothing secret. The identity check is Google's. The app validates the sign-in token in the
   browser, which catches an expired or misdirected one but is not a defence against someone who
-  controls the browser; Drive's own permission check is.</p>
+  controls the browser. The check that holds is the submission server's: it verifies the token
+  against Google and checks the roster before it writes or returns anything.</p>
 
   <h4>The safety screen is a prompt, not a finding</h4>
   <p>Written answers are automatically checked for language about hazing, harassment,

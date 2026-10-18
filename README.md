@@ -34,11 +34,11 @@ and no shared database, and writes only to storage the detachment controls.
 | `WHY.md` | Cadre and commanders | Why this exists: the centralised detachment model and what it costs, the cadet-instructor gap, how the app works in plain English, and the guarantees with their limits. **The argument the other documents are built on.** |
 | `STYLE.md` | Anyone writing copy | The content lexicon — terminology, object definitions, voice, and the claims that must not be softened. Applied by hand; there is no build step that reads it. |
 | `9ThirtyOne-Setup-Guide.pdf` | Whoever installs it | 27 pages: creating the detachment's Google account, opening the app, the wizard, the submission server, the roster, join links, a verification checklist, and troubleshooting. There is no Cloud setup any more. |
-| `9ThirtyOne-User-Introduction.pdf` | Everyone, at rollout | 8 slides: why and how on one slide, then what instructors, cadre and commanders do, what a cadet sees, and a diagram of where an answer actually goes. |
-| `9ThirtyOne-Overview.pdf` | A handout, or a projector | The same argument on one landscape page — why, how, both sides of the app, and the data-flow diagram. |
+| `9ThirtyOne-User-Introduction.pdf` | **Frozen at Beta 1.3.0 — not maintained.** Superseded by the demo deck | 8 slides: why and how on one slide, then what instructors, cadre and commanders do, what a cadet sees, and a diagram of where an answer actually goes. |
+| `9ThirtyOne-Overview.pdf` | **Frozen — not maintained.** Superseded by the demo deck | The same argument on one landscape page — why, how, both sides of the app, and the data-flow diagram. |
 | `9ThirtyOne-How-To-Guide.pdf` | Anyone using it | 20 pages, a chapter per role, every screen with its screenshot, and a closing matrix of what each role cannot reach. |
 | `ALPHA-TAGS.md` | The maintainer | Every release so far: the twelve alphas of 21–24 Aug 2026 and the betas since, with their commit SHAs and what each shipped. The tags themselves say a name and a line; this says why four of the alphas are one movement, and which releases were tagged only in hindsight. |
-| `9ThirtyOne-Introduction.pdf` | Briefing cadre or a commander | 22 slides with speaker notes: why it exists, what it does, how each role uses it, and the anonymity and safety design. |
+| `9ThirtyOne-Introduction.pdf` | **Frozen at 31 Aug 2026 — not maintained, and do not hand it out.** It still describes a hand-made folder and a Cloud project, neither of which exists | 22 slides with speaker notes: why it exists, what it does, how each role uses it, and the anonymity and safety design. |
 | `9ThirtyOne USER Installation Guide.pdf` | A cadet or cadre member installing the app on their own device | Written by hand in Pages, with the `.pages` source committed beside it. The only document here that nothing rebuilds, greps or tests &mdash; keep that in mind when the app changes under it. |
 | `ROSTER-FORMAT.md` | Whoever builds the roster | The CSV the roster importer accepts, column by column, with a prompt written to be handed to an assistant along with the detachment's existing list. |
 | `roster-template.csv` | The same person | A worked example of that format, staff and cadets, to attach alongside the prompt. |
@@ -175,7 +175,8 @@ Done once by the detachment, on the account the detachment owns:
    better still. The setup guide's Part 2a is the long version.
 2. **Open the app and run the setup wizard.** Choose Google Drive, sign in as that
    account, and grant access. The app creates its own `9ThirtyOne` folder.
-3. **Deploy the submission server** (below) if cadets are going to submit —
+3. **Deploy the submission server** (below) — it is required, and without it a
+   join link cannot set up anyone else's device —
    without it every cadet needs Editor access to the folder, which also lets them
    read every response in it.
 
@@ -271,9 +272,8 @@ here is a code that looks perfect and does not scan. Masks are forced rather
 than auto-chosen: mask *selection* legitimately differs between implementations
 and only changes which of eight valid codes you get.
 
-It carries the Google Client ID, the Drive folder, and the submission server if
-the detachment has one — so a cadet taps it, signs in once, and lands on their
-feedback with nothing typed. The proxy travels in the link because a cadet in
+It carries the Google Client ID, the Drive folder and the submission server — so
+a cadet taps it, signs in once, and lands on their feedback with nothing typed. The proxy travels in the link because a cadet in
 proxy mode has no Drive access and therefore cannot read a shared setting to
 discover it. The admin
 console offers it three ways: copy, a native share sheet on phones, and a
@@ -326,7 +326,7 @@ A folder with an empty roster is claimed by **the first Google account to sign
 in**, which becomes an administrator and an instructor. After that the roster is
 closed and an unknown account is turned away. This is the recovery path that the
 old shared built-in credential used to be — a detachment cannot lock itself out,
-because `users/users.json` can also be edited directly in Drive by anyone the
+because `users/users.json` can also be edited directly in Drive by the
 folder is shared with.
 
 ### Adding people
@@ -372,14 +372,16 @@ build refuses to load rather than being silently downgraded. Add one in
 
 - **Sign-in gates the UI on a shared device. It is not encryption.** Anyone who
   can open the Drive folder can read every record directly, whatever the app
-  shows them. Control access through the folder's Drive sharing.
+  shows them. That is the Det Google Account alone — the folder is shared with
+  nobody — so the control is how few people hold it.
 - **No credentials are stored at all.** `users/users.json` holds emails and
   roles, nothing secret. The identity check itself is Google's.
 - **The ID token is validated in the browser, which stops mistakes, not
   attackers.** A browser is under the control of whoever is sitting at it. The
-  boundary that actually holds is Google Drive sharing: reading or writing the
-  det's folder needs an OAuth token issued to an account that has been granted
-  access, and Google enforces that.
+  boundary that actually holds is server-side: a cadet's device has no Drive
+  access at all, and the submission server verifies the Google ID token and
+  checks the roster before it writes anything. For the one account that does hold
+  Drive access, Google enforces it.
 - **Anonymous feedback is anonymous in the data.** The sign-in identifies the
   cadet well enough to write a *receipt*, then is discarded. The response record
   carries no name, so nothing links an answer to a person. Receipts live in
@@ -593,10 +595,11 @@ What follows is what the app genuinely does not do, or does imperfectly.
   and both index arrays are in submission order — so someone reading the **raw
   Drive files** could line them up. The disclosure threshold above does not
   address this; it defends the app's own screens. Anyone with raw folder access
-  is already inside your trust boundary, so restrict who can read the folder.
+  is already inside your trust boundary — which, with the folder shared with
+  nobody, means whoever can sign in to the Det Google Account.
 - **The first sign-in claims an unclaimed folder.** By design — it is how a new
-  detachment gets in without a shared credential. It is only as controlled as
-  the folder's Drive sharing, so set that before anyone signs in.
+  detachment gets in without a shared credential. It is only as controlled as the
+  Det Google Account itself, so claim it in the same sitting as the wizard.
 - **Concurrent edits are checked, not locked.** See below.
 - **No self-service enrolment.** Somebody not on the roster is added by an admin
   rather than requesting access. The one message this app can send is a
@@ -982,10 +985,11 @@ Ranked by what would actually hurt, not by how alarming they sound.
    whoever advises AFROTC, and it needs settling before the beta rather than
    after, because the answer could change retention or hosting.
 
-6. **There is no way to delete one person's data.** Removing an account drops the
-   roster entry; their responses remain. The privacy policy needs an answer, and
-   part of the honest answer is that anonymous responses cannot be deleted for
-   one person by design.
+6. **There is no way to delete one person's data.** Removing an account
+   anonymises their responses — attribution and receipts are rewritten to name
+   nobody — but the answers themselves stay, and cannot be picked out again
+   afterwards. That is the design, not a gap: once a response is genuinely
+   anonymous there is no "one person" left to delete it for.
 
 7. **A rostered cadet can deny service to the detachment** by looping the bundle
    call. Apps Script allows **thirty simultaneous executions** across the whole
@@ -1061,10 +1065,6 @@ Found and deliberately not taken. None blocks the beta.
 
 These are the ones actually blocking or shaping work, not idle curiosities.
 
-- **Is the submission server deployed for beta?** Until it is, every cadet needs
-  Editor access to the Drive folder and can therefore read every response in it.
-  This decides whether feedback can honestly be described as private from other
-  cadets.
 - **Privacy policy specifics:** contact address, retention period, and how cadre
   access is disclosed to cadets.
 - **What the company is called.** No longer blocks anything technical: the

@@ -81,8 +81,8 @@ Concretely, day to day:
   rather than stacked: distributions rather than averages, questions where the
   room genuinely split called out instead of averaged into the middle, written
   answers grouped and searchable.
-- Every written answer is screened for safety concerns, and a match is put in
-  front of cadre quickly.
+- Every written answer is screened for safety concerns, and a match is flagged
+  the next time someone opens the results.
 - It all stays in the detachment's own Drive folder, term after term, as a record
   that outlasts the cadets who created it.
 
@@ -93,7 +93,7 @@ claims later in this document are engineering facts rather than promises.
 
 **It is a web page, not an installation.** 9ThirtyOne is a progressive web app: a
 browser opens it, and it can be added to a phone's home screen like an app. There
-is no software to install on a detachment machine, no server to maintain, and no
+is no software to install on a detachment machine, no server of ours, and no
 account with anyone. Google Drive cannot host a web page — it has not been able to
 since 2016 — so the app is served from a web host and the *data* lives in Drive.
 Those are two separate things, and keeping them separate is what lets the
@@ -202,11 +202,13 @@ of a person faster, not to decide whether one happened. A match means read that
 answer now and follow the detachment's own reporting procedures.
 
 A deliberate exception worth stating plainly: **the safety screen is not subject
-to the three-response threshold.** A flagged answer can reach cadre immediately,
-including on a form whose results are otherwise withheld. A disclosure that needs
+to the three-response threshold.** A flagged answer is shown the next time
+someone opens the results, including on a form whose results are otherwise
+withheld. A disclosure that needs
 a person to see it should not wait for two more cadets to answer.
 
 **Sign-in is not encryption.** Anyone with access to the Drive folder can read
-every record in it directly, whatever the app chooses to show them. Folder sharing
-is the real access control — which is exactly why the submission server exists,
-and why cadets are given no folder access at all.
+every record in it directly, whatever the app chooses to show them. That is now
+the Det Google Account and nobody else — the folder is shared with no one, which
+is exactly why the submission server exists, and why cadets are given no folder
+access at all. The control is how few people hold that account.

@@ -288,9 +288,9 @@ will need paging if one runs for years.
 
   **One daily total does apply, once notification is switched on:** Google allows
   **100 email recipients a day** on a consumer Gmail account and **1,500** on a
-  Workspace one. Fifty cadets is one all-cadets issuance per day on a consumer
-  account, and the script sends nothing at all rather than part of a flight when
-  the remaining quota will not cover everybody.
+  Workspace one. Fifty cadets is **two** all-cadets issuances per day on a
+  consumer account, and the script sends nothing at all rather than part of a
+  flight when the remaining quota will not cover everybody.
 - **Folder maintenance is not offered here.** Backup, restore, wipe, reindex and
   migrate act on the whole folder, and an endpoint that could empty a
   detachment's records on request is not one worth having. They stay with

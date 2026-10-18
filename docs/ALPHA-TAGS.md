@@ -1,7 +1,8 @@
-# The alpha releases
+# Release provenance
 
-Twelve annotated tags marked the alpha releases between 21 and 24 August 2026. All twelve
-are on the remote, alongside the beta tags listed at the end of this file.
+Every tagged release, alpha and beta. Twelve annotated tags marked the alpha releases
+between 21 and 24 August 2026, and the betas since are listed at the end of this file.
+All of them are on the remote.
 
 This file is not a rescue: nothing here is at risk. It exists because a tag is a poor place
 to record *why* a release mattered. `git tag -l` gives twelve names and a one-line message
@@ -118,7 +119,7 @@ Treat a release as unfinished until it appears below.
 | `v1.0.12-beta.1` | `8654995` | Counted what a drill night costs in Apps Script executions, then spent less of it. |
 | `v1.0.13-beta.1` | `1f27c4a` | A diagnostics file that describes the installation rather than the browser, because no detachment's Drive is reachable from here. |
 | `v1.0.14-beta.1` | `ce63db8` | A real measurement, and the four things it said were wrong — including a consent dialog on a cadre member's own panel. |
-| `v1.0.15-beta.1` | `e097391` | A 60-second client timeout. Runway, not a fix: the two staff analysis screens cross the usable ceiling at roughly sixty stored responses. |
+| `v1.0.15-beta.1` | `e097391` | A 60-second client timeout, which moved the usable ceiling on the two staff analysis screens from roughly **sixty** stored responses to roughly **130**. Runway, not a fix — the reads still grow with the data. Measured against it on 15 Oct: `allResponses` took 49.1s at about 110 responses. |
 | `v1.0.16-beta.1` | `2c543bf` | The cold-start retry gets the full timeout it already claimed — 1.0.15 raised the transport ceiling and left a second copy of the old number behind. |
 
 ---
@@ -135,7 +136,14 @@ about "1.3.0" had to say which one it meant. From the Det 752 deployment they ar
 aligned on purpose:
 
 > **The minor version is shared and means "these were designed together".
-> The patch belongs to the app alone.** App 1.4.x expects proxy 1.4.0.
+> Either side may patch on its own.** App 1.4.x expects proxy 1.4.x.
+
+Corrected 18 Oct, three days after it was written. The first draft said the patch
+belonged to the app alone, which the very next server change broke: `PROXY_VERSION`
+went to 1.3.1 by itself for the W9 audit fix, because `doGet` reporting the version
+is how a paste is confirmed and a rollback proven, and a server fix that cannot be
+confirmed is worse than no convention. A rule that forbids the thing you do next is
+not a rule.
 
 That matters because the analysis work is **one** proxy deployment lighting up
 **three** client releases: the app will run 1.4.0, then 1.4.1, then 1.4.2 against a
@@ -152,4 +160,4 @@ while the proxy stays 1.4.0. That is the system working, not a mismatch.
 
 | Tag | Commit | What it was |
 |---|---|---|
-| `v1.3.0-beta.1` | — | **The build Det 752 installs, 23 Oct 2026.** Identical code to 1.0.16; the number is a release designation, not a change. Paired with `PROXY_VERSION 1.3.0`, which carries the email notification shipped dark. |
+| `v1.3.0-beta.1` | `3b22678` | **The build Det 752 installs, 23 Oct 2026.** Identical code to 1.0.16; the number is a release designation, not a change. Paired with `PROXY_VERSION 1.3.0`, which carries the email notification shipped dark. |

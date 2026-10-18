@@ -196,7 +196,12 @@ check('the session length in prose matches SESSION_MS', () => {
  * ------------------------------------------------------------------ */
 
 const docsEntries = readdirSync(join(ROOT, 'docs'), { withFileTypes: true })
-  .filter((e) => e.isFile() && !e.name.startsWith('.'));
+  .filter((e) => e.isFile() && !e.name.startsWith('.'))
+  // `.pages` sources are the author's own working files, kept beside the PDFs
+  // they produced and gitignored. They are on his disk and in nobody else's
+  // checkout, so counting them would make this check pass here and fail on a
+  // fresh clone — the worst shape a test can take.
+  .filter((e) => !e.name.endsWith('.pages'));
 
 check('the README states how many things are in docs/', () => {
   const readme = read('README.md');

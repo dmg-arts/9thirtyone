@@ -17,3 +17,10 @@ docs/screens/
 
 # Machine-local tool permissions. .claude/settings.json is shared; this is not.
 .claude/settings.local.json
+
+# Pages sources. Dave keeps the raw documents he authored next to the PDFs they
+# produced, for his own filing. They are his working files, not repository
+# artifacts: nothing here opens, rebuilds or tests them, and the PDF beside each
+# one is the thing that ships. Excluded from the docs/ count in
+# tests/unit/docs.test.mjs for the same reason.
+*.pages

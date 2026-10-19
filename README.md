@@ -33,7 +33,7 @@ and no shared database, and writes only to storage the detachment controls.
 |---|---|---|
 | `WHY.md` | Cadre and commanders | Why this exists: the centralised detachment model and what it costs, the cadet-instructor gap, how the app works in plain English, and the guarantees with their limits. **The argument the other documents are built on.** |
 | `STYLE.md` | Anyone writing copy | The content lexicon — terminology, object definitions, voice, and the claims that must not be softened. Applied by hand; there is no build step that reads it. |
-| `9ThirtyOne-Setup-Guide.pdf` | Whoever installs it | 27 pages: creating the detachment's Google account, opening the app, the wizard, the submission server, the roster, join links, a verification checklist, and troubleshooting. There is no Cloud setup any more. |
+| `9ThirtyOne-Setup-Guide.pdf` | Whoever installs it | 28 pages: creating the detachment's Google account, opening the app, the wizard, the submission server, the roster, join links, a verification checklist, and troubleshooting. There is no Cloud setup any more. |
 | `9ThirtyOne-User-Introduction.pdf` | **Frozen at Beta 1.3.0 — not maintained.** Superseded by the demo deck | 8 slides: why and how on one slide, then what instructors, cadre and commanders do, what a cadet sees, and a diagram of where an answer actually goes. |
 | `9ThirtyOne-Overview.pdf` | **Frozen — not maintained.** Superseded by the demo deck | The same argument on one landscape page — why, how, both sides of the app, and the data-flow diagram. |
 | `9ThirtyOne-How-To-Guide.pdf` | Anyone using it | 21 pages, a chapter per role, every screen with its screenshot, and a closing matrix of what each role cannot reach. |

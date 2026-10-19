@@ -631,6 +631,49 @@
     &mdash; by then the script has been woken by whoever signed in first.</p>
   </div>
 
+  <h3>Optional: email cadets when feedback is issued</h3>
+  <p>The script can email the cadets a request is addressed to, saying only that something is
+  waiting. It exists so cadets stop opening the app to check. It is <strong>off</strong> until two
+  Script Properties are set, and setting them needs <strong>no redeploy</strong> &mdash; properties
+  are read on every run.</p>
+
+  <div class="note note--warn">
+    <strong class="title">Only switch this on for a Workspace account</strong>
+    <p>Google allows <strong>1,500 email recipients a day</strong> on a Workspace account
+    (including a school <code>.edu</code>) and <strong>100</strong> on an ordinary Gmail one. With
+    fifty cadets, that is about thirty issuances a day against two.</p>
+    <p>And the script sends to <em>everybody or nobody</em> &mdash; if the remaining allowance will
+    not cover the whole flight it sends nothing at all, rather than telling two thirds of a room and
+    leaving the rest to find out. On an ordinary Gmail account that means a second all-cadets
+    request in the same day is silently not sent. <strong>Cadre who have been told the app emails
+    cadets stop telling them in person</strong>, which is worse than never having had it. On a
+    personal account, leave this off.</p>
+  </div>
+
+  <p>In the Apps Script editor, open the gear icon &rarr; <em>Project Settings</em> &rarr;
+  <em>Script Properties</em>, and add:</p>
+  <table>
+    <tr><th style="width:30%">Property</th><th>Value</th></tr>
+    <tr><td><code>NOTIFY_EMAIL</code></td>
+        <td>exactly <code>on</code>, in lower case. Anything else &mdash; including
+        <code>true</code> or <code>yes</code> &mdash; leaves it off. That is deliberate: a loose
+        test would mail a detachment that had typed <code>false</code>.</td></tr>
+    <tr><td><code>APP_URL</code></td>
+        <td><code>https://9thirtyone.app/</code>. Must begin <code>https://</code> &mdash; it is
+        what the link in the mail points at.</td></tr>
+  </table>
+
+  <p>Then run <code>checkSetUp</code> once from the editor. <strong>Google asks for permission to
+  send mail the first time</strong>, and this is the moment to grant it with somebody watching
+  rather than mid-drill. The log should read <em>Email notification: ON</em> and give the
+  recipients remaining today.</p>
+
+  <p>What the message carries: a reference, a due date, and a link. What it never carries: the
+  title, the event name, the questions, or who the feedback is about &mdash; the wording of a
+  request is itself the disclosure, so a commander-space request that mailed its own title would
+  carry restricted content into a personal inbox. The subject line is the same for every request,
+  so its arrival on a lock screen reveals nothing. Only cadets are mailed, never cadre.</p>
+
   <div class="note">
     <strong class="title">Full instructions live with the script</strong>
     <p><a href="https://github.com/dmg-arts/9thirtyone/blob/main/tools/proxy/README.md"><code>tools/proxy/README.md</code></a> &mdash; on GitHub, at <code>github.com/dmg-arts/9thirtyone</code> &mdash; covers each step with screenshots of the settings,

@@ -854,6 +854,18 @@
   <table>
     <tr><th style="width:38%">What you see</th><th>What to do</th></tr>
     <tr>
+      <td><strong>Sign-in does nothing at all, on a personal phone or laptop</strong></td>
+      <td><strong>A content blocker, in the browser.</strong> Tested 19 Oct 2026 with 1Blocker
+      and AdGuard: sign-in does not complete in Safari with them on. The app loads Google's sign-in
+      script from <code>accounts.google.com</code> and cannot work without it.
+      <strong>The fix, in this order:</strong> allow the site in the blocker (or switch it off),
+      sign in, add the app to the home screen, then switch the blocker back on. The installed app
+      signs in normally with blockers running &mdash; they appear in its settings but do not stop
+      the script there. The order is the part worth repeating to a room: the icon is added from the
+      browser <em>after</em> signing in, so the blocker has to come off first, and installing is
+      not a shortcut past it. Expect some proportion of any flight to be running one.</td>
+    </tr>
+    <tr>
       <td>"Could not connect" when signing in to Google</td>
       <td>Almost always the network rather than the configuration — there is nothing on your side to register any more. Check you are on <code>https://9thirtyone.app</code> and not a copy served from somewhere else, then try again. If it persists on a detachment network, a content filter is blocking <code>accounts.google.com</code>.</td>
     </tr>

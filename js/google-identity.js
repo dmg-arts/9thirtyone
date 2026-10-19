@@ -55,7 +55,17 @@ export function loadGis(isReady = () => Boolean(window.google?.accounts)) {
     script.onload = () => resolve();
     script.onerror = () => {
       gisPromise = null;
-      reject(new Error('Could not load Google sign-in. Check the network connection.'));
+      // Names the content blocker first, because it is the likelier cause and
+      // the one the old wording sent people away from. "Check the network
+      // connection" is what a blocked cadet reads before checking a connection
+      // that is working fine, and then having nowhere to go. Confirmed on a real
+      // device 19 Oct 2026: with blockers on, sign-in does not complete.
+      //
+      // The network case is kept, second, because it is still possible and the
+      // two are indistinguishable from here — `onerror` says the script did not
+      // load, never why.
+      reject(new Error('Could not load Google sign-in. A content blocker may be stopping '
+        + 'accounts.google.com — allow it for this site, or check the network connection.'));
     };
     document.head.append(script);
   });

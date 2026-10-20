@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>9ThirtyOne — how a request travels</title>
+<style>
+  :root {
+    --navy:#1c4f8b; --navy-d:#143a68; --ink:#14181f; --ink-2:#4d5866; --ink-3:#7b8593;
+    --rule:#d8dee8; --tint:#eef3fa; --ok-bg:#e8f4ed; --ok-line:#1c6b3f;
+    --warn-bg:#fdf6e6; --warn-line:#c9992e;
+    --sans:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#fff}
+  body{width:1600px;height:530px;font-family:var(--sans);color:var(--ink);
+       -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .stage{padding:34px 44px 0}
+  h1{font-size:30px;margin:0 0 4px;letter-spacing:-.02em}
+  .sub{font-size:16px;color:var(--ink-2);margin:0 0 20px}
+  svg{display:block;width:100%;height:auto}
+  .lbl{font:700 15px var(--sans);fill:var(--ink)}
+  .sm{font:12.5px var(--sans);fill:var(--ink-2)}
+  .tiny{font:10.5px var(--mono);fill:var(--ink-3)}
+  .step{font:700 11px var(--mono);fill:var(--navy)}
+  .foot{margin:14px 44px 0;padding-top:12px;border-top:1px solid var(--rule);
+        font-size:14.5px;color:var(--ink-2)}
+  .foot b{color:var(--ink)}
+
+  /* The pulse. One dot, one lap, five seconds — so a narrator can speak to it. */
+  #pulse{opacity:0}
+  .run #pulse{animation:lap 5s linear infinite}
+  @keyframes lap{
+    0%   {opacity:0; transform:translate(118px,0)}
+    3%   {opacity:1}
+    /* device -> app */
+    14%  {transform:translate(336px,0)}
+    /* app -> server */
+    28%  {transform:translate(650px,0)}
+    /* the server does its checks: the dot holds still and the box lights */
+    44%  {transform:translate(650px,0)}
+    /* server <-> drive, one file at a time */
+    52%  {transform:translate(1010px,0)}
+    58%  {transform:translate(650px,0)}
+    64%  {transform:translate(1010px,0)}
+    70%  {transform:translate(650px,0)}
+    /* back down the line. Two legs at two heights, because the return is drawn
+       as two arrows at different y — a pulse floating above the line it is
+       supposed to be travelling reads as a bug, not a diagram. */
+    82%  {transform:translate(360px,112px)}
+    86%  {transform:translate(336px,150px)}
+    96%  {transform:translate(140px,150px); opacity:1}
+    100% {transform:translate(140px,150px); opacity:0}
+  }
+  .run #checks{animation:checkglow 5s linear infinite}
+  @keyframes checkglow{0%,28%{opacity:.25} 32%,44%{opacity:1} 48%,100%{opacity:.25}}
+  .run #tolls{animation:tollglow 5s linear infinite}
+  @keyframes tollglow{0%,48%{opacity:.25} 54%,70%{opacity:1} 76%,100%{opacity:.25}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <h1>Why it takes a moment</h1>
+  <p class="sub">Your device is never given access to the detachment&rsquo;s Drive. The submission
+  server does that work for you &mdash; and doing it safely is what costs the time.</p>
+
+  <svg viewBox="0 0 1500 300" role="img"
+       aria-label="A request travels from your device through the app to the submission server, which checks your sign-in and the roster, then reads or writes each file in the detachment's Drive folder one at a time before the answer returns the same way.">
+    <defs>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#1c4f8b"/>
+      </marker>
+    </defs>
+
+    <!-- stations -->
+    <rect x="30" y="52" width="176" height="76" rx="8" fill="#eef3fa" stroke="#1c4f8b" stroke-width="1.6"/>
+    <text class="step" x="118" y="40" text-anchor="middle">1</text>
+    <text class="lbl" x="118" y="86" text-anchor="middle">Your device</text>
+    <text class="sm"  x="118" y="106" text-anchor="middle">holds no Drive access</text>
+
+    <rect x="248" y="52" width="176" height="76" rx="8" fill="#eef3fa" stroke="#1c4f8b" stroke-width="1.6"/>
+    <text class="step" x="336" y="40" text-anchor="middle">2</text>
+    <text class="lbl" x="336" y="86" text-anchor="middle">9ThirtyOne</text>
+    <text class="sm"  x="336" y="106" text-anchor="middle">in your browser</text>
+
+    <rect x="500" y="34" width="300" height="112" rx="8" fill="#e8f4ed" stroke="#1c6b3f" stroke-width="1.8"/>
+    <text class="step" x="650" y="22" text-anchor="middle">3</text>
+    <text class="lbl" x="650" y="64" text-anchor="middle">Submission server</text>
+    <text class="sm"  x="650" y="84" text-anchor="middle">runs as the folder&rsquo;s owner,</text>
+    <text class="sm"  x="650" y="102" text-anchor="middle">inside your detachment&rsquo;s account</text>
+    <g id="checks">
+      <rect x="508" y="112" width="284" height="24" rx="4" fill="#fff" stroke="#1c6b3f" stroke-width="1"/>
+      <text class="tiny" x="650" y="128" text-anchor="middle">checks your sign-in &middot; checks the roster</text>
+    </g>
+
+    <rect x="904" y="52" width="176" height="76" rx="8" fill="#fff" stroke="#1c4f8b" stroke-width="1.6"/>
+    <text class="step" x="992" y="40" text-anchor="middle">4</text>
+    <text class="lbl" x="992" y="86" text-anchor="middle">Drive folder</text>
+    <text class="sm"  x="992" y="106" text-anchor="middle">your detachment&rsquo;s own</text>
+
+    <!-- out -->
+    <line x1="208" y1="90" x2="244" y2="90" stroke="#1c4f8b" stroke-width="2" marker-end="url(#ar)"/>
+    <line x1="426" y1="90" x2="496" y2="90" stroke="#1c4f8b" stroke-width="2" marker-end="url(#ar)"/>
+
+    <!-- the toll: one trip per file -->
+    <g id="tolls">
+      <path d="M802 72 C852 72 852 72 900 72" fill="none" stroke="#1c4f8b" stroke-width="2" marker-end="url(#ar)"/>
+      <path d="M900 90 C852 90 852 90 804 90" fill="none" stroke="#1c4f8b" stroke-width="2" marker-end="url(#ar)"/>
+      <path d="M802 108 C852 108 852 108 900 108" fill="none" stroke="#1c4f8b" stroke-width="2" marker-end="url(#ar)"/>
+      <text class="tiny" x="851" y="172" text-anchor="middle">one trip per file</text>
+    </g>
+
+    <!-- return -->
+    <path d="M650 150 L650 202 L350 202" fill="none" stroke="#1c4f8b" stroke-width="2" marker-end="url(#ar)"/>
+    <path d="M336 212 L336 240 L130 240" fill="none" stroke="#1c4f8b" stroke-width="2" marker-end="url(#ar)"/>
+    <text class="step" x="500" y="194" text-anchor="middle">5</text>
+    <text class="step" x="233" y="232" text-anchor="middle">6</text>
+    <text class="sm" x="500" y="268" text-anchor="middle">the answer comes back the same way</text>
+
+    <!-- the pulse -->
+    <g id="pulse">
+      <circle cx="0" cy="90" r="11" fill="#c9992e" opacity=".32"/>
+      <circle cx="0" cy="90" r="6"  fill="#c9992e"/>
+    </g>
+  </svg>
+
+  <p class="foot"><b>The trade:</b> a cadet&rsquo;s phone is never handed the keys to the
+  detachment&rsquo;s folder, so no one can read anyone else&rsquo;s answers by opening Drive.
+  The cost is that every read and write makes the round trip above &mdash; which is why a busy
+  screen takes a few seconds rather than being instant.</p>
+</div>
+</body>
+</html>

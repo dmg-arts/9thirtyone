@@ -42,6 +42,7 @@ and no shared database, and writes only to storage the detachment controls.
 | `9ThirtyOne USER Installation Guide.pdf` | A cadet or cadre member installing the app on their own device | 3 pages: the join link, content blockers, and adding the app to a home screen on each platform, with a troubleshooting table. Built from `tools/docs/user-install-guide.html` since 20 Oct &mdash; it used to be hand-made in Pages and was the one document nothing could rebuild or grep. |
 | `ROSTER-FORMAT.md` | Whoever builds the roster | The CSV the roster importer accepts, column by column, with a prompt written to be handed to an assistant along with the detachment's existing list. |
 | `roster-template.csv` | The same person | A worked example of that format, staff and cadets, to attach alongside the prompt. |
+| `graphics/` | Briefing slides | The request-flow diagram, as a still and a looping GIF, built by `tools/docs/build-flow-gif.mjs`. Explains why a busy screen takes a few seconds: the device is never given Drive access, so the server makes the round trip for it. |
 
 `privacy.html` ships alongside the app and deploys to the same domain, which is
 where Google's OAuth verification requires it to be.

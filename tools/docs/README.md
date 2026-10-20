@@ -5,6 +5,18 @@ screenshot shows real behaviour with seeded data rather than a mock-up. The four
 Markdown files beside them — `WHY.md`, `STYLE.md`, `ALPHA-TAGS.md` and
 `ROSTER-FORMAT.md` — are written by hand and are not built by anything here.
 
+`build-flow-gif.mjs` renders the request-flow diagram from
+`flow-diagram.html` — a still and a five-second looping GIF, both from the one
+source so a slide and a handout cannot disagree:
+
+```sh
+node tools/docs/build-flow-gif.mjs        # -> docs/graphics/
+```
+
+It needs `ffmpeg`. The diagram answers *why does it take a moment*, which is a
+different question from the data-flow diagram in `overview.html` — that one
+answers *where does my answer go*.
+
 The USER Installation Guide used to be the exception, hand-made in Pages. Since
 20 Oct it is built from `user-install-guide.html` like the rest:
 

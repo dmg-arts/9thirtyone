@@ -8,6 +8,7 @@ import { el, icon, field, notice, toast, spinner, clear, mount, remount, fmtDate
 import { connection, markSetupComplete } from '../state.js';
 import { db, adapters } from '../storage/index.js';
 import { navigate } from '../router.js';
+import { parseJoinParams } from '../join.js';
 
 const STEPS = ['Detachment', 'Storage', 'Connect', 'Finish'];
 
@@ -36,6 +37,65 @@ export function resetSetupDraft() {
   draft = null;
 }
 
+/**
+ * A way back for a device that has the app but not the detachment.
+ *
+ * This is the administrator's setup wizard and a cadet has no business on it —
+ * but on iOS they land here routinely, and it is not their mistake. A
+ * home-screen web app gets its own storage, separate from the browser that
+ * installed it, so a cadet who joins in Safari and then adds the icon opens a
+ * brand-new, unconfigured app.
+ *
+ * The link cannot carry them in on its own either. `start_url` in the manifest
+ * fixes what the icon opens, and `renderJoin` navigates to `/student` the moment
+ * a join succeeds — so the parameters have already gone from the address bar
+ * before anyone reaches Add to Home Screen. Confirmed on a real iPhone, 19 Oct
+ * 2026, in both Safari and Chrome.
+ *
+ * So the link has to be enterable by hand. It is the one thing a cadet already
+ * has, it arrived by email, and joining with it is idempotent — the join screen
+ * recognises a device that is already set up and offers to move on rather than
+ * repeating itself.
+ */
+function joinLinkCard() {
+  const input = el('input', {
+    class: 'input mono', type: 'text', placeholder: 'https://\u2026/#/join?c=\u2026&f=\u2026',
+    autocapitalize: 'off', autocorrect: 'off', spellcheck: false,
+    onkeydown: (e) => { if (e.key === 'Enter') apply(); },
+  });
+  const problem = el('div', {});
+
+  const apply = () => {
+    clear(problem);
+    const text = String(input.value || '').trim();
+    const marker = '#/join?';
+    const at = text.indexOf(marker);
+    // Cut at the first whitespace: people paste a line out of an email, not a
+    // tidy URL, and a trailing word would otherwise land inside the query.
+    const qs = at < 0 ? '' : text.slice(at + marker.length).split(/\s/)[0];
+
+    if (!qs || !parseJoinParams(new URLSearchParams(qs))) {
+      mount(problem, notice('warn', 'That does not look like a join link',
+        el('p', {}, 'A join link contains ' + '\u201c' + '#/join?' + '\u201d' + ' and is the whole address, '
+          + 'not just the part before it. Copy it again from the message it arrived in, or ask '
+          + 'whoever set the detachment up to send it again.')));
+      return;
+    }
+    navigate(`/join?${qs}`);
+  };
+
+  return el('section', { class: 'card stack' },
+    el('h2', { class: 'section-title' }, 'Were you sent a join link?'),
+    el('p', { class: 'muted' },
+      'If somebody sent you a link to join a detachment, paste it here. You do not need to set '
+      + 'anything up \u2014 this screen is for whoever creates the detachment, not for joining one.'),
+    field('Join link', input, { hint: 'It was emailed to you, and it can be used as often as you like.' }),
+    problem,
+    el('div', { class: 'row row--end' },
+      el('button', { type: 'button', class: 'btn btn--primary', onclick: apply },
+        icon('check'), 'Join')));
+}
+
 function draw(root) {
   clear(root);
   const wizard = el('div', { class: 'wizard stack' });
@@ -58,6 +118,16 @@ function draw(root) {
     default: stepFinish(body, root); break;
   }
 
+  // Mounted as a sibling *before* the wizard, not inside it. Visually first,
+  // because the person who needs it is usually not the person the wizard is for
+  // — but outside `.wizard`, because the setup suite drives this screen through
+  // `.wizard input[type=text]` and `.wizard .btn--primary`, and a card inside it
+  // would silently steal both. The first run of this change broke setup itself.
+  //
+  // Only on the first step: an administrator part-way through creating a
+  // detachment does not need a recovery path, and a rerun is somebody
+  // deliberately reconfiguring storage.
+  if (draft.step === 0 && !draft.rerun) mount(root, joinLinkCard());
   mount(root, wizard);
 }
 

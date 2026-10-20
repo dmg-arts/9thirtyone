@@ -1012,6 +1012,92 @@ await step('a truncated join link is refused rather than half-applied', async ()
   if (backend !== 'local') throw new Error(`connection was changed to ${backend}`);
 });
 
+await step('an unconfigured device can be joined by pasting the link', async () => {
+  // The iOS case, and it is not an edge case: a home-screen web app has its own
+  // storage, so a cadet who joins in Safari and then adds the icon opens an
+  // unconfigured app and lands on the administrator's wizard. The link they were
+  // emailed is the only thing they have, so it has to be usable by hand.
+  //
+  // Restored in a `finally`. The suite is sequential and four later checks run
+  // against the configuration this one removes; leaving it cleared on a failure
+  // reports those as broken too, which buries the one real failure in five.
+  const saved = await page.evaluate(() => {
+    const keep = {
+      conn: localStorage.getItem('nine31.connection.v1'),
+      done: localStorage.getItem('nine31.setup.complete'),
+    };
+    localStorage.removeItem('nine31.connection.v1');
+    localStorage.removeItem('nine31.setup.complete');
+    return keep;
+  });
+  try {
+    await page.goto(`${BASE}#/setup`, { waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForSelector('.wizard', { timeout: 10000 });
+
+    const offered = await page.textContent('#view');
+    if (!/sent a join link/i.test(offered)) {
+      throw new Error('an unconfigured device was not offered the join-link path');
+    }
+
+    // Pasted the way it arrives — a whole line out of a message, not a tidy URL.
+    await page.fill('.mono',
+      'Join here: https://example.org/#/join?c=724504040762-abcdefghijklmnopqrstuvwxyz012345'
+      + '&f=1AbCdEfGhIjKlMnOpQrStUvWxYz01234567&n=Det%20025 thanks');
+    await page.click('button:has-text("Join")');
+
+    // Waits on the route, not on `.page-title` — that exists on the setup screen
+    // too, so waiting for it returns instantly and asserts nothing.
+    // Waits for this screen to actually go away. `.page-title` exists on both,
+    // and `.card` matches the join-link card itself — either would return while
+    // the async join render was still in flight and read the old content back.
+    await page.waitForFunction(
+      () => !/sent a join link/i.test(document.querySelector('#view').textContent),
+      null, { timeout: 10000 });
+
+    const text = await page.textContent('#view');
+    if (!/Det 025|join|feedback/i.test(text)) {
+      throw new Error(`unexpected screen after joining: ${text.slice(0, 120)}`);
+    }
+  } finally {
+    await page.evaluate((keep) => {
+      if (keep.conn) localStorage.setItem('nine31.connection.v1', keep.conn);
+      if (keep.done) localStorage.setItem('nine31.setup.complete', keep.done);
+    }, saved);
+  }
+});
+
+await step('pasting something that is not a join link is refused', async () => {
+  const kept = await page.evaluate(() => {
+    const keep = {
+      conn: localStorage.getItem('nine31.connection.v1'),
+      done: localStorage.getItem('nine31.setup.complete'),
+    };
+    localStorage.removeItem('nine31.connection.v1');
+    localStorage.removeItem('nine31.setup.complete');
+    return keep;
+  });
+  try {
+    await page.goto(`${BASE}#/setup`, { waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForSelector('.wizard', { timeout: 10000 });
+
+    await page.fill('.mono', 'https://9thirtyone.app/');
+    await page.click('button:has-text("Join")');
+    await page.waitForSelector('.notice--warn', { timeout: 10000 });
+
+    // Refused, and nothing written: a half-applied link is the failure the join
+    // screen already guards against, and this entry point must not reopen it.
+    const conn = await page.evaluate(() => localStorage.getItem('nine31.connection.v1'));
+    if (conn && JSON.parse(conn).folderId) throw new Error('a bad paste configured the device');
+  } finally {
+    await page.evaluate((keep) => {
+      if (keep.conn) localStorage.setItem('nine31.connection.v1', keep.conn);
+      if (keep.done) localStorage.setItem('nine31.setup.complete', keep.done);
+    }, kept);
+  }
+});
+
 await step('a join link for the folder already in use says so', async () => {
   const link = await page.evaluate(() => {
     const conn = JSON.parse(localStorage.getItem('nine31.connection.v1'));

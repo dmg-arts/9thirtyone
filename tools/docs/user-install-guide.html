@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>9ThirtyOne \u2014 USER Installation Guide</title>
+<style>
+  @page {
+    size: Letter;
+    margin: 18mm 16mm 20mm;
+    @bottom-center { content: counter(page); }
+  }
+
+  :root {
+    --navy: #1c4f8b; --ink: #14181f; --ink-2: #4d5866; --ink-3: #7b8593;
+    --rule: #d8dee8; --tint: #eef3fa;
+    --warn-bg: #fdf6e6; --warn-line: #c9992e;
+    --danger-bg: #fdeceb; --danger-line: #a02724;
+    --ok-bg: #e8f4ed; --ok-line: #1c6b3f;
+    --mono: "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: var(--sans); color: var(--ink);
+    font-size: 10.2pt; line-height: 1.5;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+
+  .cover { height: 279mm; padding: 44mm 24mm 24mm; page-break-after: always; }
+  .cover__mark { width: 26mm; margin-bottom: 12mm; }
+  .cover h1 { font-size: 32pt; margin: 0 0 2mm; letter-spacing: -0.025em; }
+  .cover .sub { font-size: 14pt; color: var(--ink-2); margin: 0 0 1mm; }
+  .cover .who { font-size: 11pt; color: var(--ink-3); margin: 0; }
+  .cover .meta {
+    margin-top: 16mm; border-left: 3px solid var(--navy); background: var(--tint);
+    padding: 5mm 6mm; border-radius: 0 2mm 2mm 0; font-size: 10pt; max-width: 128mm;
+  }
+  .cover .meta strong { display: block; margin-bottom: 1.5mm; }
+
+  section { page-break-before: auto; }
+  h2 {
+    font-size: 17pt; margin: 0 0 4mm; letter-spacing: -0.015em;
+    padding-bottom: 2.5mm; border-bottom: 2px solid var(--navy); page-break-after: avoid;
+  }
+  h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 8mm; height: 8mm; border-radius: 50%; background: var(--navy); color: #fff;
+    font-size: 10pt; font-family: var(--mono); margin-right: 3mm; vertical-align: 1mm;
+  }
+  h3 { font-size: 11.8pt; margin: 7mm 0 2mm; page-break-after: avoid; }
+  h4 { font-size: 10.4pt; margin: 4mm 0 1.5mm; color: var(--ink-2); page-break-after: avoid; }
+  p { margin: 0 0 3mm; }
+  ul, ol { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 1.6mm; }
+  .lead { font-size: 11pt; color: var(--ink-2); margin-bottom: 5mm; }
+  .eyebrow {
+    font-size: 8pt; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--navy); font-weight: 700; margin-bottom: 1.5mm;
+  }
+
+  .note {
+    border-left: 3px solid var(--navy); background: var(--tint);
+    padding: 3mm 4mm; margin: 0 0 4mm; border-radius: 0 2mm 2mm 0;
+    page-break-inside: avoid;
+  }
+  .note--warn { border-color: var(--warn-line); background: var(--warn-bg); }
+  .note--danger { border-color: var(--danger-line); background: var(--danger-bg); }
+  .note--ok { border-color: var(--ok-line); background: var(--ok-bg); }
+  .note p:last-child { margin-bottom: 0; }
+  .note strong.title { display: block; margin-bottom: 1mm; }
+
+  table { width: 100%; border-collapse: collapse; margin: 0 0 4mm; font-size: 9.4pt; page-break-inside: avoid; }
+  th, td { text-align: left; padding: 2mm 3mm; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { background: var(--tint); color: var(--navy); font-size: 8.4pt; text-transform: uppercase; letter-spacing: .05em; }
+  td.k { white-space: nowrap; font-family: var(--mono); font-size: 8.8pt; }
+  .yes { color: var(--ok-line); font-weight: 700; }
+  .no { color: var(--danger-line); font-weight: 700; }
+
+  code {
+    font-family: var(--mono); font-size: 9pt;
+    background: #f2f5f9; border: 1px solid var(--rule);
+    padding: 0.3mm 1.2mm; border-radius: 1mm;
+  }
+
+  /* Screenshots come in three shapes and must be sized by shape, not one rule:
+     the capture scripts take full-page shots, so an aspect-0.20 panel is 890mm
+     tall at content width and would silently run off several pages. */
+  figure { margin: 0 0 5mm; page-break-inside: avoid; }
+  figure img {
+    width: 100%; border: 1px solid var(--rule); border-radius: 2mm; display: block;
+  }
+  figure.tall img { height: 92mm; object-fit: cover; object-position: top center; }
+  figure.tall--deep img { height: 130mm; }
+  figure.phone img { width: auto; height: 104mm; margin: 0 auto; }
+  figcaption { font-size: 8.8pt; color: var(--ink-3); margin-top: 1.8mm; }
+  figcaption b { color: var(--ink-2); }
+
+  .toc { list-style: none; padding: 0; margin: 0; }
+  .toc li { padding: 2.4mm 0; border-bottom: 1px solid var(--rule); display: flex; gap: 4mm; }
+  .toc .n { font-family: var(--mono); color: var(--navy); font-weight: 600; min-width: 8mm; }
+  .toc .d { color: var(--ink-3); font-size: 9.2pt; }
+
+  .roles { display: flex; gap: 2mm; flex-wrap: wrap; margin: 0 0 4mm; }
+  .pill {
+    font-size: 8.2pt; font-weight: 700; padding: 1mm 2.5mm; border-radius: 10mm;
+    background: var(--tint); color: var(--navy); border: 1px solid var(--rule);
+  }
+
+  .doc-title { font-size: 26pt; margin: 0 0 3mm; letter-spacing: -0.025em; }
+  h1.doc-title + .lead { font-size: 11.4pt; }
+</style>
+
+</head>
+<body>
+
+<div class="doc">
+  <h1 class="doc-title">9ThirtyOne USER Installation Guide</h1>
+  <p class="lead">You get into 9ThirtyOne with the join link in your email. There is nothing to
+  type, no password and no account to create. Keep that email: the link works any number of
+  times.</p>
+
+  <h2>Before you start</h2>
+  <p>Turn off your content blocker for this site, or allow <code>accounts.google.com</code>.
+  Signing in loads Google&rsquo;s sign-in script, and blockers stop it. If you skip this, the
+  sign-in screen just doesn&rsquo;t move.</p>
+  <div class="note note--warn">
+    <strong class="title">Leave it allowed afterwards</strong>
+    <p>There is nothing here for a blocker to do. The only thing this app loads from outside is
+    Google&rsquo;s sign-in, so allowing this site costs you nothing &mdash; and switching the
+    blocker back on can stop the app working with no clue as to why.</p>
+  </div>
+
+  <h2>Get set up (every device)</h2>
+  <ol>
+    <li>Tap the join link in your email. It opens in your browser and sets up your device.</li>
+    <li>Sign in with Google, using the account your detachment has on its roster.</li>
+    <li>If you won&rsquo;t install the app, you&rsquo;re done.</li>
+  </ol>
+  <p>To use 9ThirtyOne as an app with its own icon, carry on to the next section.</p>
+
+  <h2>Install it as an app (optional)</h2>
+  <p>Start with 9ThirtyOne open in your browser after signing in. Once installed, it opens in its
+  own window with the 931 icon and no address bar.</p>
+  <div class="note">
+    <strong class="title">The installed app can start out blank</strong>
+    <p>It has its own storage, separate from your browser. If it asks
+    <strong>&ldquo;Were you sent a join link?&rdquo;</strong>, paste your join link from the
+    email. <strong>On an iPhone it always asks.</strong></p>
+  </div>
+
+  <h3>Android (Chrome)</h3>
+  <ol>
+    <li>Look for an &ldquo;Add 9ThirtyOne to Home screen&rdquo; banner near the address bar. If it
+    appears, tap it and skip to step 4.</li>
+    <li>If no banner appears, tap the three-dot menu (&#8942;) in the top-right corner.</li>
+    <li>Select &ldquo;Add to Home screen&rdquo; or &ldquo;Install app&rdquo;. The wording varies by
+    Chrome version.</li>
+    <li>Confirm the name if prompted, then tap Add or Install.</li>
+    <li>Open the 931 icon. If it asks for a join link, paste yours.</li>
+  </ol>
+
+  <h3>iPhone and iPad (Safari or Chrome)</h3>
+  <ol>
+    <li>Tap the Share icon (a square with an upward arrow). In Safari it&rsquo;s in the bottom
+    toolbar; in Chrome it&rsquo;s usually near the address bar or in the top-right menu.</li>
+    <li>Scroll the share sheet and tap &ldquo;Add to Home Screen&rdquo;.</li>
+    <li>Confirm or edit the name, then tap Add in the top-right corner.</li>
+    <li>Open the 931 icon. It asks &ldquo;Were you sent a join link?&rdquo; Paste your join
+    link.</li>
+  </ol>
+
+  <h3>Mac: Safari (&ldquo;Add to Dock&rdquo;, macOS Sonoma or later)</h3>
+  <p>Safari&rsquo;s app keeps a small back, forward and share toolbar. That&rsquo;s an Apple
+  limitation. Chrome or Edge gives a cleaner window.</p>
+  <ol>
+    <li>Click File, then Add to Dock (or the Share icon, then Add to Dock).</li>
+    <li>Confirm the name and click Add.</li>
+    <li>Open the 931 icon in the Dock. If it asks for a join link, paste yours.</li>
+  </ol>
+
+  <h3>Mac: Chrome or Edge</h3>
+  <ol>
+    <li>Click the Install icon in the address bar (a monitor with a down arrow, or a &#8853;
+    symbol). If you can&rsquo;t see it, open the &#8942; menu, then Cast, Save, and Share, then
+    Install 9ThirtyOne.</li>
+    <li>Click Install in the prompt. The app is added to your Applications folder and
+    Launchpad.</li>
+    <li>If the app asks for a join link, paste yours.</li>
+  </ol>
+
+  <h3>Windows (Chrome or Edge)</h3>
+  <ol>
+    <li>Click the Install icon in the address bar (a monitor with a down arrow, or a &#8853;
+    symbol).</li>
+    <li>If you can&rsquo;t see it, open the &#8942; menu, then Apps, then Install 9ThirtyOne
+    (Chrome). In Edge, open the &hellip; menu, then Apps, then Install this site as an app.</li>
+    <li>Click Install in the prompt. The app is added to the Start menu and can be pinned to the
+    taskbar.</li>
+    <li>If the app asks for a join link, paste yours.</li>
+  </ol>
+
+  <h2>If something goes wrong</h2>
+  <table>
+    <tr><th style="width:38%">What you see</th><th>What to do</th></tr>
+    <tr><td>The sign-in screen doesn&rsquo;t move</td>
+        <td>Turn off your content blocker for this site, then try again.</td></tr>
+    <tr><td>The app icon opens a blank app</td>
+        <td>Paste your join link when it asks &ldquo;Were you sent a join link?&rdquo;</td></tr>
+    <tr><td>Your phone was cleared or replaced</td>
+        <td>Tap the join link in your email again.</td></tr>
+    <tr><td>You&rsquo;re offline</td>
+        <td>The app works offline only after you&rsquo;ve set it up. First sign-in needs a
+        connection.</td></tr>
+  </table>
+</div>
+</body>
+</html>

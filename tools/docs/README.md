@@ -5,10 +5,15 @@ screenshot shows real behaviour with seeded data rather than a mock-up. The four
 Markdown files beside them — `WHY.md`, `STYLE.md`, `ALPHA-TAGS.md` and
 `ROSTER-FORMAT.md` — are written by hand and are not built by anything here.
 
-So is the USER Installation Guide, which is written in Pages and added by hand.
-Only the PDF is committed — the Pages source is the author's own working file and
-is gitignored. Nothing in this directory rebuilds it, and running everything here
-will not reproduce it.
+The USER Installation Guide used to be the exception, hand-made in Pages. Since
+20 Oct it is built from `user-install-guide.html` like the rest:
+
+```sh
+node tools/docs/build-doc.mjs tools/docs/user-install-guide.html "docs/9ThirtyOne USER Installation Guide.pdf"
+```
+
+It reuses the How-To's stylesheet so the two read as one set, and carries no
+screenshots, so it builds without `shots/`.
 
 These scripts are for maintainers and are **not** needed to run 9ThirtyOne.
 They have dependencies the app itself does not: Playwright with a Chrome

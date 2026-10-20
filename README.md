@@ -39,16 +39,17 @@ and no shared database, and writes only to storage the detachment controls.
 | `9ThirtyOne-How-To-Guide.pdf` | Anyone using it | 21 pages, a chapter per role, every screen with its screenshot, and a closing matrix of what each role cannot reach. |
 | `ALPHA-TAGS.md` | The maintainer | Every release so far: the twelve alphas of 21–24 Aug 2026 and the betas since, with their commit SHAs and what each shipped. The tags themselves say a name and a line; this says why four of the alphas are one movement, and which releases were tagged only in hindsight. |
 | `9ThirtyOne-Introduction.pdf` | **Frozen at 31 Aug 2026 — not maintained, and do not hand it out.** It still describes a hand-made folder and a Cloud project, neither of which exists | 22 slides with speaker notes: why it exists, what it does, how each role uses it, and the anonymity and safety design. |
-| `9ThirtyOne USER Installation Guide.pdf` | A cadet or cadre member installing the app on their own device | Written by hand in Pages; the source is the author's own file and is not in the repository. The only document here that nothing rebuilds, greps or tests &mdash; keep that in mind when the app changes under it. |
+| `9ThirtyOne USER Installation Guide.pdf` | A cadet or cadre member installing the app on their own device | 3 pages: the join link, content blockers, and adding the app to a home screen on each platform, with a troubleshooting table. Built from `tools/docs/user-install-guide.html` since 20 Oct &mdash; it used to be hand-made in Pages and was the one document nothing could rebuild or grep. |
 | `ROSTER-FORMAT.md` | Whoever builds the roster | The CSV the roster importer accepts, column by column, with a prompt written to be handed to an assistant along with the detachment's existing list. |
 | `roster-template.csv` | The same person | A worked example of that format, staff and cadets, to attach alongside the prompt. |
 
 `privacy.html` ships alongside the app and deploys to the same domain, which is
 where Google's OAuth verification requires it to be.
 
-Five of the six PDFs are rebuilt by the scripts in `tools/docs/` — see the README
-there. The exception is the USER Installation Guide, which is written by hand in
-Pages; only its PDF is committed.
+All six PDFs are rebuilt by the scripts in `tools/docs/` — see the README there.
+The USER Installation Guide was the last exception; it was written by hand in
+Pages until 20 Oct, which meant nothing could grep it, diff it or check it
+against the app.
 Every screenshot in them is the live app with seeded data, nothing mocked up, so
 the documents cannot quietly drift from what the app does.
 

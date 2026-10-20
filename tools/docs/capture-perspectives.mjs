@@ -47,6 +47,61 @@ let count = 0;
  * the detachment everyone is looking at
  * ------------------------------------------------------------------ */
 
+
+/**
+ * Re-encode the QR and the link beside it against the real published address.
+ *
+ * The capture runs against a local server because that is where the seeded
+ * detachment is, so the link the app builds points at 127.0.0.1. Harmless on
+ * screen; not harmless in a printed guide or on a projector, where somebody
+ * scans it.
+ *
+ * Only the encoded text changes. The screen, the layout and the styling are the
+ * real ones, rendered by the real view.
+ */
+async function realiseJoinLink(page, base = 'https://9thirtyone.app/') {
+  const shown = await page.evaluate(async (realBase) => {
+    const { buildJoinLink } = await import('/js/join.js');
+    const { renderQrSvg } = await import('/js/qr.js');
+    const conn = JSON.parse(localStorage.getItem('nine31.connection.v1') || '{}');
+    // This capture runs on the local backend, which has no Drive folder, so
+    // there is genuinely no join link to make and the screen says so. That is
+    // the honest shot for this role: it shows what an administrator reaches,
+    // not a QR. The real QR image comes from capture-screenshots.mjs, which
+    // stands up a Drive-shaped config for the purpose.
+    let link;
+    try {
+      link = buildJoinLink({
+        clientId: conn.clientId, folderId: conn.folderId,
+        orgName: conn.orgName, proxyUrl: conn.proxyUrl, base: realBase,
+      });
+    } catch {
+      return null;
+    }
+    // Both of them. The first attempt replaced only input values and missed the
+    // caption, which is a <code class="qr-screen__link"> — so the QR encoded the
+    // real address while the text under it still read 127.0.0.1. A code and a
+    // caption that disagree is worse than either being wrong alone.
+    for (const input of document.querySelectorAll('input')) {
+      if (typeof input.value === 'string' && input.value.includes('#/join')) input.value = link;
+    }
+    for (const node of document.querySelectorAll('.qr-screen__link, code, .mono')) {
+      if ((node.textContent || '').includes('#/join')) node.textContent = link;
+    }
+    const host = document.querySelector('.qr-screen__code');
+    if (host) { host.textContent = ''; host.append(renderQrSvg(link)); }
+    return link;
+  }, base);
+  if (shown === null) return;   // no link on this backend; nothing to re-encode
+  if (!shown.startsWith(base)) {
+    throw new Error(`join link was not re-encoded against ${base}: got ${shown}`);
+  }
+  const onScreen = await page.textContent('#view');
+  if (/127\.0\.0\.1|localhost/.test(onScreen)) {
+    throw new Error('the captured screen still shows the capture server');
+  }
+}
+
 const PEOPLE = {
   student:    { email: 'mia.alvarez@gmail.com',   name: 'Alvarez, Mia',    roles: ['student'],    asClass: 'AS200' },
   instructor: { email: 'ana.lindqvist@det025.edu', name: 'Lindqvist, Ana',  roles: ['instructor'], asClass: '' },
@@ -301,6 +356,10 @@ async function shoot(page, dir, name, route, { mobile = false, mustRefuse = fals
       if (re.test(body)) seen[key] = true;
     }
   }
+
+  // The invite screen is the one capture whose *content* is wrong when taken
+  // locally, because the QR encodes wherever the browser happens to be.
+  if (name === 'invite-and-qr') await realiseJoinLink(page);
 
   fs.mkdirSync(path.join(OUT, dir), { recursive: true });
   await page.screenshot({

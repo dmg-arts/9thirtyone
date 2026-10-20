@@ -10,6 +10,55 @@ const browser = await chromium.launch({
 });
 const ctx = await browser.newContext({ viewport: { width: 1240, height: 900 }, deviceScaleFactor: 2 });
 const page = await ctx.newPage();
+
+/**
+ * Re-encode the QR and the link beside it against the real published address.
+ *
+ * The capture has to run against a local server, because that is where the
+ * seeded detachment is — so the join link the app builds points at
+ * 127.0.0.1. Harmless on screen, not harmless in a printed guide or on a
+ * projector, where somebody scans it. Found on 16 Oct, confirmed by reading the
+ * encoded value rather than looking at the picture.
+ *
+ * Only the encoded text changes: the screen, the layout and the styling are the
+ * real ones, rendered by the real view.
+ */
+async function realiseJoinLink(page, base = 'https://9thirtyone.app/') {
+  const shown = await page.evaluate(async (realBase) => {
+    const { buildJoinLink } = await import('/js/join.js');
+    const { renderQrSvg } = await import('/js/qr.js');
+    const conn = JSON.parse(localStorage.getItem('nine31.connection.v1') || '{}');
+    const link = buildJoinLink({
+      clientId: conn.clientId, folderId: conn.folderId,
+      orgName: conn.orgName, proxyUrl: conn.proxyUrl, base: realBase,
+    });
+    // Both of them. The first attempt replaced only input values and missed the
+    // caption, which is a <code class="qr-screen__link"> — so the QR encoded the
+    // real address while the text under it still read 127.0.0.1. A code and a
+    // caption that disagree is worse than either being wrong alone.
+    for (const input of document.querySelectorAll('input')) {
+      if (typeof input.value === 'string' && input.value.includes('#/join')) input.value = link;
+    }
+    for (const node of document.querySelectorAll('.qr-screen__link, code, .mono')) {
+      if ((node.textContent || '').includes('#/join')) node.textContent = link;
+    }
+    const host = document.querySelector('.qr-screen__code');
+    if (host) { host.textContent = ''; host.append(renderQrSvg(link)); }
+    return link;
+  }, base);
+  if (!shown || !shown.startsWith(base)) {
+    throw new Error(`join link was not re-encoded against ${base}: got ${shown}`);
+  }
+  // Assert against the *rendered page*, not against what buildJoinLink returned.
+  // The first version checked the latter, passed, and shipped a screenshot whose
+  // visible caption still said 127.0.0.1 — it was verifying its own input.
+  const onScreen = await page.textContent('#view');
+  if (/127\.0\.0\.1|localhost/.test(onScreen)) {
+    throw new Error('the captured screen still shows the capture server');
+  }
+  return shown;
+}
+
 page.on('pageerror', (e) => console.log('PAGEERROR:', e.message));
 
 const shot = async (name, opts = {}) => {
@@ -309,6 +358,7 @@ await page.evaluate(async () => {
 await page.goto(`${BASE}#/admin/invite`, { waitUntil: 'networkidle' });
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForSelector('.qr-screen__code svg', { timeout: 15000 });
+await realiseJoinLink(page);
 await page.waitForTimeout(400);
 await shot('qr-desktop');
 await page.evaluate(async () => {

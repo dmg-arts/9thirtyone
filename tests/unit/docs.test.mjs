@@ -191,6 +191,29 @@ check('the session length in prose matches SESSION_MS', () => {
   }
 });
 
+/*
+ * The Client ID is written out in three places: the shared default in
+ * `js/config.js`, the Script Properties table in the setup guide, and
+ * `docs/SETUP-VALUES.md`, which exists so it can be copied rather than retyped.
+ * A 72-character string that has to be transcribed by hand is exactly the kind
+ * of value that goes wrong silently — a wrong Client ID sets up cleanly and
+ * fails at the first cadet submission, by which point nobody is looking at the
+ * setup guide any more. So the copy must equal the code, and nothing but a test
+ * can keep it so.
+ */
+check('the paste-able Client ID matches the one in js/config.js', () => {
+  const inCode = /'([\w-]+\.apps\.googleusercontent\.com)'/.exec(CONFIG);
+  if (!inCode) throw new Error('could not read the Client ID from js/config.js');
+  for (const path of ['docs/SETUP-VALUES.md', 'tools/docs/setup-guide.html']) {
+    const found = read(path).match(/[\w-]+\.apps\.googleusercontent\.com/g) || [];
+    if (!found.length) throw new Error(`${path} no longer states a Client ID`);
+    const wrong = found.filter((id) => id !== inCode[1]);
+    if (wrong.length) {
+      throw new Error(`${path} states ${wrong[0]}; js/config.js has ${inCode[1]}`);
+    }
+  }
+});
+
 /* ------------------------------------------------------------------ *
  * 2. counts of things that are in the repository
  * ------------------------------------------------------------------ */

@@ -27,7 +27,7 @@ and no shared database, and writes only to storage the detachment controls.
 
 ## Documentation
 
-`docs/` holds eleven things. Start with `WHY.md` — everything else assumes it.
+`docs/` holds twelve things. Start with `WHY.md` — everything else assumes it.
 
 | File | For | Contents |
 |---|---|---|
@@ -40,6 +40,7 @@ and no shared database, and writes only to storage the detachment controls.
 | `ALPHA-TAGS.md` | The maintainer | Every release so far: the twelve alphas of 21–24 Aug 2026 and the betas since, with their commit SHAs and what each shipped. The tags themselves say a name and a line; this says why four of the alphas are one movement, and which releases were tagged only in hindsight. |
 | `9ThirtyOne-Introduction.pdf` | **Frozen at 31 Aug 2026 — not maintained, and do not hand it out.** It still describes a hand-made folder and a Cloud project, neither of which exists | 22 slides with speaker notes: why it exists, what it does, how each role uses it, and the anonymity and safety design. |
 | `9ThirtyOne USER Installation Guide.pdf` | A cadet or cadre member installing the app on their own device | 3 pages: the join link, content blockers, and adding the app to a home screen on each platform, with a troubleshooting table. Built from `tools/docs/user-install-guide.html` since 20 Oct &mdash; it used to be hand-made in Pages and was the one document nothing could rebuild or grep. |
+| `SETUP-VALUES.md` | Whoever installs it, **reading on GitHub** | Every string the setup procedure asks you to paste — the shared Client ID, the Script Properties, the Raw link to `Code.gs`, the two deployment settings — as selectable text. GitHub's viewer renders PDF pages as images, so the Setup Guide's *"copy it from here"* does not work in a browser and the Client ID was being retyped by hand. The guide is still the procedure; this is only the strings. Pinned to `js/config.js` by `tests/unit/docs.test.mjs`. |
 | `ROSTER-FORMAT.md` | Whoever builds the roster | The CSV the roster importer accepts, column by column, with a prompt written to be handed to an assistant along with the detachment's existing list. |
 | `roster-template.csv` | The same person | A worked example of that format, staff and cadets, to attach alongside the prompt. |
 | `graphics/` | Briefing slides | The request-flow diagram, as a still and a looping GIF, built by `tools/docs/build-flow-gif.mjs`. Explains why a busy screen takes a few seconds: the device is never given Drive access, so the server makes the round trip for it. |

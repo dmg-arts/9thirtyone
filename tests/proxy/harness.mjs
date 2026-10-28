@@ -79,11 +79,35 @@ export const net = () => ({ calls: netCalls, bytes: netBytes });
 /** Zero the counters, so a test can measure one action rather than a run. */
 export const resetOps = () => { opCount = 0; netCalls = 0; netBytes = 0; };
 
+/*
+ * Ids, and why they live here rather than in the REST layer.
+ *
+ * DriveApp addresses things by name inside a folder; Drive REST addresses them
+ * by id. Stage 2 of 1.4 reads through REST while everything else still writes
+ * through DriveApp, so for the length of that stage **both must be views of one
+ * store**. A REST fake with its own objects would let stage 2 pass against data
+ * no other code path can see, which is the precise failure this harness exists
+ * to prevent.
+ */
+let nextNodeId = 0;
+const byNodeId = new Map();
+
+function registerNode(node, kind) {
+  const id = `${kind}-${++nextNodeId}`;
+  node.id = id;
+  byNodeId.set(id, node);
+  return id;
+}
+
+/** The id Drive REST would address this node by. For writing tests. */
+export const idOf = (node) => node.id;
+
 class FakeFile {
   constructor(name, content) {
     this.name = name;
     this.content = content;
     this.trashed = false;
+    registerNode(this, 'file');
   }
 
   getName() { return this.name; }
@@ -115,6 +139,7 @@ class FakeFolder {
     this.folders = new Map();
     this.files = new Map();
     this.trashed = false;
+    registerNode(this, 'folder');
   }
 
   getName() { return this.name; }
@@ -212,6 +237,199 @@ const SOURCE = readFileSync(new URL('../../tools/proxy/Code.gs', import.meta.url
  *   test can hand out a valid token, an expired one, or one minted for another
  *   application without needing the network.
  */
+/* ------------------------------------------------------------------ *
+ * Fake Drive REST v3
+ * ------------------------------------------------------------------ */
+
+/**
+ * The half of the store stage 2 reads through.
+ *
+ * **Every behaviour below was measured against real Drive before it was
+ * written** — see tools/proxy/fidelity-probe.gs, run from the staging Apps
+ * Script project on 28 Oct 2026. The expectations were written down first and
+ * checked after, on purpose: a fake built by observing and then describing
+ * agrees with whatever happened to be true that afternoon, accidents included.
+ *
+ * Confirmed and reproduced here:
+ *
+ *   pageSize caps at 1000; 2000 is a 400 naming the range    (E4)
+ *   nextPageToken appears whenever a page is not the last    (E4)
+ *   fields=files(id,name) projects, and nothing else arrives (E5)
+ *   q escapes backslashes first, then single quotes          (E6)
+ *   an UNescaped quote is a 400, never a silent miss         (E6)
+ *   alt=media returns the raw body with no JSON envelope     (E7)
+ *   a missing id is 404 with errors[0].reason "notFound"     (E11)
+ *   non-2xx throws unless muteHttpExceptions is set          (E12)
+ *   supportsAllDrives changes nothing for a My Drive folder  (E13)
+ *
+ * NOT confirmed, and marked so nobody mistakes it for measured:
+ *
+ *   E10 — rate limiting never triggered, even at 107 concurrent requests. It
+ *   cannot be forced on demand. `throttleNext()` below lets a test drive the
+ *   retry path, and it emits the 403-with-reason shape *as a guess*. Code the
+ *   retry to accept 429 as well, and do not let a green test here be read as
+ *   evidence that this is what Google sends.
+ */
+
+const DRIVE_REST = 'https://www.googleapis.com/drive/v3/';
+
+/** Queued synthetic failures, for exercising paths real Drive will not produce. */
+let throttleQueue = [];
+
+/**
+ * Make the next `count` REST calls answer as rate-limited.
+ *
+ * Unverified shape — see E10 above.
+ */
+export function throttleNext(count = 1, code = 403) {
+  for (let i = 0; i < count; i++) throttleQueue.push(code);
+}
+
+const resetThrottle = () => { throttleQueue = []; };
+
+function httpResponse(code, text) {
+  return {
+    getResponseCode: () => code,
+    getContentText: () => text,
+    getAllHeaders: () => ({}),
+  };
+}
+
+function driveError(code, message, reason) {
+  return JSON.stringify({
+    error: { code, message, errors: [{ message, domain: 'global', reason }] },
+  });
+}
+
+/**
+ * Unescapes one `'...'` literal and reports whether it was legally escaped.
+ *
+ * Real Drive rejects an unescaped quote with a 400 rather than matching
+ * nothing, which is the good failure mode: a silent miss would make a lookup
+ * for `o'brien.json` return empty and look like a missing file.
+ */
+function readQuoted(text, from) {
+  let out = '';
+  let i = from;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === '\\') {
+      const next = text[i + 1];
+      if (next === '\\' || next === "'") { out += next; i += 2; continue; }
+      return { bad: true };
+    }
+    if (ch === "'") return { value: out, end: i + 1 };
+    out += ch;
+    i += 1;
+  }
+  return { bad: true };
+}
+
+/** Children of a folder, as REST sees them: files and subfolders together. */
+function childrenOf(folder) {
+  if (!folder || !(folder instanceof FakeFolder)) return [];
+  return [
+    ...[...folder.folders.values()].filter((f) => !f.trashed),
+    ...[...folder.files.values()].filter((f) => !f.trashed),
+  ];
+}
+
+function metaFor(node) {
+  const isFolder = node instanceof FakeFolder;
+  return {
+    id: node.id,
+    name: node.name,
+    mimeType: isFolder ? 'application/vnd.google-apps.folder' : 'application/json',
+    size: isFolder ? undefined : String(node.content.length),
+  };
+}
+
+/** Applies a `fields=files(a,b),nextPageToken` projection. */
+function project(rows, fields) {
+  const inner = /files\(([^)]*)\)/.exec(fields || '');
+  if (!inner) return rows;
+  const keep = inner[1].split(',').map((f) => f.trim()).filter(Boolean);
+  return rows.map((row) => {
+    const out = {};
+    for (const key of keep) if (row[key] !== undefined) out[key] = row[key];
+    return out;
+  });
+}
+
+function listFiles(params) {
+  const q = params.get('q') || '';
+  const fields = params.get('fields') || '';
+
+  const size = params.has('pageSize') ? Number(params.get('pageSize')) : 100;
+  if (!Number.isFinite(size) || size < 1 || size > 1000) {
+    return httpResponse(400, driveError(400,
+      `Invalid value '${params.get('pageSize')}'. Values must be within the range: [value: 1\n, value: 1000\n]`,
+      'invalid'));
+  }
+
+  // q: "'<id>' in parents and trashed=false [and name = '<escaped>']"
+  const parent = /'([^']+)' in parents/.exec(q);
+  if (!parent) {
+    return httpResponse(400, driveError(400, `Invalid Value: ${q}`, 'invalid'));
+  }
+  let rows = childrenOf(byNodeId.get(parent[1]));
+
+  const nameAt = q.indexOf("name = '");
+  if (nameAt >= 0) {
+    const parsed = readQuoted(q, nameAt + "name = '".length);
+    if (parsed.bad) {
+      return httpResponse(400, driveError(400, `Invalid Value: ${q}`, 'invalid'));
+    }
+    // An unescaped quote closes the literal early and leaves the rest of the
+    // name sitting in the query as syntax. Without this check the fake parsed
+    // "name = 'o'brien.json'" as name = "o", matched nothing, and returned an
+    // empty 200 — a silent miss, which is the one behaviour real Drive does
+    // NOT have. It answers 400, and that difference is worth a day of somebody
+    // hunting a file that was there all along.
+    const rest = q.slice(parsed.end);
+    if (rest && !/^\s*(and|or)\s/i.test(rest)) {
+      return httpResponse(400, driveError(400, `Invalid Value: ${q}`, 'invalid'));
+    }
+    rows = rows.filter((n) => n.name === parsed.value);
+  }
+
+  const from = Number(params.get('pageToken') || 0);
+  const page = rows.slice(from, from + size);
+  const body = { files: project(page.map(metaFor), fields) };
+  if (from + size < rows.length) body.nextPageToken = String(from + size);
+  return httpResponse(200, JSON.stringify(body));
+}
+
+function driveRest(url) {
+  const parsed = new URL(url);
+  const params = parsed.searchParams;
+  const tail = parsed.pathname.split('/drive/v3/')[1] || '';
+
+  if (throttleQueue.length) {
+    const code = throttleQueue.shift();
+    return httpResponse(code, driveError(code,
+      'Rate Limit Exceeded', code === 429 ? 'rateLimitExceeded' : 'rateLimitExceeded'));
+  }
+
+  if (tail === 'files') return listFiles(params);
+
+  const id = tail.startsWith('files/') ? tail.slice('files/'.length) : null;
+  if (!id) return httpResponse(404, driveError(404, `Not Found: ${tail}`, 'notFound'));
+
+  const node = byNodeId.get(id);
+  if (!node || node.trashed) {
+    return httpResponse(404, driveError(404, `File not found: ${id}.`, 'notFound'));
+  }
+  if (params.get('alt') === 'media') {
+    if (node instanceof FakeFolder) {
+      return httpResponse(403, driveError(403,
+        'Only files with binary content can be downloaded.', 'fileNotDownloadable'));
+    }
+    return httpResponse(200, node.content);
+  }
+  return httpResponse(200, JSON.stringify(project([metaFor(node)], `files(${params.get('fields') || 'id,name,mimeType,size'})`)[0]));
+}
+
 export function createProxy({
   clientId = 'test-client.apps.googleusercontent.com',
   tokens = {},
@@ -302,8 +520,15 @@ export function createProxy({
 
     DriveApp: {
       getFolderById(id) {
-        if (id !== 'folder-1') throw new Error(`No folder with id ${id}`);
-        return root;
+        // Was hard-wired to 'folder-1'. Now resolved through the same registry
+        // the REST layer reads, so a folder created in a test is addressable
+        // from both halves of the store rather than only one.
+        if (id === 'folder-1') return root;
+        const node = byNodeId.get(id);
+        if (!node || !(node instanceof FakeFolder) || node.trashed) {
+          throw new Error(`No folder with id ${id}`);
+        }
+        return node;
       },
     },
 
@@ -358,9 +583,28 @@ export function createProxy({
     MailApp: mailStub,
 
     UrlFetchApp: {
-      fetch(url) {
+      fetch(url, options) {
         fetches.push(url);
         netCalls += 1;
+
+        // Drive REST, from stage 2 onward. Routed here rather than given its
+        // own binding because that is how Code.gs will reach it in production:
+        // through UrlFetchApp, counted against the same quota as everything
+        // else this script sends.
+        if (String(url).startsWith(DRIVE_REST)) {
+          const res = driveRest(String(url));
+          netBytes += res.getContentText().length;
+          // E12, measured: UrlFetchApp throws on any non-2xx unless
+          // muteHttpExceptions is set. An error-handling path written without
+          // it never runs, so the fake has to throw too or the tests would
+          // prove the opposite of what production does.
+          if (res.getResponseCode() >= 300 && !(options && options.muteHttpExceptions)) {
+            throw new Error(`Request failed for https://www.googleapis.com returned code `
+              + `${res.getResponseCode()}. Truncated server response: ${res.getContentText().slice(0, 120)}`);
+          }
+          return res;
+        }
+
         const token = decodeURIComponent(url.split('id_token=')[1] || '');
         const claims = byJwt.get(token);
         const body = JSON.stringify(claims || { error: 'invalid_token' });
@@ -379,7 +623,9 @@ export function createProxy({
        * the stage is meant to be reducing.
        */
       fetchAll(requests) {
-        return (requests || []).map((req) => this.fetch(typeof req === 'string' ? req : req.url));
+        return (requests || []).map((req) => (typeof req === 'string'
+          ? this.fetch(req)
+          : this.fetch(req.url, req)));
       },
     },
 
@@ -427,6 +673,14 @@ export function createProxy({
     mails,
     /** The JWT a label encodes to, for tests that need the raw string. */
     jwtFor: (label) => jwtByLabel.get(label),
+    /**
+     * The Apps Script globals, for tests that exercise a binding directly
+     * rather than through doPost. drive-rest.test.mjs calls UrlFetchApp the way
+     * Code.gs will once stage 2 lands.
+     */
+    sandbox,
+    /** Queue synthetic rate limiting. UNVERIFIED shape — see throttleNext. */
+    throttleNext,
   };
 }
 

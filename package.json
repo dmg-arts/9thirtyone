@@ -16,7 +16,7 @@
     "test:memory": "node tests/e2e/run.mjs tests/memory/leaks.test.mjs",
     "test:volume": "node tests/e2e/run.mjs tests/e2e/volume.test.mjs",
     "bench": "node tools/bench/profile.mjs",
-    "test:proxy": "node tests/proxy/behaviour.test.mjs && node tests/proxy/load.test.mjs"
+    "test:proxy": "node tests/proxy/behaviour.test.mjs && node tests/proxy/drive-rest.test.mjs && node tests/proxy/load.test.mjs"
   },
   "devDependencies": {
     "playwright": "^1.62.1"

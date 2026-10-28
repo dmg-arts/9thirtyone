@@ -156,3 +156,94 @@ function runFidelityProbe() {
     if (probe) { probe.setTrashed(true); Logger.log('probe folder trashed'); }
   }
 }
+
+/**
+ * Second pass: the same questions against REAL documents.
+ *
+ * The first probe measured fetchAll against two 14-byte files in a folder it
+ * had just created, so Drive served most of it from cache and the 54 ms figure
+ * meant nothing. This walks the detachment's actual tree and measures distinct
+ * documents of real size, which is the only number stage 2 can be judged on.
+ *
+ * Read-only. Creates nothing, trashes nothing.
+ */
+function runFidelityProbe2() {
+  var root = PropertiesService.getScriptProperties().getProperty('FOLDER_ID');
+  Logger.log('=== fidelity pass 2: real documents ===');
+  fp_('root folder', root);
+
+  // Walk the tree for real .json documents, breadth-first, capped.
+  var ids = [], queue = [root], guard = 0;
+  while (queue.length && ids.length < 400 && guard++ < 200) {
+    var parent = queue.shift();
+    var page = null;
+    do {
+      var url = 'https://www.googleapis.com/drive/v3/files?q='
+        + encodeURIComponent("'" + parent + "' in parents and trashed=false")
+        + '&pageSize=1000&fields=' + encodeURIComponent('files(id,name,mimeType,size),nextPageToken')
+        + (page ? '&pageToken=' + page : '');
+      var res = fp_get_(url);
+      if (res.getResponseCode() !== 200) { fp_('walk failed at ' + parent, res.getContentText().slice(0,120)); break; }
+      var body = JSON.parse(res.getContentText());
+      var rows = body.files || [];
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].mimeType === 'application/vnd.google-apps.folder') queue.push(rows[i].id);
+        else ids.push({ id: rows[i].id, name: rows[i].name, size: Number(rows[i].size || 0) });
+      }
+      page = body.nextPageToken || null;
+    } while (page);
+  }
+
+  fp_('documents found', ids.length);
+  if (!ids.length) { Logger.log('STILL EMPTY — FOLDER_ID is not the app\'s folder.'); return; }
+
+  var total = 0;
+  for (var k = 0; k < ids.length; k++) total += ids[k].size;
+  fp_('mean document bytes', Math.round(total / ids.length));
+  fp_('largest document bytes', Math.max.apply(null, ids.map(function (d) { return d.size; })));
+
+  // E4 paging, now that folders actually have children.
+  var pg = fp_get_('https://www.googleapis.com/drive/v3/files?q='
+    + encodeURIComponent("'" + root + "' in parents and trashed=false")
+    + '&pageSize=1&fields=' + encodeURIComponent('files(id),nextPageToken'));
+  var pgBody = JSON.parse(pg.getContentText());
+  fp_('E4 pageSize=1 nextPageToken', pgBody.nextPageToken ? 'PRESENT' : 'absent');
+
+  var token = ScriptApp.getOAuthToken();
+  var N = Math.min(ids.length, 130);
+
+  // Sequential, on DISTINCT documents.
+  var t0 = new Date().getTime();
+  for (var a = 0; a < Math.min(10, N); a++) {
+    fp_get_('https://www.googleapis.com/drive/v3/files/' + ids[a].id + '?alt=media');
+  }
+  var seq = new Date().getTime() - t0;
+  fp_('SEQUENTIAL ms for ' + Math.min(10, N), seq);
+  fp_('SEQUENTIAL per read ms', Math.round(seq / Math.min(10, N)));
+
+  // fetchAll, on DISTINCT documents, at detachment scale.
+  var reqs = [];
+  for (var b = 0; b < N; b++) {
+    reqs.push({ url: 'https://www.googleapis.com/drive/v3/files/' + ids[b].id + '?alt=media',
+                headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
+  }
+  var t1 = new Date().getTime();
+  var all = UrlFetchApp.fetchAll(reqs);
+  var par = new Date().getTime() - t1;
+
+  var ok = 0, bytes = 0, codes = {};
+  for (var c = 0; c < all.length; c++) {
+    var code = all[c].getResponseCode();
+    codes[code] = (codes[code] || 0) + 1;
+    if (code === 200) { ok++; bytes += all[c].getContentText().length; }
+  }
+  fp_('FETCHALL distinct documents', N);
+  fp_('FETCHALL total ms', par);
+  fp_('FETCHALL per document ms', Math.round(par / N));
+  fp_('FETCHALL response codes', JSON.stringify(codes));
+  fp_('FETCHALL bytes returned', bytes);
+  fp_('SPEEDUP vs sequential', (Math.round(seq / Math.min(10, N)) / Math.round(par / N)).toFixed(1) + 'x');
+  fp_('PROJECTED allResponses at ' + N + ' docs', 'sequential ' + Math.round((seq / Math.min(10, N)) * N / 1000)
+    + 's  vs  fetchAll ' + Math.round(par / 1000) + 's  (+~2s fixed)');
+  Logger.log('=== pass 2 complete ===');
+}

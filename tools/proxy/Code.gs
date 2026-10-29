@@ -66,6 +66,23 @@
 // again, and a doGet reporting 1.1.0 is how a rollback from here is confirmed.
 var PROXY_VERSION = '1.4.0';
 
+/**
+ * A content fingerprint of this file, so a redeploy can be confirmed when the
+ * version has not moved.
+ *
+ * `PROXY_VERSION` only changes at release, so during a development cycle every
+ * build reports the same version and `doGet` cannot tell a fresh deployment
+ * from a stale one. That matters twice: while iterating on staging, and on
+ * ship day, when "did the paste actually take" is the question the whole
+ * sequence turns on and saving a file is not the same as deploying it.
+ *
+ * Maintained by `node tools/proxy/stamp.mjs`, and checked by
+ * `tests/unit/proxy.test.mjs` — so a Code.gs edited without re-stamping fails
+ * the suite rather than deploying a marker that quietly describes the previous
+ * build.
+ */
+var BUILD = '9590f064';
+
 /** Refuse anything larger; a submission is a few KB at most. */
 var MAX_BODY_BYTES = 96 * 1024;
 
@@ -155,7 +172,7 @@ function subjectOfRequest(request) {
  * built and sent the form, so withholding the answers reads as a fault rather
  * than a policy.
  */
-function requestInPeopleScope(root, request, account, tier) {
+function requestInPeopleScope(root, request, account, tier, users) {
   if (tier === 'all') return true;
   var me = String((account && account.username) || '').toLowerCase();
   if (tier === 'own') {
@@ -166,7 +183,24 @@ function requestInPeopleScope(root, request, account, tier) {
   if (!subject) return false;
   subject = String(subject).toLowerCase();
   if (subject === me) return true;
-  return isPlainInstructor(findByUsername(root, subject));
+  // `users` when the caller already read the roster. This is called once per
+  // request, and without it each call re-read users.json from Drive — two
+  // round trips per request, which profiling found was most of readPeople.
+  // Passed explicitly rather than memoised: 1.2.0 was withdrawn over a
+  // script-level memo and no mechanism was ever found, so nothing here keeps
+  // state between executions.
+  return isPlainInstructor(users
+    ? findInList_(users, subject)
+    : findByUsername(root, subject));
+}
+
+/** A roster lookup in a list already held, with no read behind it. */
+function findInList_(users, username) {
+  var wanted = String(username || '').toLowerCase();
+  for (var i = 0; i < users.length; i++) {
+    if (String(users[i].username || '').toLowerCase() === wanted) return users[i];
+  }
+  return null;
 }
 
 /** Every space this account may see, combined across the roles it holds. */
@@ -335,6 +369,7 @@ function doGet() {
     ok: true,
     service: 'nine31-proxy',
     version: PROXY_VERSION,
+    build: BUILD,
     configured: Boolean(cfg.folderId && cfg.clientId),
   });
 }
@@ -1747,6 +1782,22 @@ function fetchRecordBodies_(items) {
  */
 function readFolderDocs(root, segments) {
   var folder = findFolder(root, segments);
+  if (!folder) return [];
+  return readDocsInFolder(folder, segments.join('/'));
+}
+
+/**
+ * The same read, for a caller that already holds the folder.
+ *
+ * `readFolderDocs` resolves a path from the root with one DriveApp lookup per
+ * segment, every time it is called. Profiling on 29 Oct found that re-walking
+ * was **43% of allResponses** — more than the batched document reads it was
+ * fetching — because `readAllResponses` iterates folder objects and then threw
+ * them away to pass a path instead.
+ *
+ * `label` is for the unreadable-record warning only. It is never a lookup.
+ */
+function readDocsInFolder(folder, label) {
   var out = [];
   if (!folder) return out;
 
@@ -1754,14 +1805,14 @@ function readFolderDocs(root, segments) {
   var bodies = fetchRecordBodies_(items);
   for (var i = 0; i < bodies.length; i++) {
     if (bodies[i] === null) {
-      console.warn('unreadable: ' + segments.join('/') + '/' + items[i].name);
+      console.warn('unreadable: ' + label + '/' + items[i].name);
       continue;
     }
     try {
       out.push(JSON.parse(bodies[i]));
     } catch (err) {
       // One unreadable record must not take the whole listing down.
-      console.warn('unreadable: ' + segments.join('/') + '/' + items[i].name);
+      console.warn('unreadable: ' + label + '/' + items[i].name);
     }
   }
   return out;
@@ -1873,15 +1924,28 @@ function readPeople(root, account) {
   var responses = [];
   var formIds = {};
 
+  // Once, at the top. Every scope decision below needs it and there is one
+  // roster.
+  var roster = readRoster(root);
+
   for (var s = 0; s < spaces.length; s++) {
     var rows = readFolderDocs(root, spacePath(spaces[s], 'requests'));
+    // The parent of every per-request responses folder in this space. Resolved
+    // once so each request below is a single lookup inside it rather than a
+    // walk from the root.
+    var responsesHome = findFolder(root, spacePath(spaces[s], 'responses'));
     for (var i = 0; i < rows.length; i++) {
-      if (!requestInPeopleScope(root, rows[i], account, tier)) continue;
+      if (!requestInPeopleScope(root, rows[i], account, tier, roster)) continue;
       rows[i].space = spaces[s];
       requests.push(rows[i]);
       formIds[rows[i].formId] = spaces[s];
 
-      var found = readFolderDocs(root, spacePath(spaces[s], 'responses', rows[i].id));
+      var sub = null;
+      if (responsesHome) {
+        var kids = responsesHome.getFoldersByName(rows[i].id);
+        if (kids.hasNext()) sub = kids.next();
+      }
+      var found = sub ? readDocsInFolder(sub, spaces[s] + '/responses/' + rows[i].id) : [];
       for (var r = 0; r < found.length; r++) {
         found[r].space = spaces[s];
         responses.push(found[r]);
@@ -1899,7 +1963,7 @@ function readPeople(root, account) {
     }
   }
 
-  var users = readRoster(root);
+  var users = roster;
   var staff = [];
   for (var u = 0; u < users.length; u++) {
     var user = users[u];
@@ -1928,7 +1992,10 @@ function readAllResponses(root, account) {
     var subs = parent.getFolders();
     while (subs.hasNext()) {
       var sub = subs.next();
-      var rows = readFolderDocs(root, spacePath(spaces[s], 'responses', sub.getName()));
+      // `sub` is the folder. Resolving its path again from the root cost two
+      // DriveApp lookups per request and was the largest single component of
+      // this function.
+      var rows = readDocsInFolder(sub, spaces[s] + '/responses/' + sub.getName());
       for (var i = 0; i < rows.length; i++) {
         rows[i].space = spaces[s];
         out.push(rows[i]);

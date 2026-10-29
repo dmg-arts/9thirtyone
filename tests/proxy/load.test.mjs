@@ -250,6 +250,43 @@ check('reading every response is a fixed number of outbound calls, not one per d
     + `${large.batches} at ${large.rows} — flat; requests ${small.calls} -> ${large.calls}`);
 });
 
+/*
+ * Stage 2c, held to the shape it fixed.
+ *
+ * readFolderDocs resolves a path from the root with one DriveApp lookup per
+ * segment. Called once per request folder, that made path-walking 43% of
+ * allResponses and — worse — made it grow with the number of requests a
+ * detachment accumulates over a term: 15 lookups at 6 requests, 43 at 20.
+ *
+ * The callers already held those folders. Now they pass them. The assertion is
+ * that the Apps Script surface stays flat as requests multiply, because that is
+ * the property that was missing, not the absolute number.
+ */
+check('reading every response does not walk more paths as requests accumulate', () => {
+  const cost = (requests) => {
+    const proxy = detachment(12);
+    for (let r = 0; r < requests; r++) {
+      proxy.root.put(['requests'], `req_${r}.json`, {
+        id: `req_${r}`, formId: 'form_1', title: `R${r}`, status: 'open',
+        asClass: 'AS200', anonymous: true, space: 'shared', assignedUsernames: [],
+      });
+      proxy.root.put(['responses', `req_${r}`], 'cadet00.json',
+        { id: `resp_${r}`, requestId: `req_${r}`, answers: { q1: 7 } });
+    }
+    resetOps();
+    const out = proxy.post({ action: 'allResponses', idToken: as('instructor') });
+    if (!out.ok) throw new Error(`allResponses was refused: ${out.error}`);
+    return ops();
+  };
+
+  const [six, twenty] = [cost(6), cost(20)];
+  if (twenty > six) {
+    throw new Error(`Apps Script calls grew with requests: ${six} at 6 -> ${twenty} at 20. `
+      + 'That is readFolderDocs re-resolving a path its caller already holds.');
+  }
+  console.log(`       allResponses: ${six} Apps Script calls at 6 requests, ${twenty} at 20 — flat`);
+});
+
 check('a whole flight submitting costs what forty-five of one cadet costs', () => {
   const proxy = detachment();
   resetOps();

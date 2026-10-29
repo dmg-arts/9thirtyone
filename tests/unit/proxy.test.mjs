@@ -16,6 +16,7 @@
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { fingerprint } from '../../tools/proxy/stamp.mjs';
 
 const SOURCE = readFileSync(new URL('../../tools/proxy/Code.gs', import.meta.url), 'utf8');
 const RELEASES = new URL('../../tools/proxy/releases/', import.meta.url);
@@ -418,6 +419,30 @@ check('nothing keeps a second copy of the request timeout', () => {
  *     worse than not having one, because it is the thing you reach for when
  *     something has already gone wrong and you are not in a mood to verify it.
  */
+/*
+ * The build marker has to describe the file it is in.
+ *
+ * It exists so a redeploy can be confirmed when PROXY_VERSION has not moved,
+ * which is every build between releases. A stale marker is worse than none: it
+ * would answer "did the paste take" with the previous build's fingerprint, in
+ * the voice of a positive confirmation, at the moment that question matters
+ * most.
+ */
+check('the build marker matches the file it is stamped into', () => {
+  // Synchronous on purpose. An earlier draft made this callback `async` to use
+  // a dynamic import, and `check` does not await — so the promise could never
+  // reject and the check printed ok against a deliberately wrong marker. A
+  // test that cannot fail is worse here than no test, because this one exists
+  // to be trusted on ship day.
+  const expected = fingerprint(SOURCE);
+  if (!expected) throw new Error('Code.gs has no BUILD line to check');
+  const found = /^var BUILD = '([^']*)';$/m.exec(SOURCE)[1];
+  if (found !== expected) {
+    throw new Error(`BUILD says ${found}, contents hash to ${expected} `
+      + '— run node tools/proxy/stamp.mjs');
+  }
+});
+
 check('every frozen release declares the version in its own filename', () => {
   const files = readdirSync(RELEASES).filter((f) => f.endsWith('.gs'));
   if (!files.length) throw new Error('no frozen releases at all');

@@ -14,9 +14,11 @@
  * against DriveApp and UrlFetchApp, neither of which exists here.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const SOURCE = readFileSync(new URL('../../tools/proxy/Code.gs', import.meta.url), 'utf8');
+const RELEASES = new URL('../../tools/proxy/releases/', import.meta.url);
 const CLIENT = readFileSync(new URL('../../js/storage/proxy.js', import.meta.url), 'utf8');
 const CALLERS = readFileSync(new URL('../../js/data-source.js', import.meta.url), 'utf8');
 
@@ -396,6 +398,54 @@ check('nothing keeps a second copy of the request timeout', () => {
   }
   if (bad.length) {
     throw new Error(`${bad.join('; ')} — omit the option and inherit TIMEOUT_MS`);
+  }
+});
+
+
+/* ------------------------------------------------------------------ *
+ * frozen releases
+ * ------------------------------------------------------------------ */
+
+/*
+ * `tools/proxy/releases/` holds snapshots named by the version they declare, so
+ * one can be pasted without checking out a branch. Two ways that goes wrong,
+ * and both are silent:
+ *
+ *   - a file named for a version that no longer holds it, which is pasted in
+ *     good faith and deploys something else entirely;
+ *   - the 1.3.1 snapshot drifting from the tag. That one is the rollback
+ *     artefact for 10 Nov. A rollback artefact that has quietly changed is
+ *     worse than not having one, because it is the thing you reach for when
+ *     something has already gone wrong and you are not in a mood to verify it.
+ */
+check('every frozen release declares the version in its own filename', () => {
+  const files = readdirSync(RELEASES).filter((f) => f.endsWith('.gs'));
+  if (!files.length) throw new Error('no frozen releases at all');
+  for (const file of files) {
+    const named = /^Code-(.+)\.gs$/.exec(file);
+    if (!named) throw new Error(`${file} is not named Code-<version>.gs`);
+    const text = readFileSync(new URL(file, RELEASES), 'utf8');
+    const declared = /var PROXY_VERSION = '([^']+)'/.exec(text);
+    if (!declared) throw new Error(`${file} declares no PROXY_VERSION`);
+    if (declared[1] !== named[1]) {
+      throw new Error(`${file} declares ${declared[1]} — run node tools/proxy/snapshot.mjs`);
+    }
+  }
+});
+
+check('the rollback snapshot still matches the tag it claims to be', () => {
+  // 1.3.1 is what Det 752 is running and what goes back in if 1.4.0 comes out.
+  let tagged;
+  try {
+    tagged = execFileSync('git', ['show', 'v1.3.1-beta.1:tools/proxy/Code.gs'],
+      { cwd: new URL('../../', import.meta.url).pathname, encoding: 'utf8' });
+  } catch {
+    throw new Error('cannot read v1.3.1-beta.1 from git, so the snapshot cannot be verified');
+  }
+  const frozen = readFileSync(new URL('Code-1.3.1.gs', RELEASES), 'utf8');
+  if (frozen !== tagged) {
+    throw new Error('Code-1.3.1.gs has drifted from v1.3.1-beta.1 — it is the rollback '
+      + 'artefact and must be the bytes that were deployed');
   }
 });
 

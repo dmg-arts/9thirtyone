@@ -325,44 +325,62 @@ check('a refused action costs one roster read and no more', () => {
   console.log(`       a refusal costs ${cost} operations — a full users.json read`);
 });
 
-/**
- * The one that actually gets expensive, also pinned rather than fixed.
+/*
+ * By-instructor, which used to be the expensive one.
  *
- * `requestInPeopleScope` calls `findByUsername` for each request it evaluates,
- * and `findByUsername` re-reads the whole roster every time. At twenty requests
- * that is twenty downloads of a fifty-four-person `users.json` inside a single
- * execution, and it grows with the term.
+ * This check previously asserted that the cost grew *linearly* with requests
+ * and watched for it growing faster. That was the right test for a known
+ * inefficiency being tolerated: `requestInPeopleScope` called `findByUsername`
+ * per request and each one re-read the whole roster, and the per-request forms
+ * read did the same, so twenty requests meant twenty downloads of users.json
+ * and twenty form lookups inside one execution.
  *
- * It only bites on the middle tier — a cadre looking at instructors. A
- * commander is 'all' and returns before the read; an instructor is 'own' and
- * never reaches it. So it is a staff-side cost, not a drill-night one, which is
- * why it is documented here rather than fixed in a hurry.
+ * Stages 2b and 2c removed both. The roster is read once and passed down, the
+ * per-request response folders are read in a single query across all of them,
+ * and a space's forms are read in one pass. So the assertion changes from
+ * "linear, and no worse" to **flat**, which is a stronger claim and the one
+ * worth defending: a regression to per-request work would be invisible in
+ * behaviour and would only show up at a detachment with a term's worth of
+ * requests behind it.
  */
-check('By-instructor grows linearly with requests, and is watched for growing faster', () => {
+check('By-instructor costs the same whether a term holds five requests or twenty', () => {
   const cost = (requests) => {
     const proxy = detachment(1);
     for (let i = 0; i < requests; i++) {
       proxy.root.put(['requests'], `req_${i}.json`, {
-        id: `req_${i}`, formId: 'form_1', title: `R${i}`, status: 'open',
+        id: `req_${i}`, formId: `form_${i}`, title: `R${i}`, status: 'open',
         asClass: 'AS200', anonymous: false, space: 'shared',
         assignedUsernames: [], subject: 'teach',
       });
+      // A form each, not one shared form. The old fixture reused `form_1` and
+      // so could not see the per-form read at all.
+      proxy.root.put(['forms'], `form_${i}.json`, { id: `form_${i}`, name: `F${i}`, sections: [] });
+      // Responses too. Without them `responsesHome` has no subfolders, the
+      // per-request read never runs, and this check measures a path it is not
+      // about — which is exactly how an earlier draft passed against a
+      // deliberately reverted build.
+      proxy.root.put(['responses', `req_${i}`], 'cadet00.json',
+        { id: `resp_${i}`, requestId: `req_${i}`, answers: { q1: 7 } });
     }
     resetOps();
     const out = proxy.post({ action: 'people', idToken: as('cadre') });
     if (!out.ok) throw new Error(`the people action was refused: ${out.error}`);
-    return ops();
+    return { ops: ops(), batches: net().batches };
   };
 
-  const [five, twenty] = [cost(5), cost(20)];
-  const perRequest = (twenty - five) / 15;
+  const five = cost(5);
+  const twenty = cost(20);
 
-  // Five per request, three of which are the roster being downloaded again.
-  if (perRequest > 6) {
-    throw new Error(`${perRequest} operations per request, budget 6 — the roster read may have grown`);
+  if (twenty.ops > five.ops) {
+    throw new Error(`Apps Script calls grew with requests: ${five.ops} at 5 -> ${twenty.ops} at 20 `
+      + '— something is reading per request again');
   }
-  console.log(`       By-instructor: ${perRequest} operations per request, `
-    + `${Math.round((3 / perRequest) * 100)}% of it re-reading the roster`);
+  if (twenty.batches > five.batches) {
+    throw new Error(`round trips grew with requests: ${five.batches} at 5 -> ${twenty.batches} at 20 `
+      + '— the per-folder read is back');
+  }
+  console.log(`       By-instructor: ${five.ops} Apps Script calls and ${five.batches} round trips `
+    + `at 5 requests, ${twenty.ops} and ${twenty.batches} at 20 — flat`);
 });
 
 console.log(failures

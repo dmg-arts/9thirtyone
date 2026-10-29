@@ -353,13 +353,17 @@ function childrenOf(folder) {
   ];
 }
 
-function metaFor(node) {
+function metaFor(node, parentId) {
   const isFolder = node instanceof FakeFolder;
   return {
     id: node.id,
     name: node.name,
     mimeType: isFolder ? 'application/vnd.google-apps.folder' : 'application/json',
     size: isFolder ? undefined : String(node.content.length),
+    // Drive returns an array; a file in this store has exactly one parent.
+    // Stage 2b needs it to attribute a document in a multi-parent query back to
+    // the folder it came from, which is the whole reason that query is usable.
+    parents: parentId ? [parentId] : undefined,
   };
 }
 
@@ -386,12 +390,20 @@ function listFiles(params) {
       'invalid'));
   }
 
-  // q: "'<id>' in parents and trashed=false [and name = '<escaped>']"
-  const parent = /'([^']+)' in parents/.exec(q);
-  if (!parent) {
+  // q: "('<id>' in parents or '<id>' in parents ...) and trashed=false
+  //     [and name = '<escaped>']"
+  //
+  // Multiple parents in one query is what stage 2b rests on: it turns one list
+  // call per request folder into one call for all of them. Each row carries
+  // its parent so the caller can put it back where it came from.
+  const parents = [...q.matchAll(/'([^']+)' in parents/g)].map((m) => m[1]);
+  if (!parents.length) {
     return httpResponse(400, driveError(400, `Invalid Value: ${q}`, 'invalid'));
   }
-  let rows = childrenOf(byNodeId.get(parent[1]));
+  let rows = [];
+  for (const parentId of parents) {
+    for (const node of childrenOf(byNodeId.get(parentId))) rows.push([node, parentId]);
+  }
 
   const nameAt = q.indexOf("name = '");
   if (nameAt >= 0) {
@@ -409,12 +421,12 @@ function listFiles(params) {
     if (rest && !/^\s*(and|or)\s/i.test(rest)) {
       return httpResponse(400, driveError(400, `Invalid Value: ${q}`, 'invalid'));
     }
-    rows = rows.filter((n) => n.name === parsed.value);
+    rows = rows.filter(([n]) => n.name === parsed.value);
   }
 
   const from = Number(params.get('pageToken') || 0);
   const page = rows.slice(from, from + size);
-  const body = { files: project(page.map(metaFor), fields) };
+  const body = { files: project(page.map(([n, pid]) => metaFor(n, pid)), fields) };
   if (from + size < rows.length) body.nextPageToken = String(from + size);
   return httpResponse(200, JSON.stringify(body));
 }

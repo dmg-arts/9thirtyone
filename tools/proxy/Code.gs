@@ -81,7 +81,7 @@ var PROXY_VERSION = '1.4.0';
  * the suite rather than deploying a marker that quietly describes the previous
  * build.
  */
-var BUILD = '9590f064';
+var BUILD = 'dac4ed26';
 
 /** Refuse anything larger; a submission is a few KB at most. */
 var MAX_BODY_BYTES = 96 * 1024;
@@ -1787,6 +1787,93 @@ function readFolderDocs(root, segments) {
 }
 
 /**
+ * How many folders go into one `files.list` query.
+ *
+ * Drive's `q` has a length limit and the exact ceiling is not published, so
+ * this is deliberately conservative: twenty parents is roughly 700 characters
+ * of query, well inside anything plausible, and a detachment with more
+ * requests than that simply takes a second chunk. Chunking is not a fallback
+ * path that might rot — a 25-request term exercises it every time.
+ */
+var PARENTS_PER_QUERY = 20;
+
+/**
+ * Reads many folders in one round trip each, instead of one round trip each.
+ *
+ * Stage 2b. Measured on staging 29 Oct: after stage 2c, `allResponses` spent
+ * **88% of its 8.7 s** in per-request REST pairs — one list and one fetchAll
+ * for every request folder, at about 1.28 s a folder. Six requests, six pairs.
+ * The cost grew one pair per request, so a spring term heading for twenty
+ * requests was heading for ~27 s.
+ *
+ * Drive answers a query naming several parents at once, and returns each file's
+ * parent alongside it, so one list covers every folder and one `fetchAll`
+ * covers every document. The result is flat in the number of folders rather
+ * than linear: the same two round trips for six requests or sixty.
+ *
+ * Returns `{ folderId: [parsed, ...] }`. A folder with nothing in it is absent
+ * rather than empty, which callers must tolerate.
+ */
+function readDocsInFolders_(folderIds) {
+  var out = {};
+  if (!folderIds || !folderIds.length) return out;
+
+  var token = ScriptApp.getOAuthToken();
+  var wanted = [];
+
+  for (var start = 0; start < folderIds.length; start += PARENTS_PER_QUERY) {
+    var chunk = folderIds.slice(start, start + PARENTS_PER_QUERY);
+    var clauses = [];
+    for (var c = 0; c < chunk.length; c++) clauses.push("'" + chunk[c] + "' in parents");
+
+    var page = '';
+    var guard = 0;
+    do {
+      var url = DRIVE_API + 'files?q='
+        + encodeURIComponent('(' + clauses.join(' or ') + ') and trashed=false')
+        + '&pageSize=1000&fields='
+        + encodeURIComponent('files(id,name,parents),nextPageToken')
+        + (page ? '&pageToken=' + encodeURIComponent(page) : '');
+      var res = UrlFetchApp.fetch(url, {
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true
+      });
+      if (res.getResponseCode() !== 200) {
+        throw new Error('Drive list failed (' + res.getResponseCode() + ')');
+      }
+      var body = JSON.parse(res.getContentText());
+      var rows = body.files || [];
+      for (var i = 0; i < rows.length; i++) {
+        var name = rows[i].name;
+        if (name.indexOf('_') === 0 || name.slice(-5) !== '.json') continue;
+        var owner = (rows[i].parents && rows[i].parents[0]) || '';
+        if (!owner) continue;
+        wanted.push({ id: rows[i].id, name: name, parent: owner });
+      }
+      page = body.nextPageToken || '';
+    } while (page && guard++ < 50);
+  }
+
+  if (!wanted.length) return out;
+
+  var bodies = fetchRecordBodies_(wanted);
+  for (var b = 0; b < bodies.length; b++) {
+    if (bodies[b] === null) {
+      console.warn('unreadable: ' + wanted[b].name);
+      continue;
+    }
+    try {
+      var parsed = JSON.parse(bodies[b]);
+      if (!out[wanted[b].parent]) out[wanted[b].parent] = [];
+      out[wanted[b].parent].push(parsed);
+    } catch (err) {
+      console.warn('unreadable: ' + wanted[b].name);
+    }
+  }
+  return out;
+}
+
+/**
  * The same read, for a caller that already holds the folder.
  *
  * `readFolderDocs` resolves a path from the root with one DriveApp lookup per
@@ -1934,32 +2021,64 @@ function readPeople(root, account) {
     // once so each request below is a single lookup inside it rather than a
     // walk from the root.
     var responsesHome = findFolder(root, spacePath(spaces[s], 'responses'));
+    // Two passes: decide which requests are in scope, then read all of their
+    // responses together. The single-pass version looked up and read one
+    // folder per request, which is the cost stage 2b exists to remove.
+    var inScope = [];
     for (var i = 0; i < rows.length; i++) {
       if (!requestInPeopleScope(root, rows[i], account, tier, roster)) continue;
       rows[i].space = spaces[s];
       requests.push(rows[i]);
       formIds[rows[i].formId] = spaces[s];
+      inScope.push(rows[i]);
+    }
 
-      var sub = null;
-      if (responsesHome) {
-        var kids = responsesHome.getFoldersByName(rows[i].id);
-        if (kids.hasNext()) sub = kids.next();
+    if (responsesHome && inScope.length) {
+      var folderIds = [];
+      var subsByRequest = {};
+      var all = responsesHome.getFolders();
+      while (all.hasNext()) {
+        var child = all.next();
+        subsByRequest[child.getName()] = child.getId();
       }
-      var found = sub ? readDocsInFolder(sub, spaces[s] + '/responses/' + rows[i].id) : [];
-      for (var r = 0; r < found.length; r++) {
-        found[r].space = spaces[s];
-        responses.push(found[r]);
+      for (var q = 0; q < inScope.length; q++) {
+        var fid = subsByRequest[inScope[q].id];
+        if (fid) folderIds.push(fid);
+      }
+
+      var grouped = readDocsInFolders_(folderIds);
+      for (var g = 0; g < folderIds.length; g++) {
+        var found = grouped[folderIds[g]] || [];
+        for (var r = 0; r < found.length; r++) {
+          found[r].space = spaces[s];
+          responses.push(found[r]);
+        }
       }
     }
   }
 
-  // Only the forms the surviving requests actually render with.
-  for (var id in formIds) {
-    if (!Object.prototype.hasOwnProperty.call(formIds, id)) continue;
-    var form = readJson(root, spacePath(formIds[id], 'forms'), id + '.json');
-    if (form) {
-      form.space = formIds[id];
-      forms.push(form);
+  // Only the forms the surviving requests actually render with — but read a
+  // space's forms folder once rather than one readJson per form.
+  //
+  // Each readJson was a path walk plus a lookup plus a download, about three
+  // round trips, once per distinct form. That grew with the term exactly as
+  // the responses did, and the profiler missed it because its fixture gave
+  // every request the same form. Reading the folder fetches forms that are not
+  // needed, which is the right trade: an unwanted document costs bytes inside
+  // a batch, a wanted one costs a round trip of its own.
+  var spacesWithForms = {};
+  for (var fid in formIds) {
+    if (!Object.prototype.hasOwnProperty.call(formIds, fid)) continue;
+    spacesWithForms[formIds[fid]] = true;
+  }
+  for (var space in spacesWithForms) {
+    if (!Object.prototype.hasOwnProperty.call(spacesWithForms, space)) continue;
+    var available = readFolderDocs(root, spacePath(space, 'forms'));
+    for (var a = 0; a < available.length; a++) {
+      var candidate = available[a];
+      if (formIds[candidate.id] !== space) continue;
+      candidate.space = space;
+      forms.push(candidate);
     }
   }
 
@@ -1989,13 +2108,17 @@ function readAllResponses(root, account) {
   for (var s = 0; s < spaces.length; s++) {
     var parent = findFolder(root, spacePath(spaces[s], 'responses'));
     if (!parent) continue;
+    // Collect the folders first, then read them all in one pass. Reading them
+    // as they are enumerated cost one list and one fetchAll each — 88% of this
+    // function's time, and growing with every request a term adds.
+    var ids = [];
     var subs = parent.getFolders();
-    while (subs.hasNext()) {
-      var sub = subs.next();
-      // `sub` is the folder. Resolving its path again from the root cost two
-      // DriveApp lookups per request and was the largest single component of
-      // this function.
-      var rows = readDocsInFolder(sub, spaces[s] + '/responses/' + sub.getName());
+    while (subs.hasNext()) ids.push(subs.next().getId());
+    if (!ids.length) continue;
+
+    var byFolder = readDocsInFolders_(ids);
+    for (var f = 0; f < ids.length; f++) {
+      var rows = byFolder[ids[f]] || [];
       for (var i = 0; i < rows.length; i++) {
         rows[i].space = spaces[s];
         out.push(rows[i]);

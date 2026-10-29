@@ -45,10 +45,12 @@ function build({ cadets, requests }) {
 
   for (let r = 0; r < requests; r++) {
     proxy.root.put(['requests'], `req_${r}.json`, {
-      id: `req_${r}`, formId: 'form_1', title: `Request ${r}`, status: 'open',
+      id: `req_${r}`, formId: `form_${r}`, title: `Request ${r}`, status: 'open',
       asClass: 'AS200', anonymous: true, space: 'shared', assignedUsernames: [],
       subject: 'teach',
     });
+    // A form per request, not one shared form. The original fixture gave every
+    // request `form_1`, which hid a per-form read that grew with the term.
     proxy.root.put(['forms'], `form_${r}.json`, { id: `form_${r}`, name: `F${r}`, sections: [] });
   }
   // Responses spread across the requests, as a real term produces them.

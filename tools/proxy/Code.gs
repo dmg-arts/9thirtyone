@@ -64,7 +64,7 @@
 // 1.2.0 is skipped deliberately: it was deployed, degraded a testbed twice for
 // reasons never found, and was withdrawn. No deployment should ever claim it
 // again, and a doGet reporting 1.1.0 is how a rollback from here is confirmed.
-var PROXY_VERSION = '1.3.1';
+var PROXY_VERSION = '1.4.0';
 
 /** Refuse anything larger; a submission is a few KB at most. */
 var MAX_BODY_BYTES = 96 * 1024;
@@ -1620,24 +1620,148 @@ function appendAudit(root, entry, account) {
  * arrive and these functions start filtering by folder.
  * ------------------------------------------------------------------ */
 
-/** Reads every JSON file in a folder, skipping the roll-up index files. */
+var DRIVE_API = 'https://www.googleapis.com/drive/v3/';
+
+/**
+ * Lists the JSON records in a folder, by id, through Drive REST.
+ *
+ * One request per thousand children rather than one Apps Script call per file.
+ * `pageSize` is capped at 1000 by the API — measured, not assumed: 2000 is a
+ * 400 naming the range.
+ */
+function listRecordIds_(folderId) {
+  var token = ScriptApp.getOAuthToken();
+  var out = [];
+  var page = '';
+  var guard = 0;
+  do {
+    var url = DRIVE_API + 'files?q='
+      + encodeURIComponent("'" + folderId + "' in parents and trashed=false")
+      + '&pageSize=1000&fields=' + encodeURIComponent('files(id,name),nextPageToken')
+      + (page ? '&pageToken=' + encodeURIComponent(page) : '');
+    var res = UrlFetchApp.fetch(url, {
+      headers: { Authorization: 'Bearer ' + token },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) {
+      throw new Error('Drive list failed (' + res.getResponseCode() + ')');
+    }
+    var body = JSON.parse(res.getContentText());
+    var rows = body.files || [];
+    for (var i = 0; i < rows.length; i++) {
+      var name = rows[i].name;
+      // Files beginning with an underscore are caches the app rebuilds for
+      // itself; sending them would only invite the client to trust them.
+      if (name.indexOf('_') === 0 || name.slice(-5) !== '.json') continue;
+      out.push(rows[i]);
+    }
+    page = body.nextPageToken || '';
+  } while (page && guard++ < 50);
+  return out;
+}
+
+/**
+ * Fetches record bodies concurrently, with one retry for rate limiting.
+ *
+ * **The retry accepts 429 AND 403-with-reason on purpose.** Rate limiting never
+ * triggered against real Drive, even at 107 concurrent requests, so which shape
+ * it arrives in is the one thing the fidelity pass could not settle. Handling
+ * only one of them would be indistinguishable from not retrying at all, and
+ * would only show up under exactly the load nobody can reproduce.
+ *
+ * Returns bodies positionally; a slot that could not be read is null, because
+ * one unreadable record must not take a whole listing down.
+ */
+function fetchRecordBodies_(items) {
+  if (!items.length) return [];
+  var token = ScriptApp.getOAuthToken();
+
+  function requestsFor(list) {
+    var reqs = [];
+    for (var i = 0; i < list.length; i++) {
+      reqs.push({
+        url: DRIVE_API + 'files/' + list[i].id + '?alt=media',
+        headers: { Authorization: 'Bearer ' + token },
+        // Without this UrlFetchApp throws on any non-2xx, and every line of
+        // error handling below becomes unreachable. Measured, not assumed.
+        muteHttpExceptions: true
+      });
+    }
+    return reqs;
+  }
+
+  function isThrottled(res) {
+    var code = res.getResponseCode();
+    if (code === 429) return true;
+    if (code !== 403) return false;
+    try {
+      var errs = JSON.parse(res.getContentText()).error.errors || [];
+      for (var i = 0; i < errs.length; i++) {
+        if (errs[i].reason === 'rateLimitExceeded'
+          || errs[i].reason === 'userRateLimitExceeded') return true;
+      }
+    } catch (err) { /* not a JSON error body */ }
+    return false;
+  }
+
+  var out = new Array(items.length);
+  var responses = UrlFetchApp.fetchAll(requestsFor(items));
+
+  var retryAt = [];
+  for (var i = 0; i < responses.length; i++) {
+    if (responses[i].getResponseCode() === 200) out[i] = responses[i].getContentText();
+    else if (isThrottled(responses[i])) retryAt.push(i);
+    else out[i] = null;
+  }
+
+  if (retryAt.length) {
+    Utilities.sleep(1200);
+    var again = [];
+    for (var r = 0; r < retryAt.length; r++) again.push(items[retryAt[r]]);
+    var second = UrlFetchApp.fetchAll(requestsFor(again));
+    for (var k = 0; k < second.length; k++) {
+      out[retryAt[k]] = second[k].getResponseCode() === 200 ? second[k].getContentText() : null;
+    }
+  }
+  return out;
+}
+
+/**
+ * Reads every JSON file in a folder, skipping the roll-up index files.
+ *
+ * **The single chokepoint for every expensive read in this file** — requests,
+ * forms, responses, receipts, audit and the overview counts all arrive here, so
+ * this is the only place stage 2 had to change.
+ *
+ * Measured on staging, 28 Oct 2026, against 107 real documents: 468 ms per
+ * sequential read against 67 ms per document through fetchAll, a 7.0x
+ * improvement that takes `allResponses` from ~50 s against a 60 s timeout to
+ * ~7 s of reads. The sequential figure independently reproduces the 49.1 s
+ * measured client-side on 15 Oct, which is what makes the projection credible.
+ *
+ * **There is deliberately no fallback to the old sequential path.** A silent
+ * fallback would mean a detachment running 1.4.0 at 1.3.1 speed with nothing
+ * to say so — and the 1.2.0 withdrawal is already one unexplained degradation
+ * too many. If this breaks it must break loudly: the rollback is a deployment
+ * version revert, two clicks, exactly the bytes that were running.
+ */
 function readFolderDocs(root, segments) {
   var folder = findFolder(root, segments);
   var out = [];
   if (!folder) return out;
 
-  var files = folder.getFiles();
-  while (files.hasNext()) {
-    var file = files.next();
-    var name = file.getName();
-    // Files beginning with an underscore are caches the app rebuilds for
-    // itself; sending them would only invite the client to trust them.
-    if (name.indexOf('_') === 0 || name.slice(-5) !== '.json') continue;
+  var items = listRecordIds_(folder.getId());
+  var bodies = fetchRecordBodies_(items);
+  for (var i = 0; i < bodies.length; i++) {
+    if (bodies[i] === null) {
+      console.warn('unreadable: ' + segments.join('/') + '/' + items[i].name);
+      continue;
+    }
     try {
-      out.push(JSON.parse(file.getBlob().getDataAsString('UTF-8')));
+      out.push(JSON.parse(bodies[i]));
     } catch (err) {
       // One unreadable record must not take the whole listing down.
-      console.warn('unreadable: ' + segments.join('/') + '/' + name);
+      console.warn('unreadable: ' + segments.join('/') + '/' + items[i].name);
     }
   }
   return out;

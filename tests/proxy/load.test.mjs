@@ -187,23 +187,67 @@ check('one cadet’s whole drill night is two posts and one token verification',
  * The assertions are ceilings rather than equalities. An exact count would fail
  * on every unrelated change and be relaxed until it meant nothing.
  */
-check('outbound HTTP has a baseline, so stage 2 cannot move cost and call it a saving', () => {
-  const proxy = detachment();
-  resetOps();
+/*
+ * The cost stage 2 moved, held to a shape rather than a number.
+ *
+ * Before stage 2 this asserted one outbound request per cadet, because every
+ * read was Apps Script's own Drive binding and the only thing leaving the
+ * script was one tokeninfo verification. Stage 2 reads through Drive REST, so
+ * outbound calls are now the main cost and an exact count would be rewritten
+ * every time a folder is added — until it meant nothing.
+ *
+ * What matters is that a cadet's outbound cost is **flat in the size of the
+ * detachment**. One list call plus one fetchAll per folder read is O(folders);
+ * a regression to one call per document would be O(responses), invisible in
+ * ops() and fatal at a real detachment's scale. So the test grows the data and
+ * asserts the call count does not follow.
+ */
+check('reading every response is a fixed number of outbound calls, not one per document', () => {
+  // THE stage 2 invariant, and the only one ops() cannot see.
+  //
+  // allResponses is the screen that took 49.1s client-side on 15 Oct and ~50s
+  // measured server-side against real Drive on 28 Oct. Stage 2 makes it one
+  // list call plus one fetchAll per folder, so the outbound cost is O(folders)
+  // and flat in the amount of feedback. A regression to one fetch per document
+  // is O(responses) — identical in ops(), identical in behaviour, and fatal at
+  // a detachment's real size.
+  //
+  // An earlier version of this test used a cadet's bundle and proved nothing:
+  // a cadet bundle deliberately carries no responses, so growing the response
+  // count could not move the number either way. It passed against a
+  // deliberately regressed build, which is the only reason it was caught.
+  const cost = (responses) => {
+    const proxy = detachment(responses + 2);
+    for (let i = 0; i < responses; i++) submit(proxy, cadet(i));
+    resetOps();
+    const out = proxy.post({ action: 'allResponses', idToken: as('instructor') });
+    if (!out.ok) throw new Error(`allResponses was refused: ${out.error}`);
+    const n = net();
+    return { batches: n.batches, calls: n.calls, ops: ops(), rows: (out.responses || []).length };
+  };
 
-  proxy.post({ action: 'bundle', idToken: as(cadet(1)) });
-  submit(proxy, cadet(1));
+  const small = cost(5);
+  const large = cost(40);
 
-  const { calls, bytes } = net();
-  const cost = ops();
+  if (large.rows <= small.rows) {
+    throw new Error(`the larger detachment returned ${large.rows} responses, not more than ${small.rows} `
+      + '— the test is not reading what it thinks it is');
+  }
 
-  // One tokeninfo verification for the session, and nothing else leaves the
-  // script today: every read is Apps Script's own Drive binding.
-  if (calls !== 1) throw new Error(`${calls} outbound requests for one cadet, expected 1`);
-  if (bytes > 4096) throw new Error(`${bytes} bytes off the wire for one cadet, budget 4096`);
+  // Batches flat: one list plus one fetchAll per folder, whatever is in them.
+  if (large.batches > small.batches) {
+    throw new Error(`round trips grew with the data: ${small.batches} at ${small.rows} responses `
+      + `-> ${large.batches} at ${large.rows}. That is a per-document loop, and ops() cannot see it.`);
+  }
 
-  console.log(`       baseline before stage 2: ${cost} Drive operations, `
-    + `${calls} outbound request, ${bytes} bytes`);
+  // Requests do grow, and that is the quota cost stage 2 moved onto UrlFetch.
+  // Asserted as a shape, not a budget: roughly one per document, never more.
+  if (large.calls > large.rows * 2 + 20) {
+    throw new Error(`${large.calls} requests for ${large.rows} responses — more than one per document`);
+  }
+
+  console.log(`       allResponses: ${small.batches} round trips at ${small.rows} responses, `
+    + `${large.batches} at ${large.rows} — flat; requests ${small.calls} -> ${large.calls}`);
 });
 
 check('a whole flight submitting costs what forty-five of one cadet costs', () => {

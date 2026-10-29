@@ -36,12 +36,30 @@ function detachment() {
   root.put(['responses', 'req-1'], 'alice.json', { rating: 5 });
   root.put(['responses', 'req-1'], 'bob.json', { rating: 7 });
   root.put(['responses', 'req-1'], "o'brien \\ \"quoted\".json", { rating: 9 });
-  const fetch = (url, options) => proxy.sandbox.UrlFetchApp.fetch(url, options);
+  // Every call Code.gs makes carries the bearer token and the mute flag, so the
+  // default here does too — a test that omitted them would be exercising a
+  // request shape production never sends.
+  const auth = {
+    headers: { Authorization: `Bearer ${proxy.sandbox.ScriptApp.getOAuthToken()}` },
+    muteHttpExceptions: true,
+  };
+  const fetch = (url, options = auth) => proxy.sandbox.UrlFetchApp.fetch(url, options);
   const folder = root.folders.get('responses').folders.get('req-1');
-  return { proxy, root, fetch, folder, mute: { muteHttpExceptions: true } };
+  return { proxy, root, fetch, folder, mute: auth, auth };
 }
 
+
 const q = (text) => encodeURIComponent(text);
+
+check('an unauthenticated call is refused', () => {
+  // The failure this guards is forgetting the header on one request out of a
+  // batch, which yields a listing that is quietly short rather than an error.
+  const { fetch, folder, mute } = detachment();
+  const url = `${API}files?q=${q(`'${idOf(folder)}' in parents and trashed=false`)}`;
+  const res = fetch(url, { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 401) throw new Error(`code ${res.getResponseCode()}, expected 401`);
+  if (fetch(url, mute).getResponseCode() !== 200) throw new Error('authenticated call did not succeed');
+});
 
 /* ---------- E3 / E5 : listing and field projection ---------- */
 
@@ -123,8 +141,10 @@ check('E7 alt=media returns the raw body with no envelope', () => {
 check('E8 fetchAll preserves request order', () => {
   const { proxy, folder } = detachment();
   const names = ['alice.json', 'bob.json', 'alice.json'];
+  const { auth } = detachment();
   const requests = names.map((n) => ({
     url: `${API}files/${idOf(folder.files.get(n))}?alt=media`,
+    headers: auth.headers,
     muteHttpExceptions: true,
   }));
   const all = proxy.sandbox.UrlFetchApp.fetchAll(requests);
@@ -149,8 +169,11 @@ check('E12 a non-2xx throws unless muteHttpExceptions is set', () => {
   // draft caught any throw and passed while the harness was broken in an
   // unrelated way — a test that cannot tell its own subject from a typo.
   let message = null;
-  try { fetch(`${API}files/definitelyNotARealFileId0000?alt=media`); }
-  catch (err) { message = String(err.message || err); }
+  const { auth } = detachment();
+  try {
+    fetch(`${API}files/definitelyNotARealFileId0000?alt=media`,
+      { headers: auth.headers });
+  } catch (err) { message = String(err.message || err); }
   if (!message) {
     throw new Error('did not throw without muteHttpExceptions — real UrlFetchApp does, '
       + 'so error handling written without it would never run in production');

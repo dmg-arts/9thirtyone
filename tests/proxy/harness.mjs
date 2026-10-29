@@ -72,12 +72,25 @@ export const ops = () => opCount;
  */
 let netCalls = 0;
 let netBytes = 0;
+let netBatches = 0;
 
-/** Outbound HTTP so far: `{ calls, bytes }`. */
-export const net = () => ({ calls: netCalls, bytes: netBytes });
+/**
+ * Outbound HTTP so far: `{ calls, batches, bytes }`.
+ *
+ * **Calls and batches are different costs and only one of them stage 2 moves.**
+ * `fetchAll` does not reduce the number of requests — quota is charged per
+ * request whether it travelled in a batch or not — so `calls` grows linearly
+ * with documents under both the old and new implementations, and a test
+ * asserting otherwise is testing nothing.
+ *
+ * What stage 2 changes is `batches`: one round of concurrent requests instead
+ * of N sequential ones. That is where the 7x came from, and it is the only one
+ * of the two that distinguishes a batched read from a per-document loop.
+ */
+export const net = () => ({ calls: netCalls, batches: netBatches, bytes: netBytes });
 
 /** Zero the counters, so a test can measure one action rather than a run. */
-export const resetOps = () => { opCount = 0; netCalls = 0; netBytes = 0; };
+export const resetOps = () => { opCount = 0; netCalls = 0; netBytes = 0; netBatches = 0; };
 
 /*
  * Ids, and why they live here rather than in the REST layer.
@@ -112,6 +125,10 @@ class FakeFile {
 
   getName() { return this.name; }
 
+  /** Real DriveApp exposes this; stage 2 uses it to address the same node
+   *  through Drive REST. Not counted: it reads an id already in hand. */
+  getId() { return this.id; }
+
   getBlob() {
     // The download, not the lookup: in Drive these are separate round trips and
     // the script pays for both.
@@ -143,6 +160,8 @@ class FakeFolder {
   }
 
   getName() { return this.name; }
+
+  getId() { return this.id; }
 
   getFoldersByName(name) {
     bump();
@@ -400,7 +419,16 @@ function listFiles(params) {
   return httpResponse(200, JSON.stringify(body));
 }
 
-function driveRest(url) {
+function driveRest(url, options) {
+  // Drive refuses an unauthenticated call. Checked here because the failure it
+  // guards — forgetting the header on one request out of a batch — produces a
+  // listing that is quietly short rather than an error, which is the hardest
+  // kind of bug to see.
+  const auth = (options && options.headers && options.headers.Authorization) || '';
+  if (!/^Bearer \S+/.test(auth)) {
+    return httpResponse(401, driveError(401, 'Request is missing required authentication credential.', 'required'));
+  }
+
   const parsed = new URL(url);
   const params = parsed.searchParams;
   const tail = parsed.pathname.split('/drive/v3/')[1] || '';
@@ -582,9 +610,24 @@ export function createProxy({
 
     MailApp: mailStub,
 
+    /**
+     * Only getOAuthToken, which is all Code.gs uses. Measured as E1/E2: the
+     * token this returns is accepted by Drive REST v3, and the scopes DriveApp
+     * already forces cover files.list and alt=media — so no manifest change and
+     * no re-consent by any detachment.
+     */
+    ScriptApp: {
+      getOAuthToken: () => 'fake-oauth-token-for-tests',
+    },
+
     UrlFetchApp: {
       fetch(url, options) {
-        fetches.push(url);
+        netBatches += 1;
+        // `fetches` means tokeninfo specifically — it is how the suite asserts
+        // the verification cache holds, and it is the quota an attacker would
+        // burn. Drive REST is outbound HTTP too, but it is a different cost
+        // against a different limit, so it is counted in net() and nowhere
+        // else. Pushing both here made "verified once" read 16 verifications.
         netCalls += 1;
 
         // Drive REST, from stage 2 onward. Routed here rather than given its
@@ -592,7 +635,7 @@ export function createProxy({
         // through UrlFetchApp, counted against the same quota as everything
         // else this script sends.
         if (String(url).startsWith(DRIVE_REST)) {
-          const res = driveRest(String(url));
+          const res = driveRest(String(url), options);
           netBytes += res.getContentText().length;
           // E12, measured: UrlFetchApp throws on any non-2xx unless
           // muteHttpExceptions is set. An error-handling path written without
@@ -605,6 +648,7 @@ export function createProxy({
           return res;
         }
 
+        fetches.push(url);
         const token = decodeURIComponent(url.split('id_token=')[1] || '');
         const claims = byJwt.get(token);
         const body = JSON.stringify(claims || { error: 'invalid_token' });
@@ -623,9 +667,16 @@ export function createProxy({
        * the stage is meant to be reducing.
        */
       fetchAll(requests) {
-        return (requests || []).map((req) => (typeof req === 'string'
+        // One batch, however many requests ride in it. fetch() below counts
+        // each request against the quota; this counts the round trip, which is
+        // the thing concurrency actually buys.
+        netBatches += 1;
+        const list = requests || [];
+        const out = list.map((req) => (typeof req === 'string'
           ? this.fetch(req)
           : this.fetch(req.url, req)));
+        netBatches -= list.length; // fetch() counted each; keep only the batch
+        return out;
       },
     },
 

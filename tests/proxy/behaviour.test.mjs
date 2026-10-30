@@ -421,19 +421,27 @@ check('a recorded deletion names the account that did it, from the token', () =>
   if (entry.reason !== 'duplicate submission') throw new Error('the reason was not recorded');
 });
 
-check('deleting a request records it server-side, with the responses it took', () => {
-  // The hole this closes: deleteResponse is admin-only, demands a reason and
-  // writes its own audit entry — because, as its comment says, that trail exists
-  // so someone who is the subject of a complaint cannot quietly remove it. But
-  // deleteRequest is open to an instructor and takes every response with it, and
-  // until now the server wrote nothing. The only record came from a second call
-  // the client made afterwards, which a client that never makes it simply skips.
-  //
-  // The cascade itself stays — a request without its responses is wreckage, and
-  // the test above pins that. What must not stay is the silence.
+/*
+ * What W9 recorded, 3b now prevents.
+ *
+ * The original hole: `deleteResponse` is admin-only, demands a reason and
+ * writes its own audit entry — because, as its comment says, that trail exists
+ * so somebody who is the subject of a complaint cannot quietly remove it. But
+ * `deleteRequest` was open to an instructor, took every response with it, and
+ * the server wrote nothing. The first fix was to make it audit the cascade.
+ *
+ * Stage 3b removes the cascade instead, which is strictly stronger: there is
+ * no longer an act to record, because the act is refused. The audit therefore
+ * covers what remains — deleting a request nobody answered.
+ *
+ * Refusals are deliberately NOT audited. They are rare, they are usually a
+ * mis-click, and an audit log that fills with attempts teaches people to
+ * scroll past it on the day one means something.
+ */
+check('a deletion that actually happens is still recorded, with its actor', () => {
   const proxy = detachment();
-  proxy.post({ action: 'submit', idToken: as('cadet'), requestId: 'req_shared', answers: { q1: 5 } });
-  proxy.post({ action: 'deleteRequest', idToken: as('instructor'), requestId: 'req_shared' });
+  const out = proxy.post({ action: 'deleteRequest', idToken: as('instructor'), requestId: 'req_shared' });
+  if (!out.ok) throw new Error(`refused: ${out.error}`);
 
   const entry = Object.entries(proxy.root.snapshot())
     .find(([k]) => k.startsWith('audit/'))?.[1];
@@ -443,12 +451,16 @@ check('deleting a request records it server-side, with the responses it took', (
     throw new Error(`actor recorded as ${entry.actor?.username}`);
   }
   if (entry.target !== 'req_shared') throw new Error(`target was ${entry.target}`);
-  // The count is the fact an investigator needs: "deleted a request" and
-  // "deleted a request holding twelve responses" are different events.
-  if (!/\b1\b/.test(String(entry.summary || ''))) {
-    throw new Error(`summary does not say how many responses went with it: ${entry.summary}`);
-  }
-  if (entry.severe !== true) throw new Error('a cascading delete was not marked severe');
+});
+
+check('a refused deletion changes nothing and writes nothing', () => {
+  const proxy = detachment();
+  proxy.post({ action: 'submit', idToken: as('cadet'), requestId: 'req_shared', answers: { q1: 5 } });
+  const before = Object.keys(proxy.root.snapshot()).sort().join('|');
+  const out = proxy.post({ action: 'deleteRequest', idToken: as('instructor'), requestId: 'req_shared' });
+  if (out.ok) throw new Error('the refusal did not refuse');
+  const after = Object.keys(proxy.root.snapshot()).sort().join('|');
+  if (before !== after) throw new Error('a refused delete still touched the store');
 });
 
 check('deleting an empty request is recorded, but not as severe', () => {
@@ -474,15 +486,58 @@ check('a client cannot forge the actor on an audit entry', () => {
   }
 });
 
-check('deleting a request takes its responses and receipts with it', () => {
+/*
+ * Stage 3b changed this, and the old contract is worth stating because it ran
+ * at a live detachment for the whole beta: deleting a request used to take
+ * every answer in it, in one click, with no confirmation naming the number.
+ * An instructor who is the subject of a complaint could remove the complaint.
+ *
+ * Now an answered request is refused. An empty one still goes, because a draft
+ * nobody replied to is housekeeping and making that ceremonious would teach
+ * people to click through the ceremony.
+ */
+check('a request holding answers cannot be deleted', () => {
   const proxy = detachment();
   proxy.post({ action: 'submit', idToken: as('cadet'), requestId: 'req_shared', answers: { q1: 5 } });
-  proxy.post({ action: 'deleteRequest', idToken: as('instructor'), requestId: 'req_shared' });
+  const out = proxy.post({ action: 'deleteRequest', idToken: as('instructor'), requestId: 'req_shared' });
+
+  if (out.ok) throw new Error('an answered request was deleted');
 
   const left = Object.keys(proxy.root.snapshot());
+  if (!left.includes('requests/req_shared.json')) throw new Error('the request was removed anyway');
+  if (!left.some((k) => k.startsWith('responses/req_shared/'))) throw new Error('the answers went');
+});
+
+check('the refusal reads as a whole thought, because a 1.3.1 client shows it raw', () => {
+  // The old client renders result.error verbatim with no heading and no retry,
+  // so during the days between the server paste and the client release this
+  // sentence IS the entire user interface for this situation.
+  const proxy = detachment();
+  proxy.post({ action: 'submit', idToken: as('cadet'), requestId: 'req_shared', answers: { q1: 5 } });
+  const out = proxy.post({ action: 'deleteRequest', idToken: as('instructor'), requestId: 'req_shared' });
+
+  const text = String(out.error || '');
+  if (!/^[A-Z]/.test(text) || !/\.$/.test(text)) {
+    throw new Error(`not a sentence: ${text}`);
+  }
+  if (!/nothing has been changed/i.test(text)) {
+    throw new Error('does not say the click did nothing — the first thing they need to know');
+  }
+  if (!/close/i.test(text)) throw new Error('does not say what to do instead');
+  if (/1\.4|version|update|upgrade/i.test(text)) {
+    throw new Error(`names a release: "${text}" — this string outlives the convergence window`);
+  }
+});
+
+check('an empty request is still deleted, with its folders', () => {
+  const proxy = detachment();
+  const out = proxy.post({ action: 'deleteRequest', idToken: as('instructor'), requestId: 'req_shared' });
+  if (!out.ok) throw new Error(`an unanswered request was refused: ${out.error}`);
+
+  const left = Object.keys(proxy.root.snapshot());
+  if (left.includes('requests/req_shared.json')) throw new Error('the request survived');
   if (left.some((k) => k.startsWith('responses/req_shared/'))) throw new Error('responses survived');
   if (left.some((k) => k.startsWith('receipts/req_shared/'))) throw new Error('receipts survived');
-  if (left.includes('requests/req_shared.json')) throw new Error('the request survived');
 });
 
 /* ------------------------------------------------------------------ *

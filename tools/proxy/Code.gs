@@ -81,7 +81,7 @@ var PROXY_VERSION = '1.4.0';
  * the suite rather than deploying a marker that quietly describes the previous
  * build.
  */
-var BUILD = 'b31d222f';
+var BUILD = 'aac9e8d9';
 
 /** Refuse anything larger; a submission is a few KB at most. */
 var MAX_BODY_BYTES = 96 * 1024;
@@ -1152,6 +1152,28 @@ function removeRequest(root, account, requestId) {
   // documents: "deleted a request" and "deleted a request holding forty answers"
   // are different events, and the second one should cost one round trip to say.
   var doomed = countFolderFiles(findFolder(root, spacePath(located.space, 'responses', requestId)));
+
+  // Stage 3b. The one change in 1.4 that makes the server *stricter*, and so
+  // the one a 1.3.1 client can visibly trip over in the days between the paste
+  // and the client release.
+  //
+  // THE WORDING IS LOAD-BEARING. A 1.3.1 client puts `result.error` on screen
+  // verbatim — no heading, no wrapper, no retry. So this has to read as a
+  // whole thought to somebody who has just pressed Delete: what happened, why,
+  // that nothing was lost, and what to do instead. It names no version and no
+  // upgrade, because the same sentence is what a fully converged client shows
+  // six months from now, when there is no release to explain.
+  //
+  // There is deliberately no override for commanders or administrators. The
+  // escape hatch is to delete the responses first — `deleteResponse`, which is
+  // theirs alone and audits each one — and then the request. That is several
+  // deliberate acts instead of one click, which is the right price for
+  // discarding somebody's feedback.
+  if (doomed > 0) {
+    return fail('This request already has answers, so it cannot be deleted — they would go '
+      + 'with it. Nothing has been changed. To stop it taking new answers, close the request '
+      + 'instead.');
+  }
 
   trashFolder(findFolder(root, spacePath(located.space, 'responses', requestId)));
   trashFolder(findFolder(root, spacePath(located.space, 'receipts', requestId)));

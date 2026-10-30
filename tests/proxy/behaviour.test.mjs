@@ -15,7 +15,7 @@
  * rather than discovering the logic was wrong.
  */
 
-import { createProxy, validToken, seedRoster, account } from './harness.mjs';
+import { createProxy, validToken, seedRoster, account, ops, resetOps, net } from './harness.mjs';
 
 const CID = 'test-client.apps.googleusercontent.com';
 
@@ -1372,6 +1372,84 @@ check('a request dated to open later is not announced yet', () => {
   if (!out.ok) throw new Error(`the save failed: ${out.error}`);
   const stored = proxy.root.read(['requests'], 'req_new.json');
   if (stored.notifiedAt) throw new Error('it was stamped as notified without being sent');
+});
+
+
+/* ------------------------------------------------------------------ *
+ * peopleSummary — inert in 1.4.0
+ * ------------------------------------------------------------------ */
+
+check('peopleSummary answers the same scope question as people', () => {
+  const proxy = detachment();
+  const full = proxy.post({ action: 'people', idToken: as('cadre') });
+  const brief = proxy.post({ action: 'peopleSummary', idToken: as('cadre') });
+  if (!brief.ok) throw new Error(`refused: ${brief.error}`);
+  if (brief.summary.tier !== full.people.tier) {
+    throw new Error(`tier disagrees: ${brief.summary.tier} vs ${full.people.tier}`);
+  }
+  const briefNames = brief.summary.staff.map((p) => p.username).sort().join(',');
+  const fullNames = full.people.staff.map((p) => p.username).sort().join(',');
+  if (briefNames !== fullNames) {
+    throw new Error(`staff disagrees:\n  summary ${briefNames}\n  people  ${fullNames}`);
+  }
+});
+
+check('peopleSummary counts responses without reading any', () => {
+  // The whole point. A count needs names; bodies are ~67ms each and are what
+  // makes `people` expensive. If this starts fetching documents, the screen it
+  // exists to make instant becomes as slow as the one it replaces.
+  const extra = [];
+  for (let i = 0; i < 8; i++) extra.push(account(`c${i}`, `c${i}@x.edu`, ['student']));
+  const proxy = detachment(extra);
+  proxy.root.put(['requests'], 'req_shared.json', {
+    id: 'req_shared', formId: 'form_1', title: 'shared feedback', status: 'open',
+    asClass: 'AS200', anonymous: true, space: 'shared', assignedUsernames: [],
+    subject: 'instructor',
+  });
+  for (let i = 0; i < 8; i++) {
+    proxy.post({ action: 'submit', idToken: as(`c${i}`), requestId: 'req_shared', answers: { q1: 5 } });
+  }
+
+  resetOps();
+  const out = proxy.post({ action: 'peopleSummary', idToken: as('commander') });
+  if (!out.ok) throw new Error(`refused: ${out.error}`);
+
+  const counted = out.summary.staff.reduce((n, p) => n + p.responses, 0);
+  if (counted !== 8) throw new Error(`counted ${counted} responses, expected 8`);
+
+  const n = net();
+  if (n.batches > 8) {
+    throw new Error(`${n.batches} round trips for a summary, budget 8 — it is reading bodies`);
+  }
+  console.log(`       peopleSummary: ${n.batches} round trips, ${counted} responses counted `
+    + `without reading one (people would read all ${counted})`);
+});
+
+check('peopleSummary is built by whitelist, so a roster field cannot leak', () => {
+  // Roster records carry an email and whatever an administrator typed into
+  // them. Constructing by deletion would pass through the next field somebody
+  // adds, which is why this project builds outbound records by naming fields.
+  const proxy = detachment([
+    account('teach', 'teach@x.edu', ['instructor'], {
+      privateNote: 'under review', homeAddress: '12 Elm St',
+    }),
+  ]);
+  const out = proxy.post({ action: 'peopleSummary', idToken: as('commander') });
+  if (!out.ok) throw new Error(`refused: ${out.error}`);
+
+  const named = out.summary.staff.find((p) => p.username === 'teach');
+  if (!named) throw new Error('the instructor is missing from the summary');
+
+  const serialised = JSON.stringify(out.summary);
+  for (const leaked of ['privateNote', 'under review', 'homeAddress', '12 Elm St', '@x.edu']) {
+    if (serialised.includes(leaked)) throw new Error(`${leaked} reached the client`);
+  }
+});
+
+check('peopleSummary is refused to a cadet, like every staff action', () => {
+  const proxy = detachment();
+  const out = proxy.post({ action: 'peopleSummary', idToken: as('cadet') });
+  if (out.ok) throw new Error('a cadet was given the staff summary');
 });
 
 console.log(failures ? `\n${failures} behaviour check(s) failed.` : '\nAll proxy behaviour checks passed.');

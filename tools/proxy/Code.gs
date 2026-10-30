@@ -81,7 +81,7 @@ var PROXY_VERSION = '1.4.0';
  * the suite rather than deploying a marker that quietly describes the previous
  * build.
  */
-var BUILD = 'dac4ed26';
+var BUILD = 'b31d222f';
 
 /** Refuse anything larger; a submission is a few KB at most. */
 var MAX_BODY_BYTES = 96 * 1024;
@@ -282,6 +282,8 @@ var ACTIONS = {
   // oversee, a commander gets everyone. The narrowing is the point of the
   // action — see peopleTierFor for what it does and does not guarantee.
   people:       ['instructor', 'cadre', 'commander', 'admin'],
+  // Inert in 1.4.0 — shipped ahead of the client that calls it.
+  peopleSummary: ['instructor', 'cadre', 'commander', 'admin'],
 
   saveForm:       ['instructor', 'cadre', 'commander', 'admin'],
   saveRequest:    ['instructor', 'cadre', 'commander', 'admin'],
@@ -450,6 +452,9 @@ function doPost(e) {
     }
     if (body.action === 'people') {
       return json({ ok: true, people: readPeople(root, account) });
+    }
+    if (body.action === 'peopleSummary') {
+      return json({ ok: true, summary: readPeopleSummary(root, account) });
     }
     if (body.action === 'roster') {
       return json({ ok: true, users: readRoster(root) });
@@ -1658,6 +1663,23 @@ function appendAudit(root, entry, account) {
 var DRIVE_API = 'https://www.googleapis.com/drive/v3/';
 
 /**
+ * Appended to every Drive REST call.
+ *
+ * DriveApp resolves Shared Drives on its own; the REST API does not unless
+ * asked, and an unasked listing of a Shared Drive folder comes back **empty
+ * rather than failing**. Det 752 runs in a personal My Drive inside a
+ * Workspace, so this changes nothing for them — E13 of the fidelity pass
+ * confirmed identical results with and without, against real Drive — but a
+ * detachment that puts its folder in a Shared Drive would see every staff
+ * screen silently show nothing at all.
+ *
+ * Free insurance against the one failure mode that converting the enumeration
+ * from DriveApp to REST actually introduced.
+ */
+var DRIVE_SCOPE_FLAGS = '&supportsAllDrives=true&includeItemsFromAllDrives=true';
+
+
+/**
  * Lists the JSON records in a folder, by id, through Drive REST.
  *
  * One request per thousand children rather than one Apps Script call per file.
@@ -1673,6 +1695,7 @@ function listRecordIds_(folderId) {
     var url = DRIVE_API + 'files?q='
       + encodeURIComponent("'" + folderId + "' in parents and trashed=false")
       + '&pageSize=1000&fields=' + encodeURIComponent('files(id,name),nextPageToken')
+      + DRIVE_SCOPE_FLAGS
       + (page ? '&pageToken=' + encodeURIComponent(page) : '');
     var res = UrlFetchApp.fetch(url, {
       headers: { Authorization: 'Bearer ' + token },
@@ -1715,7 +1738,7 @@ function fetchRecordBodies_(items) {
     var reqs = [];
     for (var i = 0; i < list.length; i++) {
       reqs.push({
-        url: DRIVE_API + 'files/' + list[i].id + '?alt=media',
+        url: DRIVE_API + 'files/' + list[i].id + '?alt=media' + DRIVE_SCOPE_FLAGS,
         headers: { Authorization: 'Bearer ' + token },
         // Without this UrlFetchApp throws on any non-2xx, and every line of
         // error handling below becomes unreachable. Measured, not assumed.
@@ -1833,6 +1856,7 @@ function readDocsInFolders_(folderIds) {
         + encodeURIComponent('(' + clauses.join(' or ') + ') and trashed=false')
         + '&pageSize=1000&fields='
         + encodeURIComponent('files(id,name,parents),nextPageToken')
+        + DRIVE_SCOPE_FLAGS
         + (page ? '&pageToken=' + encodeURIComponent(page) : '');
       var res = UrlFetchApp.fetch(url, {
         headers: { Authorization: 'Bearer ' + token },
@@ -1987,6 +2011,140 @@ function locateRequest(root, requestId) {
  * feedback is comfortably inside Apps Script's response limit, but this is the
  * first thing that will need paging if a detachment runs for years.
  */
+
+/**
+ * Counts the records in many folders without reading any of them.
+ *
+ * The same OR-query `readDocsInFolders_` uses, stopping after the listing.
+ * A count needs names, not bodies, and the bodies are the expensive part —
+ * about 67 ms per document against roughly 500 ms for a whole listing. This is
+ * what lets `peopleSummary` answer in a couple of round trips where `people`
+ * takes sixteen.
+ *
+ * Returns `{ folderId: n }`, absent rather than zero for an empty folder.
+ */
+function countDocsInFolders_(folderIds) {
+  var out = {};
+  if (!folderIds || !folderIds.length) return out;
+  var token = ScriptApp.getOAuthToken();
+
+  for (var start = 0; start < folderIds.length; start += PARENTS_PER_QUERY) {
+    var chunk = folderIds.slice(start, start + PARENTS_PER_QUERY);
+    var clauses = [];
+    for (var c = 0; c < chunk.length; c++) clauses.push("'" + chunk[c] + "' in parents");
+
+    var page = '';
+    var guard = 0;
+    do {
+      var url = DRIVE_API + 'files?q='
+        + encodeURIComponent('(' + clauses.join(' or ') + ') and trashed=false')
+        + '&pageSize=1000&fields='
+        + encodeURIComponent('files(name,parents),nextPageToken')
+        + DRIVE_SCOPE_FLAGS
+        + (page ? '&pageToken=' + encodeURIComponent(page) : '');
+      var res = UrlFetchApp.fetch(url, {
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true
+      });
+      if (res.getResponseCode() !== 200) {
+        throw new Error('Drive count failed (' + res.getResponseCode() + ')');
+      }
+      var body = JSON.parse(res.getContentText());
+      var rows = body.files || [];
+      for (var i = 0; i < rows.length; i++) {
+        var name = rows[i].name;
+        if (name.indexOf('_') === 0 || name.slice(-5) !== '.json') continue;
+        var owner = (rows[i].parents && rows[i].parents[0]) || '';
+        if (!owner) continue;
+        out[owner] = (out[owner] || 0) + 1;
+      }
+      page = body.nextPageToken || '';
+    } while (page && guard++ < 50);
+  }
+  return out;
+}
+
+/**
+ * The By-instructor landing: who is in scope, and how much there is of each.
+ *
+ * **Inert in 1.4.0.** No client calls it until stage 5 ships in the client
+ * release. It is here early so the server can go first on the day: a 1.4
+ * client reaching a 1.3.1 server would get "That action is not implemented",
+ * and the window between the paste and the client rollout is measured in days.
+ *
+ * It answers the question `people` answers, at a fraction of the cost, by not
+ * reading a single response. Opening the screen becomes two or three round
+ * trips; the full read happens when somebody picks an instructor.
+ *
+ * **Built by whitelist, never by deletion.** Every field below is named. A
+ * roster record carries an email and whatever an administrator typed into it,
+ * and a summary that spread the record and removed a few keys would leak the
+ * next field somebody adds. Compare `readRoster`, which returns records whole
+ * to screens that are entitled to them.
+ */
+function readPeopleSummary(root, account) {
+  var tier = peopleTierFor(account);
+  var spaces = spacesFor(account);
+  var roster = readRoster(root);
+
+  var subjects = {};
+  var folderIds = [];
+  var folderOwner = {};
+
+  for (var s = 0; s < spaces.length; s++) {
+    var rows = readFolderDocs(root, spacePath(spaces[s], 'requests'));
+    var receiptsHome = findFolder(root, spacePath(spaces[s], 'responses'));
+    var byRequest = {};
+    if (receiptsHome) {
+      var all = receiptsHome.getFolders();
+      while (all.hasNext()) {
+        var child = all.next();
+        byRequest[child.getName()] = child.getId();
+      }
+    }
+    for (var i = 0; i < rows.length; i++) {
+      if (!requestInPeopleScope(root, rows[i], account, tier, roster)) continue;
+      var who = String(subjectOfRequest(rows[i]) || '').toLowerCase();
+      if (!who) continue;
+      if (!subjects[who]) subjects[who] = { requests: 0, responses: 0 };
+      subjects[who].requests += 1;
+      var fid = byRequest[rows[i].id];
+      if (fid) {
+        folderIds.push(fid);
+        folderOwner[fid] = who;
+      }
+    }
+  }
+
+  var counts = countDocsInFolders_(folderIds);
+  for (var f = 0; f < folderIds.length; f++) {
+    var owner = folderOwner[folderIds[f]];
+    subjects[owner].responses += counts[folderIds[f]] || 0;
+  }
+
+  // The staff this tier may see, named field by field.
+  var staff = [];
+  var me = String((account && account.username) || '').toLowerCase();
+  for (var u = 0; u < roster.length; u++) {
+    var user = roster[u];
+    var name = String(user.username || '').toLowerCase();
+    var held = user.roles || [];
+    var isStaff = false;
+    for (var h = 0; h < held.length; h++) if (held[h] !== 'student') isStaff = true;
+    if (!isStaff) continue;
+    if (tier !== 'all' && name !== me && !(tier === 'instructors' && isPlainInstructor(user))) continue;
+    staff.push({
+      username: user.username,
+      name: user.name,
+      roles: user.roles,
+      requests: (subjects[name] && subjects[name].requests) || 0,
+      responses: (subjects[name] && subjects[name].responses) || 0
+    });
+  }
+
+  return { tier: tier, staff: staff };
+}
+
 /**
  * The By-instructor view: requests, their forms, their responses, and the staff
  * they are about — all narrowed to this account's people tier.

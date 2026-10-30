@@ -62,6 +62,32 @@ check('every declared action is actually handled', () => {
   }
 });
 
+/*
+ * An action can be declared and handled without any client calling it, and
+ * nothing here objects. That asymmetry is deliberate and is what makes a
+ * server-ahead release possible: on 10 Nov the proxy is pasted first and the
+ * client follows, so for a window measured in days the server must be able to
+ * answer things nothing asks for yet. A server->client assertion would make
+ * that state fail the suite and push the two halves into the same deploy,
+ * which is the arrangement this release is built to avoid.
+ *
+ * The risk the asymmetry leaves is an action half-added — declared but not
+ * handled, or handled but not declared — which the two checks above catch, or
+ * an inert action quietly deleted as dead code before its client arrives.
+ * This names the ones in flight so that deletion has to be deliberate.
+ */
+check('the inert actions are fully wired, even though nothing calls them yet', () => {
+  // peopleSummary ships in 1.4.0 and is called by stage 5 in the client
+  // release. Remove it from this list when the client starts asking for it.
+  for (const action of ['peopleSummary']) {
+    if (!declared.has(action)) throw new Error(`${action} is not declared in ACTIONS`);
+    if (!handled.has(action)) throw new Error(`${action} is declared but never handled`);
+    if (requested.has(action)) {
+      throw new Error(`${action} is no longer inert — the client calls it, so take it off this list`);
+    }
+  }
+});
+
 check('no action is declared with an empty role list', () => {
   for (const [, name, roles] of ACTIONS_BLOCK.matchAll(/^\s{2}([a-zA-Z]+):\s*\[([^\]]*)\]/gm)) {
     if (!roles.trim()) throw new Error(`${name} is open to everyone`);
@@ -428,6 +454,34 @@ check('nothing keeps a second copy of the request timeout', () => {
  * the voice of a positive confirmation, at the moment that question matters
  * most.
  */
+/*
+ * Every Drive REST call asks for Shared Drive support.
+ *
+ * DriveApp resolved Shared Drives by itself. Stage 2 moved the enumeration to
+ * REST, which does not unless asked — and an unasked listing of a Shared Drive
+ * folder returns **empty rather than failing**, so a detachment would see every
+ * staff screen show nothing with no error anywhere to explain it.
+ *
+ * Source-level because the harness cannot model a Shared Drive: the fake has
+ * one tree and no concept of one. This checks the request is formed correctly;
+ * E13 of the fidelity pass confirmed against real Drive that the flags are
+ * harmless for a My Drive folder, which is what makes them safe to send always.
+ */
+check('every Drive REST call carries the Shared Drive flags', () => {
+  const calls = [...SOURCE.matchAll(/DRIVE_API \+ '([^']+)'/g)].map((m) => m[1]);
+  if (calls.length < 3) throw new Error(`only ${calls.length} Drive REST call sites found`);
+  const bare = [...SOURCE.matchAll(/url: DRIVE_API \+ [^;]+;/g)]
+    .map((m) => m[0])
+    .filter((line) => !line.includes('DRIVE_SCOPE_FLAGS'));
+  if (bare.length) throw new Error(`a REST call without the flags: ${bare[0].slice(0, 90)}`);
+  // The listings build their URL across lines, so count rather than parse.
+  const flagged = (SOURCE.match(/DRIVE_SCOPE_FLAGS/g) || []).length;
+  if (flagged < 4) {
+    throw new Error(`DRIVE_SCOPE_FLAGS appears ${flagged} times — one declaration plus `
+      + 'every call site, and there are at least three');
+  }
+});
+
 check('the build marker matches the file it is stamped into', () => {
   // Synchronous on purpose. An earlier draft made this callback `async` to use
   // a dynamic import, and `check` does not await — so the promise could never

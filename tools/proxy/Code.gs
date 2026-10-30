@@ -81,7 +81,7 @@ var PROXY_VERSION = '1.4.0';
  * the suite rather than deploying a marker that quietly describes the previous
  * build.
  */
-var BUILD = 'aac9e8d9';
+var BUILD = '2241f7a4';
 
 /** Refuse anything larger; a submission is a few KB at most. */
 var MAX_BODY_BYTES = 96 * 1024;
@@ -1170,9 +1170,20 @@ function removeRequest(root, account, requestId) {
   // deliberate acts instead of one click, which is the right price for
   // discarding somebody's feedback.
   if (doomed > 0) {
-    return fail('This request already has answers, so it cannot be deleted — they would go '
-      + 'with it. Nothing has been changed. To stop it taking new answers, close the request '
-      + 'instead.');
+    // Front-loaded on purpose. Observed on staging 30 Oct: a 1.3.1 client has
+    // no handler on this path, so the throw reaches the global
+    // unhandledrejection listener and becomes a **six-second toast**. The
+    // first wording ran to twenty-nine words, which is seven to nine seconds
+    // of reading — the most important sentence in the release was one nobody
+    // could finish. "Not deleted." is the whole verdict in two words, and it
+    // survives being half-read.
+    //
+    // The user has just clicked through a confirmation saying the responses
+    // would go with it, which in 1.3.1 is now false and cannot be corrected
+    // from here. That is why "Nothing has been changed" earns its place: it
+    // answers the alarm the previous screen just raised.
+    return fail('Not deleted. This request has answers and they would go with it. '
+      + 'Nothing has been changed — close the request instead to stop new answers.');
   }
 
   trashFolder(findFolder(root, spacePath(located.space, 'responses', requestId)));

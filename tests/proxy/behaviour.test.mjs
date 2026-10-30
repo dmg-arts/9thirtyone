@@ -520,10 +520,22 @@ check('the refusal reads as a whole thought, because a 1.3.1 client shows it raw
   if (!/^[A-Z]/.test(text) || !/\.$/.test(text)) {
     throw new Error(`not a sentence: ${text}`);
   }
-  if (!/nothing has been changed/i.test(text)) {
-    throw new Error('does not say the click did nothing — the first thing they need to know');
+  if (!/nothing has (been )?changed/i.test(text)) {
+    throw new Error('does not say the click did nothing — and the confirmation they just '
+      + 'clicked through told them the opposite');
   }
   if (!/close/i.test(text)) throw new Error('does not say what to do instead');
+
+  // It arrives as a six-second toast in a 1.3.1 client, measured on staging.
+  // Reading runs about four words a second, so anything past ~24 words cannot
+  // be finished before it disappears.
+  const words = text.split(/\s+/).length;
+  if (words > 26) {
+    throw new Error(`${words} words — too long for the six-second toast a 1.3.1 client shows`);
+  }
+  if (!/^Not deleted\./.test(text)) {
+    throw new Error('does not open with the verdict, so a half-read toast says nothing');
+  }
   if (/1\.4|version|update|upgrade/i.test(text)) {
     throw new Error(`names a release: "${text}" — this string outlives the convergence window`);
   }

@@ -63,10 +63,20 @@ function buildAppBar() {
   const bar = $('#appbar');
   const conn = connection.get();
 
+  // Beta feedback, 2 Nov: too easy to miss. It was `btn--ghost`, which is the
+  // lowest-emphasis variant in the system — transparent background, transparent
+  // border — and `btn--icon`, which forces a square and leaves no room for a
+  // word. An arrow with no label beside a logo that is also clickable reads as
+  // decoration.
+  //
+  // Labelled "Home" rather than "Back" because it calls navigate('/home')
+  // unconditionally: it does not retrace a path, and for anyone who arrived by
+  // join link or deep link there is no back to go to. The aria-label already
+  // said "Back to home"; this just makes the screen say what it does.
   const back = el('button', {
-    type: 'button', class: 'btn btn--icon btn--ghost', 'aria-label': 'Back to home',
+    type: 'button', class: 'btn appbar__back', 'aria-label': 'Back to home',
     onclick: () => navigate('/home'),
-  }, icon('arrowLeft'));
+  }, icon('arrowLeft'), el('span', { class: 'appbar__back-label' }, 'Home'));
 
   const brand = el('button', {
     type: 'button', class: 'appbar__brand',

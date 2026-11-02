@@ -260,6 +260,24 @@ await step('a feedback form is issued', async () => {
   await page.waitForSelector('.list__item', { timeout: 10000 });
 });
 
+/* ---------- an answered request offers Close, not Delete ---------- */
+
+await step('an unanswered request still offers Delete', async () => {
+  // The editor does not know the answer count when it renders, so Delete
+  // starts disabled and is corrected asynchronously. Waiting on it being
+  // enabled is the assertion: a test that only checked the button existed
+  // would pass on the provisional one, before anything had been decided.
+  await page.goto(`${BASE}#/instructor?tab=requests`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.list__item', { timeout: 10000 });
+  await page.click('.list__item');
+  await page.waitForSelector('.qrow', { timeout: 10000 });
+
+  await page.waitForSelector('.btn--danger:has-text("Delete"):not([disabled])', { timeout: 10000 });
+  if (await page.$('.btn:has-text("Close")')) {
+    throw new Error('Close was offered on a request nobody has answered');
+  }
+});
+
 /* ---------- cadet sign-in ---------- */
 await step('the student page requires a sign-in', async () => {
   await page.evaluate(() => sessionStorage.clear());
@@ -389,6 +407,34 @@ await step('student submits and is receipted', async () => {
   await page.waitForSelector('dialog.modal', { timeout: 8000 });
   await page.click('dialog .btn--primary');
   await page.waitForSelector('.empty__title:has-text("Feedback submitted")', { timeout: 10000 });
+});
+
+await step('once answered, the editor offers Close and withdraws Delete', async () => {
+  // The client half of stage 3b. Placed after the suite's own submit rather
+  // than submitting by hand: an earlier draft rolled its own and swallowed the
+  // failure, so it asserted against a request nobody had actually answered.
+  //
+  // The server refuses the delete either way. This is about not offering a
+  // button that always fails, and offering the one they actually want.
+  await signInAs(ADMIN_EMAIL, 'Capt Reyes', 'instructor');
+  await page.goto(`${BASE}#/instructor?tab=requests`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.list__item', { timeout: 10000 });
+  await page.click('.list__item');
+  await page.waitForSelector('.qrow', { timeout: 10000 });
+
+  try {
+    await page.waitForSelector('.btn:has-text("Close")', { timeout: 10000 });
+    if (await page.$('.btn--danger:has-text("Delete")')) {
+      throw new Error('Delete is still offered on a request that has been answered');
+    }
+  } finally {
+    // Both of these, because this step changed both. The next check expects to
+    // be the cadet, on the student screen, mid-flow — and a step that moves
+    // identity or route without putting them back reports its neighbours as
+    // broken, which has now happened three times in this suite.
+    await signInAs(STUDENT_EMAIL, 'Mia Alvarez', 'student');
+    await page.goto(`${BASE}#/student`, { waitUntil: 'networkidle' });
+  }
 });
 
 await step('a second submission is blocked at the form', async () => {

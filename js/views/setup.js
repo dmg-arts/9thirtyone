@@ -158,7 +158,20 @@ function stepOrg(body, root) {
     onclick: () => { draft.step = 1; draw(root); },
   }, 'Continue');
 
-  mount(body, el('div', { class: 'row row--end', style: { marginTop: 'var(--sp-5)' } }, next));
+  // A way back out of the installer branch.
+  //
+  // Without this the fork is a one-way door: `Back` on step 2 returns to step
+  // 0, and step 0 with `fork === 'installer'` renders this wizard rather than
+  // the question, so a misclick strands somebody in a setup they did not want.
+  // For a stage whose entire premise is that the wrong door is expensive, that
+  // is the wrong shape. Omitted on a rerun, where the fork was never asked.
+  const wrongDoor = draft.rerun ? null : el('button', {
+    type: 'button', class: 'btn btn--ghost',
+    onclick: () => { draft.fork = null; draw(root); },
+  }, icon('arrowLeft'), 'I was sent a join link');
+
+  mount(body, el('div', { class: 'row row--between row--wrap', style: { marginTop: 'var(--sp-5)' } },
+    wrongDoor || el('span', {}), next));
   setTimeout(() => nameInput.focus(), 40);
 }
 

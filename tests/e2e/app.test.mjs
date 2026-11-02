@@ -1143,6 +1143,39 @@ await step('an unconfigured device can be joined by pasting the link', async () 
   }
 });
 
+await step('the installer door is not one-way', async () => {
+  // The fork only helps if choosing wrongly is cheap. Before this, `Back` on
+  // step 2 returned to step 0, which with fork already set renders the wizard
+  // rather than the question — so a misclick stranded somebody in a setup they
+  // did not want, which is the exact cost this stage exists to remove.
+  const kept = await page.evaluate(() => {
+    const keep = {
+      conn: localStorage.getItem('nine31.connection.v1'),
+      done: localStorage.getItem('nine31.setup.complete'),
+    };
+    localStorage.removeItem('nine31.connection.v1');
+    localStorage.removeItem('nine31.setup.complete');
+    return keep;
+  });
+  try {
+    await page.goto(`${BASE}#/setup`, { waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.click('.btn--lg:has-text("I am creating this detachment")');
+    await page.waitForSelector('.wizard', { timeout: 10000 });
+
+    // Back out, from the first step of the wizard.
+    await page.click('.wizard .btn--ghost:has-text("I was sent a join link")');
+    await page.waitForSelector('.btn--lg:has-text("I am creating this detachment")', { timeout: 10000 });
+    if (await page.$('.wizard')) throw new Error('the wizard is still showing after backing out');
+  } finally {
+    await page.evaluate((k) => {
+      if (k.conn) localStorage.setItem('nine31.connection.v1', k.conn);
+      if (k.done) localStorage.setItem('nine31.setup.complete', k.done);
+    }, kept);
+    await page.goto(`${BASE}#/home`, { waitUntil: 'networkidle' });
+  }
+});
+
 await step('pasting something that is not a join link is refused', async () => {
   const kept = await page.evaluate(() => {
     const keep = {

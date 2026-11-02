@@ -216,6 +216,29 @@ export function setDirectSignIn(on) {
 }
 
 /**
+ * Whether a connection points at a Drive folder it has no way to read.
+ *
+ * The unsupported state, stated once so every screen agrees about it: a
+ * `folderId` with no `proxyUrl`. The app holds `drive.file`, which grants
+ * access to files *it* created, so a browser that did not create the folder
+ * cannot open it however correct the link is. Only the installer's own browser
+ * is exempt, and only until the submission server is deployed — which the setup
+ * guide has made mandatory since the proxy shipped.
+ *
+ * Det 752's commander reached this by pasting the detachment's folder link into
+ * Settings. Drive answered 404, the app said "confirm the folder link in
+ * Settings", and that is a closed loop: the advice names the control that
+ * caused it. Recognising the shape is what lets the app say something true.
+ *
+ * A pure function over the record, deliberately — it lives here rather than in
+ * state.js so it can be tested without a browser, and takes the connection
+ * rather than reading it so there is no import cycle.
+ */
+export function needsSubmissionServer(conn) {
+  return Boolean(conn && conn.backend === BACKENDS.drive && conn.folderId && !conn.proxyUrl);
+}
+
+/**
  * Storage backends. The org picks one during setup; every view talks to the
  * facade in js/storage/index.js and never to a backend directly.
  */

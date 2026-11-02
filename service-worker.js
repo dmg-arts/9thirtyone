@@ -62,6 +62,7 @@ const SHELL = [
   './js/views/instructor.js',
   './js/views/people.js',
   './js/views/invite.js',
+  './js/views/join-card.js',
   './js/views/join.js',
   './js/views/settings.js',
   './js/views/sign-in.js',

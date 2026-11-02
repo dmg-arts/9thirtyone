@@ -667,6 +667,8 @@ js/
     wordcloud.js        SVG cloud plus its accessible table
   views/
     setup.js            first-run wizard, for whoever creates the detachment
+    join-card.js        the join-link paste box, shared by setup and by the
+                        error a wrongly-configured device is already showing
     join.js             the join-link screen everyone else gets instead
     invite.js           the full-screen join QR code
     sign-in.js          the Google sign-in gate, shared by all three roles

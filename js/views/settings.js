@@ -5,7 +5,7 @@
  */
 
 import {
-  el, icon, field, select, notice, toast, confirmDialog, spinner, badge,
+  $, el, icon, field, select, notice, toast, confirmDialog, spinner, badge,
   fmtDateTime, download, modal,
   mount, remount } from '../util.js';
 import { APP, BACKENDS, ROLES, SEMESTERS, schoolYears, isDirectSignIn, setDirectSignIn } from '../config.js';
@@ -15,6 +15,7 @@ import { db, adapters, parseFolderId, backendLabel } from '../storage/index.js';
 import { checkProxy } from '../storage/proxy.js';
 import { connectionStatus } from '../data-source.js';
 import { buildDiagnostics, diagnosticsFilename } from '../diagnostics.js';
+import { joinLinkCard } from './join-card.js';
 import { navigate } from '../router.js';
 import { resetSetupDraft } from './setup.js';
 
@@ -382,6 +383,49 @@ async function storageSection(conn) {
 }
 
 async function editDriveTarget(conn) {
+  // Ask the fork question first, when the answer actually matters.
+  //
+  // This dialog already said "Only folders this app created", and Det 752's
+  // commander read it, agreed with it, and was wrong — the app *did* create
+  // that folder, from somebody else's browser. `drive.file` grants per browser
+  // and per account, not per product, so the sentence was true and useless.
+  //
+  // It is not refused outright: an installer who has cleared site data
+  // legitimately reconnects here, and their Drive grant survives at Google, so
+  // for them it works. But that person has a submission server configured and
+  // this one does not, which is the whole difference. So when there is no
+  // server, the join link becomes the offered answer and the folder path has
+  // to be chosen deliberately.
+  if (!conn.proxyUrl) {
+    const route = await modal({
+      title: 'How did you get here?',
+      body: el('div', { class: 'stack' },
+        el('p', {}, 'This device has no submission server, so pointing it at a folder only '
+          + 'works if this browser is the one that created that folder.'),
+        el('p', { class: 'muted' }, 'If somebody sent you a link to join this detachment, that '
+          + 'is what sets this device up \u2014 pasting the folder address instead leaves it '
+          + 'pointed at something it can never open, and the error it gives afterwards looks '
+          + 'like a broken link rather than the wrong screen.')),
+      actions: [
+        { label: 'I was sent a join link', value: 'join', variant: 'primary', autofocus: true },
+        { label: 'I set this detachment up myself', value: 'installer' },
+        { label: 'Cancel', value: null },
+      ],
+    });
+    if (route !== 'installer') {
+      if (route === 'join') {
+        // Mounted where they already are. Sending them to another screen is
+        // the shape of mistake this whole stage exists to stop making.
+        mount($('#view'), joinLinkCard({
+          title: 'Paste your join link',
+          blurb: '',
+          action: 'Set this device up',
+        }));
+      }
+      return;
+    }
+  }
+
   const clientInput = el('input', { class: 'input mono', type: 'text', value: conn.clientId || '', spellcheck: 'false' });
   const folderInput = el('input', { class: 'input', type: 'text', value: conn.folderUrl || conn.folderId || '', spellcheck: 'false' });
 

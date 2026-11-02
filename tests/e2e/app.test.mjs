@@ -99,6 +99,10 @@ const STUDENT_EMAIL = 'mia.alvarez@gmail.com';
 await page.goto(BASE, { waitUntil: 'networkidle' });
 
 await step('setup completes', async () => {
+  // The setup wizard no longer renders until the install-or-join fork is
+  // answered — see askTheFork() in js/views/setup.js. Every test that drives
+  // setup is the installer, so each one says so.
+  await page.click('.btn--lg:has-text("I am creating this detachment")');
   await page.waitForSelector('.wizard');
   await page.fill('.wizard input[type=text]', 'Det 025');
   await page.click('.wizard .btn--primary');
@@ -1090,18 +1094,33 @@ await step('an unconfigured device can be joined by pasting the link', async () 
   try {
     await page.goto(`${BASE}#/setup`, { waitUntil: 'networkidle' });
     await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForSelector('.wizard', { timeout: 10000 });
+    // The fork, which is the first thing an unconfigured device now sees.
+    // Both doors must be offered — the bug being fixed was somebody not
+    // noticing one of them.
+    await page.waitForSelector('.btn--lg:has-text("I was sent a join link")', { timeout: 10000 });
+    const doors = await page.textContent('#view');
+    if (!/creating this detachment/i.test(doors)) {
+      throw new Error('the installer door is missing, so the fork is not a choice');
+    }
 
-    const offered = await page.textContent('#view');
-    if (!/sent a join link/i.test(offered)) {
-      throw new Error('an unconfigured device was not offered the join-link path');
+    await page.click('.btn--lg:has-text("I was sent a join link")');
+
+    // Asserted on the paste box appearing, not on the words "sent a join
+    // link" — those are now the text of the button that was just clicked, so
+    // matching them would pass before anything happened.
+    await page.waitForSelector('input.mono', { timeout: 10000 });
+    if (await page.$('.wizard')) {
+      throw new Error('the wizard rendered on the join branch, which is the whole mistake');
     }
 
     // Pasted the way it arrives — a whole line out of a message, not a tidy URL.
     await page.fill('.mono',
       'Join here: https://example.org/#/join?c=724504040762-abcdefghijklmnopqrstuvwxyz012345'
       + '&f=1AbCdEfGhIjKlMnOpQrStUvWxYz01234567&n=Det%20025 thanks');
-    await page.click('button:has-text("Join")');
+    // Not :has-text("Join") — Playwright matches a substring case-insensitively,
+    // so that also matches "I was sent a join link", the fork button still
+    // sitting above the paste box.
+    await page.click('button:has-text("Join this detachment")');
 
     // Waits on the route, not on `.page-title` — that exists on the setup screen
     // too, so waiting for it returns instantly and asserts nothing.
@@ -1137,10 +1156,14 @@ await step('pasting something that is not a join link is refused', async () => {
   try {
     await page.goto(`${BASE}#/setup`, { waitUntil: 'networkidle' });
     await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForSelector('.wizard', { timeout: 10000 });
+    await page.click('.btn--lg:has-text("I was sent a join link")');
+    await page.waitForSelector('input.mono', { timeout: 10000 });
 
     await page.fill('.mono', 'https://9thirtyone.app/');
-    await page.click('button:has-text("Join")');
+    // Not :has-text("Join") — Playwright matches a substring case-insensitively,
+    // so that also matches "I was sent a join link", the fork button still
+    // sitting above the paste box.
+    await page.click('button:has-text("Join this detachment")');
     await page.waitForSelector('.notice--warn', { timeout: 10000 });
 
     // Refused, and nothing written: a half-applied link is the failure the join

@@ -334,6 +334,10 @@ const CADET_COUNT = Math.max(1, Number(process.env.AUDIT_CADETS) || 8);
 /** Completes setup and seeds a detachment with enough data for every screen. */
 async function seed(page) {
   await page.goto(BASE, { waitUntil: 'networkidle' });
+  // The setup wizard no longer renders until the install-or-join fork is
+  // answered — see askTheFork() in js/views/setup.js. Every test that drives
+  // setup is the installer, so each one says so.
+  await page.click('.btn--lg:has-text("I am creating this detachment")');
   await page.waitForSelector('.wizard');
   await page.fill('.wizard input[type=text]', 'AFROTC Detachment 025');
   await page.click('.wizard .btn--primary');

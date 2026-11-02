@@ -27,6 +27,8 @@ export function renderSetup(root, { rerun = false } = {}) {
       folderName: saved.folderName || '',
       connected: false,
       reused: false,
+      // Which door they came through. Null until asked — see askTheFork().
+      fork: rerun ? 'installer' : null,
       rerun,
     };
   }
@@ -60,17 +62,60 @@ function draw(root) {
     default: stepFinish(body, root); break;
   }
 
-  // Mounted as a sibling *before* the wizard, not inside it. Visually first,
-  // because the person who needs it is usually not the person the wizard is for
-  // — but outside `.wizard`, because the setup suite drives this screen through
-  // `.wizard input[type=text]` and `.wizard .btn--primary`, and a card inside it
-  // would silently steal both. The first run of this change broke setup itself.
+  // The fork, asked before anything else is shown.
   //
-  // Only on the first step: an administrator part-way through creating a
-  // detachment does not need a recovery path, and a rerun is somebody
-  // deliberately reconfiguring storage.
-  if (draft.step === 0 && !draft.rerun) mount(root, joinLinkCard());
+  // This used to be a card mounted above the wizard with exactly the right
+  // words on it — "this screen is for whoever creates the detachment, not for
+  // joining one". Det 752's commander scrolled past it on 26 Oct and worked
+  // through setup instead. A card above a form reads as a preamble to the
+  // form, and the form is the thing that looks like the task.
+  //
+  // So nothing else renders until the question is answered. Two people arrive
+  // here and only one of them should be setting anything up; making that a
+  // decision rather than a thing to notice is the entire fix.
+  if (draft.step === 0 && draft.fork !== 'installer') {
+    mount(root, askTheFork(root));
+    return;
+  }
   mount(root, wizard);
+}
+
+/**
+ * Which of the two people arriving here this is.
+ *
+ * Deliberately not a card beside the wizard. The wizard does not render at all
+ * until this is answered, because the failure being fixed is somebody not
+ * noticing a choice, and anything optional will be scrolled past by exactly the
+ * person it was put there for.
+ */
+function askTheFork(root) {
+  const host = el('div', { class: 'stack' });
+
+  mount(host, el('div', { class: 'card stack' },
+    el('div', { class: 'page-head' },
+      el('h1', { class: 'page-title' }, 'Setting up, or joining?'),
+      el('p', { class: 'page-sub' }, 'These are different things and only one of them is this screen.')),
+    el('div', { class: 'row row--wrap' },
+      el('button', {
+        type: 'button', class: 'btn btn--primary btn--lg',
+        onclick: () => { draft.fork = 'join'; draw(root); },
+      }, icon('check'), 'I was sent a join link'),
+      el('button', {
+        type: 'button', class: 'btn btn--lg',
+        onclick: () => { draft.fork = 'installer'; draw(root); },
+      }, icon('settings'), 'I am creating this detachment')),
+    el('p', { class: 'field__hint' },
+      'Almost everybody was sent a link. Creating a detachment is a one-time job for whoever '
+      + 'sets it up, and it needs a Google account that will own the data.')));
+
+  if (draft.fork === 'join') {
+    mount(host, joinLinkCard({
+      title: 'Paste your join link',
+      blurb: '',
+      action: 'Join this detachment',
+    }));
+  }
+  return host;
 }
 
 function stepper() {

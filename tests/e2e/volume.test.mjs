@@ -67,6 +67,10 @@ const STAFF = 5;
 await page.goto(BASE, { waitUntil: 'networkidle' });
 
 await step('setup completes', async () => {
+  // The setup wizard no longer renders until the install-or-join fork is
+  // answered — see askTheFork() in js/views/setup.js. Every test that drives
+  // setup is the installer, so each one says so.
+  await page.click('.btn--lg:has-text("I am creating this detachment")');
   await page.waitForSelector('.wizard');
   await page.fill('.wizard input[type=text]', 'Det 752');
   await page.click('.wizard .btn--primary');

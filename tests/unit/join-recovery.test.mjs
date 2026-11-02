@@ -16,7 +16,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { needsSubmissionServer } from '../../js/config.js';
+import { needsSubmissionServer, mayHaveCardReader } from '../../js/config.js';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 const read = (path) => readFileSync(ROOT + path, 'utf8');
@@ -90,6 +90,64 @@ check('the join card is shared, not copied', () => {
   if (!/from '\.\/join-card\.js'/.test(setup)) {
     throw new Error('setup.js no longer uses the shared card');
   }
+});
+
+/* ------------------------------------------------------------------ *
+ * the CAC stall — stage 9
+ * ------------------------------------------------------------------ */
+
+/*
+ * Nothing can detect a CAC. This is a population test: Det 752's staff sign in
+ * on USAF-issued Windows laptops with readers in the keyboard, CACs are
+ * staff-held, and cadets are on phones or Chrome. So the question is only
+ * whether the hint is worth offering on this device.
+ */
+check('the det\u2019s Windows laptops are offered the hint', () => {
+  if (!mayHaveCardReader('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/155.0', 0)) {
+    throw new Error('a Windows desktop was not offered the hint');
+  }
+});
+
+check('phones and tablets are not, because nothing is plugged into them', () => {
+  for (const [ua, touch, what] of [
+    ['Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari', 5, 'iPhone'],
+    ['Mozilla/5.0 (Linux; Android 15) Chrome/155.0', 5, 'Android'],
+    ['Mozilla/5.0 (Windows NT 10.0; Win64) Chrome/155.0', 10, 'Windows tablet'],
+    ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/27', 0, 'Mac'],
+  ]) {
+    if (mayHaveCardReader(ua, touch)) throw new Error(`${what} was offered a CAC hint`);
+  }
+});
+
+check('the hint says likely, and never claims to have detected anything', () => {
+  // A browser cannot see a card. Saying it can would be the kind of wrong that
+  // stops people believing the next message too.
+  const gate = read('js/views/sign-in.js');
+  const shown = gate.slice(gate.indexOf('Sign-in has not come back'), gate.indexOf('STALL_AFTER_MS'));
+  if (/detected|we found|your card is/i.test(shown)) {
+    throw new Error('the notice claims to have detected a card');
+  }
+  if (!/If this computer has a CAC reader/.test(gate)) {
+    throw new Error('the notice is not phrased conditionally, so a cadet reads it as about them');
+  }
+  // The other live cause has to stay named: a blocker breaks sign-in too, and
+  // a hint that offers only one explanation is wrong half the time.
+  if (!/content blocker/i.test(shown)) {
+    throw new Error('the notice offers no second possibility');
+  }
+});
+
+check('the stall watch is cleared on both outcomes, not just success', () => {
+  // Left running, it would fire twelve seconds after a sign-in that already
+  // failed, contradicting the error still on screen.
+  const gate = read('js/views/sign-in.js');
+  // Not [^,]* — the handler's own parameter list contains a comma, so that
+  // pattern stopped before reaching the call and reported a real property as
+  // missing.
+  const credential = /onCredential:[\s\S]{0,80}?stopStallWatch/.test(gate);
+  const errored = /onError:[\s\S]{0,80}?stopStallWatch/.test(gate);
+  if (!credential) throw new Error('a successful sign-in does not stop the watch');
+  if (!errored) throw new Error('a failed sign-in does not stop the watch');
 });
 
 console.log(failures

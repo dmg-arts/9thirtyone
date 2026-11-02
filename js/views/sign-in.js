@@ -13,7 +13,7 @@
  */
 
 import { el, icon, field, notice, toast, remount, spinner } from '../util.js';
-import { ROLES, ROLE_LABELS, isDirectSignIn, effectiveRoles } from '../config.js';
+import { ROLES, ROLE_LABELS, isDirectSignIn, effectiveRoles, mayHaveCardReader } from '../config.js';
 import { signInWithGoogle, signInAsDeveloper, hasAnyAccount } from '../auth.js';
 import { renderSignInButton } from '../google-identity.js';
 import { connection } from '../state.js';
@@ -149,6 +149,68 @@ export async function renderLogin(root, role, title, onSuccess) {
    * watching. The message escalates because the right thing to think at three
    * seconds ("it is working") differs from at fifteen ("it is waking, wait").
    */
+  /*
+   * A sign-in that has gone quiet, and the one cause we cannot see.
+   *
+   * Windows offers a CAC to Google's sign-in page. The reader light flashes and
+   * sign-in simply waits — it does not fail, does not time out, and says
+   * nothing. Det 752's commander sat through that on 26 Oct and only got in by
+   * pulling the card out.
+   *
+   * Nothing here detects a card. There is no browser API for it, and the ones
+   * that come close need a device-permission prompt mid-sign-in on a government
+   * laptop, which is worse than the bug. What this detects is the *shape*:
+   *
+   *   GIS loaded cleanly  (a content blocker breaks at script load, and
+   *                        google-identity.js already catches and names that)
+   *   + the chooser took focus
+   *   + nothing came back for twelve seconds
+   *   + the device plausibly has a reader
+   *
+   * which leaves the card as the leading remaining cause. The notice says
+   * "likely", never "detected", and offers a second possibility, because being
+   * wrong in a reassuring voice is how people stop reading these.
+   *
+   * The click itself is invisible: Google renders its button in a cross-origin
+   * iframe, so there is no event to attach to. Losing focus is the proxy, and
+   * it fails open — if it never fires, nothing is shown and the screen behaves
+   * exactly as it does today.
+   *
+   * `startProgress` cannot do this job: it runs inside `accept`, which only
+   * happens once Google has handed back a credential, so during the stall it is
+   * not on screen at all.
+   */
+  const stall = el('div', {});
+  let stallTimer = null;
+  let engagedAt = 0;
+
+  const stopStallWatch = () => {
+    if (stallTimer) clearTimeout(stallTimer);
+    stallTimer = null;
+    window.removeEventListener('blur', onEngage);
+    document.removeEventListener('visibilitychange', onEngage);
+    remount(stall);
+  };
+
+  function onEngage() {
+    if (engagedAt || !mayHaveCardReader(navigator.userAgent, navigator.maxTouchPoints)) return;
+    engagedAt = Date.now();
+    stallTimer = setTimeout(() => {
+      remount(stall, notice('warn', 'Sign-in has not come back',
+        el('p', {}, 'If this computer has a CAC reader, take the card out and try again. '
+          + 'Windows offers it to Google\'s sign-in page, the reader light flashes, and '
+          + 'sign-in waits there without saying so.'),
+        el('p', { class: 'field__hint' }, '9ThirtyOne never uses your CAC — your Google '
+          + 'account is the only identity it wants. If there is no reader attached, check '
+          + 'that a content blocker is not switched on for this site.')));
+    }, STALL_AFTER_MS);
+  }
+
+  function watchForStall() {
+    window.addEventListener('blur', onEngage);
+    document.addEventListener('visibilitychange', onEngage);
+  }
+
   const progress = el('div', { class: 'stack-sm', hidden: true });
   let ticking = null;
 
@@ -205,6 +267,9 @@ export async function renderLogin(root, role, title, onSuccess) {
         el('span', { class: 'role-card__icon' }, icon(role === ROLES.student ? 'student' : 'lock'))),
       buttonHost,
       progress,
+      // After the button and before the error: a stall is not a failure, and
+      // putting it where errors go would make every slow sign-in look broken.
+      stall,
       error,
       el('p', { class: 'field__hint' },
         'This app issues no password of its own. Whether you can get in is decided by your '
@@ -263,13 +328,23 @@ export async function renderLogin(root, role, title, onSuccess) {
   try {
     await renderSignInButton(buttonHost, {
       clientId,
-      onCredential: (profile, raw) => accept(profile, raw),
-      onError: (err) => fail(err.message, err),
+      onCredential: (profile, raw) => { stopStallWatch(); accept(profile, raw); },
+      onError: (err) => { stopStallWatch(); fail(err.message, err); },
     });
+    watchForStall();
   } catch (err) {
     remount(buttonHost, notice('danger', 'Could not start Google sign-in', el('p', {}, err.message)));
   }
 }
+
+/**
+ * How long a sign-in may sit after the account chooser takes focus.
+ *
+ * Long enough that somebody reading the chooser is not interrupted, short
+ * enough to arrive while they are still wondering. Det 752's commander waited
+ * through this with a flashing reader light and no explanation.
+ */
+const STALL_AFTER_MS = 12000;
 
 /**
  * The developer-mode fallback: type an email, get signed in as it.

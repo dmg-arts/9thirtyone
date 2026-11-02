@@ -216,6 +216,26 @@ export function setDirectSignIn(on) {
 }
 
 /**
+ * Whether this device plausibly has a smart-card reader attached.
+ *
+ * Not a detection — nothing in a browser can see a CAC, and the things that
+ * come close (WebUSB, WebHID) need a permission prompt for device access,
+ * which during sign-in on a government laptop is worse than the bug.
+ *
+ * This is a population test, not a hardware test. Det 752's staff sign in on
+ * USAF-issued Windows laptops with readers built into the keyboard; CACs are
+ * staff-held, and cadets are on phones or on Chrome. So Windows plus no touch
+ * points is the set of devices where the hint is worth offering, and a cadet on
+ * a Windows laptop who sees it reads a sentence that begins "if this computer
+ * has a card reader" and moves on.
+ *
+ * Takes its inputs so it can be tested without a browser.
+ */
+export function mayHaveCardReader(userAgent = '', touchPoints = 0) {
+  return /Windows/i.test(String(userAgent)) && Number(touchPoints) === 0;
+}
+
+/**
  * Whether a connection points at a Drive folder it has no way to read.
  *
  * The unsupported state, stated once so every screen agrees about it: a

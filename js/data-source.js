@@ -26,6 +26,7 @@ import {
   fetchPeople,
   PROXY_SERVICE, PROXY_SERVICE_LEGACY,
   saveFormViaProxy, saveRequestViaProxy, deleteFormViaProxy, deleteRequestViaProxy,
+  fetchPeopleSummary,
   deleteResponseViaProxy, createAccountViaProxy, updateAccountViaProxy,
   deleteAccountViaProxy, rolloverViaProxy, recordAuditViaProxy,
 } from './storage/proxy.js';
@@ -370,6 +371,56 @@ export async function loadOverview() {
  * reads — a lens, not a boundary, which is the same thing direct mode already
  * means for every other read. `js/people-scope.js` says so at more length.
  */
+/**
+ * Who is in scope and how much there is of each, without the feedback itself.
+ *
+ * By instructor took 9.6s on staging because `people` reads every response in
+ * scope before anything appears. This is the landing: the server counts rather
+ * than reads, so the list arrives in about two round trips and the full load
+ * happens only when somebody opens a person.
+ *
+ * **Direct mode has no server to ask**, so it derives the same shape from
+ * `loadPeople` — which is not faster there, and does not need to be: a
+ * this-device-only install reads from local storage, which is where the
+ * seconds were not.
+ */
+export async function loadPeopleSummary(spaces = null) {
+  if (usingProxy()) {
+    // Keyed by the scope as well as the account: a commander moving between the
+    // Instructor and Cadre panels asks two different questions, and handing the
+    // second the first one's answer is a wrong number rather than a stale one.
+    const key = `peopleSummary:${currentUser()?.username || ''}:${(spaces || []).join('+')}`;
+    return viaCache(key, () => fetchPeopleSummary(proxyUrl(), token(), spaces));
+  }
+  const people = await loadPeople();
+  const byPerson = new Map();
+  for (const request of people.requests) {
+    const who = String(request.subject || '').toLowerCase();
+    if (!who) continue;
+    const row = byPerson.get(who) || { requests: 0, responses: 0 };
+    row.requests += 1;
+    byPerson.set(who, row);
+  }
+  for (const response of people.responses) {
+    const request = people.requests.find((r) => r.id === response.requestId);
+    const who = String(request?.subject || '').toLowerCase();
+    if (!who) continue;
+    const row = byPerson.get(who) || { requests: 0, responses: 0 };
+    row.responses += 1;
+    byPerson.set(who, row);
+  }
+  return {
+    tier: people.tier,
+    staff: people.staff.map((person) => ({
+      username: person.username,
+      name: person.name,
+      roles: person.roles,
+      requests: byPerson.get(String(person.username).toLowerCase())?.requests || 0,
+      responses: byPerson.get(String(person.username).toLowerCase())?.responses || 0,
+    })),
+  };
+}
+
 export async function loadPeople() {
   // Keyed by account: `people` is narrowed to what this person may see, and the
   // next person to sign in on the same laptop must never be handed it.

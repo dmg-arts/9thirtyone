@@ -393,6 +393,18 @@ export async function fetchPeople(url, idToken) {
   return (await ask(url, idToken, { action: 'people' })).people;
 }
 
+/**
+ * The same question, answered without reading a single response.
+ *
+ * `people` reads every response in scope, which is where its seconds go.
+ * This counts them instead — one Drive listing, no document bodies — so the
+ * screen can open on a list and pay for the detail only if somebody asks for
+ * it. Shipped inert in PROXY_VERSION 1.4.0; this is the client that calls it.
+ */
+export async function fetchPeopleSummary(url, idToken, spaces = null) {
+  return (await ask(url, idToken, { action: 'peopleSummary', spaces })).summary;
+}
+
 export async function fetchAudit(url, idToken, months = 6) {
   return (await ask(url, idToken, { action: 'audit', months })).entries;
 }

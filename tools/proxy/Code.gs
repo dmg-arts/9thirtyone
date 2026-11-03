@@ -81,7 +81,7 @@ var PROXY_VERSION = '1.4.0';
  * the suite rather than deploying a marker that quietly describes the previous
  * build.
  */
-var BUILD = '2241f7a4';
+var BUILD = 'a15f3d4d';
 
 /** Refuse anything larger; a submission is a few KB at most. */
 var MAX_BODY_BYTES = 96 * 1024;
@@ -454,7 +454,7 @@ function doPost(e) {
       return json({ ok: true, people: readPeople(root, account) });
     }
     if (body.action === 'peopleSummary') {
-      return json({ ok: true, summary: readPeopleSummary(root, account) });
+      return json({ ok: true, summary: readPeopleSummary(root, account, body.spaces) });
     }
     if (body.action === 'roster') {
       return json({ ok: true, users: readRoster(root) });
@@ -2115,9 +2115,30 @@ function countDocsInFolders_(folderIds) {
  * next field somebody adds. Compare `readRoster`, which returns records whole
  * to screens that are entitled to them.
  */
-function readPeopleSummary(root, account) {
+function readPeopleSummary(root, account, wanted) {
   var tier = peopleTierFor(account);
   var spaces = spacesFor(account);
+
+  // Narrowed to the panel that asked, because a count cannot be narrowed
+  // afterwards the way a list can: `people` returns records the client filters
+  // by space, and this returns totals, which are already summed by the time
+  // they arrive. A cadre panel showing detachment counts would be quietly
+  // wrong rather than visibly wrong.
+  //
+  // **Intersected, never trusted.** The client names which of its spaces it
+  // wants; anything outside what this account may see is dropped. An empty or
+  // absent list means all of them, which is what the deployed 1.4.0 did before
+  // this parameter existed.
+  if (wanted && wanted.length) {
+    var allowed = [];
+    for (var w = 0; w < wanted.length; w++) {
+      for (var a = 0; a < spaces.length; a++) {
+        if (spaces[a] === wanted[w]) allowed.push(spaces[a]);
+      }
+    }
+    spaces = allowed;
+  }
+
   var roster = readRoster(root);
 
   var subjects = {};

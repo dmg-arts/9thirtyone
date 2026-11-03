@@ -1513,6 +1513,63 @@ check('peopleSummary is built by whitelist, so a roster field cannot leak', () =
   }
 });
 
+check('peopleSummary counts only the spaces the panel asked for', () => {
+  // A count cannot be narrowed after the fact the way a list can. `people`
+  // returns records and the client filters them by space; this returns totals,
+  // already summed. A cadre panel showing detachment numbers would be quietly
+  // wrong, which is the worst kind.
+  const proxy = detachment();
+  // The fixture's requests carry no subject, and readPeopleSummary counts per
+  // subject — without these both totals are zero and the check passes against
+  // anything. Re-stated rather than assumed.
+  for (const [space, segments] of [['shared', ['requests']], ['cadre', ['cadre', 'requests']]]) {
+    proxy.root.put(segments, `req_${space}.json`, {
+      id: `req_${space}`, formId: 'form_1', title: `${space} feedback`, status: 'open',
+      asClass: 'AS200', anonymous: true, space, assignedUsernames: [], subject: 'instructor',
+    });
+  }
+  proxy.post({ action: 'submit', idToken: as('cadet'), requestId: 'req_shared', answers: { q1: 5 } });
+  proxy.post({ action: 'submit', idToken: as('cadet'), requestId: 'req_cadre', answers: { q1: 7 } });
+
+  const all = proxy.post({ action: 'peopleSummary', idToken: as('commander') });
+  const cadreOnly = proxy.post({ action: 'peopleSummary', idToken: as('commander'), spaces: ['cadre'] });
+  if (!all.ok || !cadreOnly.ok) throw new Error('refused');
+
+  const total = (out) => out.summary.staff.reduce((n, p) => n + p.responses, 0);
+  if (total(all) <= total(cadreOnly)) {
+    throw new Error(`unfiltered counted ${total(all)}, cadre-only ${total(cadreOnly)} — `
+      + 'the filter did nothing');
+  }
+});
+
+check('a client cannot widen its own scope through that filter', () => {
+  // The list is intersected with what the account may see, never trusted. An
+  // instructor naming the commander space must not be handed it.
+  const proxy = detachment();
+  proxy.root.put(['commander', 'requests'], 'req_commander.json', {
+    id: 'req_commander', formId: 'form_1', title: 'commander feedback', status: 'open',
+    asClass: 'AS200', anonymous: true, space: 'commander', assignedUsernames: [],
+    subject: 'instructor',
+  });
+  proxy.post({ action: 'submit', idToken: as('cadet'), requestId: 'req_commander', answers: { q1: 9 } });
+
+  // Proof the fixture works at all: a commander, who may see that space, counts
+  // it. Without this the check below passes whether the filter works or not.
+  const visible = proxy.post({ action: 'peopleSummary', idToken: as('commander') });
+  const seen = visible.summary.staff.reduce((n, p) => n + p.responses, 0);
+  if (seen !== 1) throw new Error(`the fixture counted ${seen}, so this proves nothing`);
+
+  const asked = proxy.post({
+    action: 'peopleSummary', idToken: as('instructor'),
+    spaces: ['shared', 'cadre', 'commander'],
+  });
+  if (!asked.ok) throw new Error(`refused: ${asked.error}`);
+  const counted = asked.summary.staff.reduce((n, p) => n + p.responses, 0);
+  if (counted !== 0) {
+    throw new Error(`an instructor was given ${counted} response(s) from spaces it cannot see`);
+  }
+});
+
 check('peopleSummary is refused to a cadet, like every staff action', () => {
   const proxy = detachment();
   const out = proxy.post({ action: 'peopleSummary', idToken: as('cadet') });

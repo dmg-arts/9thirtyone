@@ -40,7 +40,7 @@ import {
 import { PRIVACY, ROLE_LABELS, nearestAnchor, scaleValues } from '../config.js';
 import { describe, histogram } from '../analysis/stats.js';
 import { inSpaces } from '../panels.js';
-import { loadPeople } from '../data-source.js';
+import { loadPeople, loadPeopleSummary } from '../data-source.js';
 import { subjectOf } from '../people-scope.js';
 import { spaceShort, isRestricted } from '../spaces.js';
 import { navigate } from '../router.js';
@@ -110,8 +110,58 @@ function groupByPerson(requests, responses, formsById, staffByUsername) {
   });
 }
 
+/**
+ * The list as the summary knows it: who, and how much, with no feedback read.
+ *
+ * Deliberately the same table as the full view minus the rating column, so
+ * that when the real data lands the screen gains a column rather than
+ * rearranging itself under somebody's cursor.
+ */
+function summaryList(summary) {
+  const body = el('tbody');
+  for (const person of summary.staff) {
+    mount(body, el('tr', {},
+      el('td', {},
+        el('div', { style: { fontWeight: '550' } }, person.name || person.username),
+        el('div', { class: 'faint' },
+          (person.roles || []).map((r) => ROLE_LABELS[r] || r).join(', '))),
+      el('td', { class: 'num' }, String(person.requests)),
+      el('td', { class: 'num' }, String(person.responses)),
+      el('td', { class: 'faint' }, 'Reading feedback…')));
+  }
+  return el('div', { class: 'stack' },
+    el('div', { class: 'table-wrap' },
+      el('table', { class: 'table' },
+        el('thead', {}, el('tr', {},
+          el('th', {}, 'Person'),
+          el('th', { class: 'num' }, 'Requests'),
+          el('th', { class: 'num' }, 'Responses'),
+          el('th', {}, 'Overall'))),
+        body)));
+}
+
 export async function renderPeople(host, { spaces = null } = {}) {
   remount(host, spinner('Gathering feedback by person…'));
+
+  // The landing, which costs two round trips instead of sixteen.
+  //
+  // `people` reads every response in scope before anything appears — 9.6s on
+  // staging, and it was never completing at all before 1.4. Most of the time
+  // the question being asked is "who is there, and how much of it", which the
+  // server can answer by counting rather than reading. So the list arrives
+  // first and the feedback itself is fetched behind it, for the moment
+  // somebody opens a person.
+  //
+  // Scoped server-side: these are totals, and a total cannot be narrowed after
+  // the fact the way a list can.
+  let summary = null;
+  try {
+    summary = await loadPeopleSummary(spaces);
+  } catch {
+    // Not fatal. The full read below is the authority; this was only ever a
+    // way to put something on screen sooner.
+  }
+  if (summary) remount(host, summaryList(summary));
 
   let people;
   try {

@@ -86,10 +86,16 @@ export function proxyTimings() {
  * cadet's submission fails. Measuring is the least important thing happening on
  * this code path.
  */
-function recordTiming(action, ms, ok) {
+function recordTiming(action, ms, served, accepted) {
   try {
     const rows = proxyTimings();
-    rows.push({ at: new Date().toISOString(), action, ms: Math.round(ms), ok });
+    rows.push({
+      at: new Date().toISOString(), action, ms: Math.round(ms),
+      // Kept as `ok` so older files stay readable, and it still means what it
+      // always did: the round trip completed. `accepted` is the new half — did
+      // the server say yes — and it is what tells a refusal from a success.
+      ok: served, accepted: accepted === undefined ? null : accepted,
+    });
     localStorage.setItem(LS.proxyTimings, JSON.stringify(rows.slice(-TIMINGS_KEPT)));
   } catch { /* measuring must not break anything */ }
 }
@@ -182,6 +188,7 @@ async function postJson(url, payload, { timeoutMs = TIMEOUT_MS } = {}) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const began = Date.now();
   let served = false;
+  let accepted = null;
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -205,6 +212,7 @@ async function postJson(url, payload, { timeoutMs = TIMEOUT_MS } = {}) {
     try {
       const parsed = JSON.parse(text);
       served = true;
+      accepted = parsed?.ok === true;
       return parsed;
     } catch {
       // Apps Script serves a sign-in page when a deployment is set to anything
@@ -229,7 +237,12 @@ async function postJson(url, payload, { timeoutMs = TIMEOUT_MS } = {}) {
     throw err;
   } finally {
     clearTimeout(timer);
-    recordTiming(payload?.action || 'post', Date.now() - began, served);
+    // `served` is "the server answered", not "the action succeeded". A refused
+    // deleteRequest recorded ok:true exactly like a completed one, and on
+    // 30 Oct only scale.requests staying at 6 showed otherwise. It matters now
+    // that scale.responses does not exist in proxy mode and the beta plan
+    // leans on roundTrips as its instrument, so the field says what it means.
+    recordTiming(payload?.action || 'post', Date.now() - began, served, accepted);
   }
 }
 

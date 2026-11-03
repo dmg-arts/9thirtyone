@@ -216,6 +216,41 @@ export function setDirectSignIn(on) {
 }
 
 /**
+ * The oldest submission server this client can work against.
+ *
+ * `PROXY_VERSION` lives in the detachment's own Apps Script project and moves
+ * only when somebody pastes a new `Code.gs`. The two halves of a release
+ * therefore move at different times and by different hands: on 10 Nov the
+ * server is pasted first and the client follows, and a server rollback is two
+ * clicks while a client rollback is a revert, a cache bump and a wait.
+ *
+ * So the halves must be able to sit at different versions, and the client must
+ * be able to say which pairing it cannot work with. Without this, a 1.4 client
+ * against a rolled-back 1.3.1 server reports "That action is not implemented"
+ * — true, useless, and indistinguishable from a bug.
+ *
+ * **A minimum, never an equality.** A server *ahead* of its client is the
+ * normal state for days after a release and must keep working.
+ */
+export const MINIMUM_PROXY_VERSION = '1.4.0';
+
+/**
+ * Compares dotted versions numerically: '1.10.0' is above '1.9.0'.
+ *
+ * A string compare would call it below, which is the kind of wrong that waits
+ * nine releases and then breaks on the day nobody is expecting it.
+ */
+export function proxyVersionAtLeast(found, required = MINIMUM_PROXY_VERSION) {
+  const parts = (text) => String(text || '').split('.').map((n) => parseInt(n, 10) || 0);
+  const a = parts(found);
+  const b = parts(required);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0);
+  }
+  return true;
+}
+
+/**
  * Whether this device plausibly has a smart-card reader attached.
  *
  * Not a detection — nothing in a browser can see a CAC, and the things that

@@ -16,7 +16,8 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { needsSubmissionServer, mayHaveCardReader } from '../../js/config.js';
+import { needsSubmissionServer, mayHaveCardReader, proxyVersionAtLeast,
+  MINIMUM_PROXY_VERSION } from '../../js/config.js';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 const read = (path) => readFileSync(ROOT + path, 'utf8');
@@ -148,6 +149,68 @@ check('the stall watch is cleared on both outcomes, not just success', () => {
   const errored = /onError:[\s\S]{0,80}?stopStallWatch/.test(gate);
   if (!credential) throw new Error('a successful sign-in does not stop the watch');
   if (!errored) throw new Error('a failed sign-in does not stop the watch');
+});
+
+/* ------------------------------------------------------------------ *
+ * the two halves at different versions — phase 2
+ * ------------------------------------------------------------------ */
+
+/*
+ * On 10 Nov the server is pasted first and the client follows days later, and
+ * a server rollback is two clicks where a client rollback is a revert, a cache
+ * bump and a wait. The halves therefore sit at different versions by design,
+ * and the client has to know which pairings it cannot work with.
+ */
+check('a server ahead of its client is fine, which is the normal state after a release', () => {
+  for (const ahead of ['1.4.0', '1.4.1', '1.5.0', '2.0.0']) {
+    if (!proxyVersionAtLeast(ahead)) throw new Error(`${ahead} was rejected`);
+  }
+});
+
+check('a server behind its client is not, because half the actions do not exist', () => {
+  for (const behind of ['1.3.1', '1.2.0', '1.1.0', '0.9', '']) {
+    if (proxyVersionAtLeast(behind)) throw new Error(`${behind} was accepted`);
+  }
+});
+
+check('versions compare as numbers, not as strings', () => {
+  // '1.10.0' sorts below '1.9.0' as text. That is the kind of wrong that waits
+  // nine releases and then breaks on a day nobody is expecting it.
+  if (!proxyVersionAtLeast('1.10.0', '1.9.0')) {
+    throw new Error('1.10.0 was treated as older than 1.9.0');
+  }
+  if (proxyVersionAtLeast('1.9.0', '1.10.0')) {
+    throw new Error('1.9.0 was treated as newer than 1.10.0');
+  }
+});
+
+check('the client says what to do, not that an action is missing', () => {
+  const ds = read('js/data-source.js');
+  const shown = ds.slice(ds.indexOf('proxyVersionAtLeast(body.version)'), ds.indexOf("status: 'ready'"));
+  if (!/submission server/i.test(shown)) {
+    throw new Error('the message does not name the submission server');
+  }
+  if (!/deploy a new version/i.test(shown)) throw new Error('it does not say what to do');
+  if (!shown.includes('MINIMUM_PROXY_VERSION')) {
+    throw new Error('the message hard-codes a version instead of naming the constant');
+  }
+});
+
+check('a worker rollover asks before reloading, and the notice does not expire', () => {
+  // skipWaiting() plus clients.claim() purges the old cache while tabs are
+  // open, and there are live dynamic imports. Reaching one afterwards gets a
+  // new build's module into an old build's page — mid-submit, that costs a
+  // cadet their answers. Which is also why it asks: a reload during a
+  // submission loses exactly what it is protecting.
+  const app = read('js/app.js');
+  if (!/controllerchange/.test(app)) throw new Error('nothing listens for a worker rollover');
+  if (/controllerchange[\s\S]{0,400}?location\.reload\(\)\s*;?\s*\}\s*\)/.test(app)
+    && !/Reload now/.test(app)) {
+    throw new Error('it reloads on its own instead of asking');
+  }
+  if (!/toast\([^)]*,\s*'info',\s*0\)/.test(app)) {
+    throw new Error('the notice is on a timer, so it hides a condition that is still true');
+  }
 });
 
 console.log(failures

@@ -31,7 +31,7 @@ import {
   deleteAccountViaProxy, rolloverViaProxy, recordAuditViaProxy,
 } from './storage/proxy.js';
 import { currentIdToken, currentUser, IDENTITY_CHANGED } from './session.js';
-import { ROLES } from './config.js';
+import { ROLES, MINIMUM_PROXY_VERSION, proxyVersionAtLeast } from './config.js';
 import { peopleScope } from './people-scope.js';
 import { recent as recentAudit, record as recordAuditDirect } from './audit.js';
 
@@ -73,6 +73,24 @@ export async function connectionStatus() {
       }
       const body = await response.json();
       if (body?.service === PROXY_SERVICE) {
+        // A server older than this client can answer some actions and not
+        // others, so without this the first screen that needs a new one says
+        // "That action is not implemented" — true, useless, and
+        // indistinguishable from a bug.
+        //
+        // It is the pairing that matters, not the number: on ship day the
+        // server moves first and the client follows days later, so a server
+        // *ahead* of its client is normal and must stay quiet. Only behind is
+        // worth saying, and the pill is where it belongs — persistent, and
+        // visible before somebody opens the screen that would have failed.
+        if (!proxyVersionAtLeast(body.version)) {
+          return {
+            status: 'error',
+            detail: `Your detachment's submission server is version ${body.version || 'unknown'} `
+              + `and this app needs ${MINIMUM_PROXY_VERSION}. Ask whoever installed it to paste `
+              + 'the current Code.gs and deploy a new version.',
+          };
+        }
         return { status: 'ready', detail: 'Through your detachment\'s server' };
       }
       // The pre-rename script answers, so "did not answer properly" was both

@@ -298,11 +298,17 @@ export function toast(message, tone = 'info', ms = 4000) {
   const host = $('#toasts') || document.body.appendChild(el('div', { id: 'toasts', class: 'toasts', role: 'status', 'aria-live': 'polite' }));
   const node = el('div', { class: `toast toast--${tone}` }, icon(TOAST_ICONS[tone] || 'info'), el('div', {}, message));
   host.append(node);
-  setTimeout(() => {
-    node.style.opacity = '0';
-    node.style.transition = 'opacity 200ms';
-    setTimeout(() => node.remove(), 220);
-  }, ms);
+  // `ms <= 0` means stay. Most toasts report something that has finished and
+  // should go away on its own; a few report a condition that is still true —
+  // a worker rollover that has already happened, say — and one of those timing
+  // out just hides the thing it was telling you about.
+  if (ms > 0) {
+    setTimeout(() => {
+      node.style.opacity = '0';
+      node.style.transition = 'opacity 200ms';
+      setTimeout(() => node.remove(), 220);
+    }, ms);
+  }
   return node;
 }
 

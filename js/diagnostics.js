@@ -242,7 +242,11 @@ async function proxy() {
     roundTrips: rows.map((r) => ({
       action: r.action,
       ms: r.ms,
+      // `ok` is "the server answered". `accepted` is "the server said yes".
+      // A refused deleteRequest reads ok:true exactly like a completed one,
+      // which is how a refusal looked identical to a success on 30 Oct.
       ok: r.ok,
+      accepted: r.accepted === undefined ? null : r.accepted,
       sinceFirstMs: first ? Date.parse(r.at) - first : null,
     })),
   };

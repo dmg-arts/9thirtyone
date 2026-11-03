@@ -331,6 +331,32 @@ if ('serviceWorker' in navigator) {
         });
       });
     }).catch((err) => console.warn('[sw] registration failed', err));
+
+    /*
+     * A new worker took over while this page was still running.
+     *
+     * `skipWaiting()` plus `clients.claim()` means a new worker activates
+     * immediately, and `activate` deletes the previous cache. This page keeps
+     * running against modules from a build that no longer exists — and it
+     * dynamic-imports several of them: migrations.js, storage/proxy.js,
+     * data-source.js. Reaching one after the rollover gets code from the new
+     * build into a page running the old one.
+     *
+     * Mid-submit, that costs a cadet their answers. Which is also why this
+     * asks rather than reloads: a reload during a submission loses exactly
+     * what it is meant to protect. The page keeps working until they say so.
+     */
+    let rolledOver = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (rolledOver) return;      // Fires again on every later claim.
+      rolledOver = true;
+      const notice = toast('This app has been updated in the background.', 'info', 0);
+      mount(notice, el('button', {
+        type: 'button', class: 'btn btn--sm',
+        style: { marginLeft: 'var(--sp-3)' },
+        onclick: () => window.location.reload(),
+      }, 'Reload now'));
+    });
   });
 }
 

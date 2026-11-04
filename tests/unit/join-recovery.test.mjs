@@ -94,6 +94,35 @@ check('the join card is shared, not copied', () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * the home screen and the counts it cannot read
+ * ------------------------------------------------------------------ */
+
+check('the home screen checks before reading counts, rather than catching after', () => {
+  // `overview` is instructor and above, so a cadet — or anyone signed out —
+  // was refused and fell into the catch, which paints "Not reachable" and
+  // "The database could not be read". Stage 7 made that the first thing every
+  // cadet saw, because joining now lands on /home.
+  //
+  // Source-level on purpose, and worth saying why: the browser suite runs the
+  // local backend, where canDoMaintenance() is true and db.stats() is read off
+  // the device with no role check. It cannot reach this path at all, so a
+  // behavioural test there passes whether the guard exists or not — which is
+  // exactly what happened before this check was written.
+  const home = read('js/views/home.js');
+  const guard = home.indexOf('mayReadCounts');
+  const call = home.indexOf('loadOverview()');
+  if (guard < 0) throw new Error('the home screen no longer checks who is asking');
+  if (call < 0) throw new Error('the counts read has moved — recheck this assertion');
+  if (guard > call) {
+    throw new Error('the check happens after the read, so a cadet still triggers the refusal');
+  }
+  if (!/role !== ROLES\.student/.test(home)) {
+    throw new Error('the guard is not "holds a role that is not student" — a panel check '
+      + 'would wrongly exclude a database administrator, since admin implies no other role');
+  }
+});
+
+/* ------------------------------------------------------------------ *
  * the CAC stall — stage 9
  * ------------------------------------------------------------------ */
 

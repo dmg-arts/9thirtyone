@@ -344,6 +344,41 @@ await step('the wrong door names the right one instead of advising an administra
   }
 });
 
+await step('a cadet landing on Home is not told the database is unreadable', async () => {
+  // The fault stage 7 made universal. `overview` is instructor and above, so a
+  // cadet was refused, fell into the catch, and got a red "Not reachable"
+  // badge and "The database could not be read" — on the screen that exists to
+  // reassure them the app is working. Joining now lands on /home, so that was
+  // the first thing every cadet saw.
+  //
+  // Nothing caught it because every other cadet check goes straight to
+  // #/student, and all four #/home visits in this suite are staff.
+  await signInAs(STUDENT_EMAIL, 'Mia Alvarez', 'student');
+  await page.goto(`${BASE}#/home`, { waitUntil: 'networkidle' });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.role-card', { timeout: 10000 });
+  // Long enough that a counts read would have resolved and painted.
+  await page.waitForTimeout(1500);
+
+  const shown = await page.textContent('#view');
+  if (/database could not be read/i.test(shown)) {
+    throw new Error('a cadet is still told the database is unreadable');
+  }
+  if (/Not reachable/i.test(shown)) {
+    throw new Error('a cadet still sees the Not reachable badge');
+  }
+  try {
+    // And the doors are still there — the screen must not have gone blank.
+    if (!/Cadet/.test(shown)) throw new Error('the cadet door vanished with the counts');
+  } finally {
+    // The next step reloads whatever page this one left behind and expects the
+    // student list. Fourth time in this suite that a check has moved the route
+    // and reported its neighbours as broken; the rule is simply that a step
+    // which moves identity or route puts both back.
+    await page.goto(`${BASE}#/student`, { waitUntil: 'networkidle' });
+  }
+});
+
 await step('the cadet signs in and sees their feedback', async () => {
   await signInAs(STUDENT_EMAIL, 'Mia Alvarez', 'student');
   await page.reload({ waitUntil: 'networkidle' });

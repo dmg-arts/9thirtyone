@@ -1570,6 +1570,23 @@ check('a client cannot widen its own scope through that filter', () => {
   }
 });
 
+check('overview is refused to a cadet — the premise the home screen must respect', () => {
+  // Not a new rule; `overview` has always been instructor and above. It is
+  // asserted here because the home screen called it for everybody and showed
+  // the refusal as "The database could not be read", and nothing anywhere
+  // stated the thing that made that inevitable.
+  //
+  // The browser suite cannot cover it: it runs the local backend, where
+  // canDoMaintenance() is true and db.stats() is read straight off the device
+  // with no role check. The fault exists only in proxy mode.
+  const proxy = detachment();
+  const refused = proxy.post({ action: 'overview', idToken: as('cadet') });
+  if (refused.ok) throw new Error('a cadet was given the detachment overview');
+
+  const allowed = proxy.post({ action: 'overview', idToken: as('instructor') });
+  if (!allowed.ok) throw new Error(`an instructor was refused: ${allowed.error}`);
+});
+
 check('peopleSummary is refused to a cadet, like every staff action', () => {
   const proxy = detachment();
   const out = proxy.post({ action: 'peopleSummary', idToken: as('cadet') });

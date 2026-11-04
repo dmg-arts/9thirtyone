@@ -8,7 +8,7 @@ import { connection } from '../state.js';
 import { db } from '../storage/index.js';
 import { canDoMaintenance, loadOverview } from '../data-source.js';
 import { navigate } from '../router.js';
-import { APP, ROLE_LABELS, needsSubmissionServer } from '../config.js';
+import { APP, ROLE_LABELS, ROLES, needsSubmissionServer } from '../config.js';
 import { currentUser, activeRoles } from '../auth.js';
 import { PANELS, canOpenPanel } from '../panels.js';
 import { joinLinkCard } from './join-card.js';
@@ -74,11 +74,35 @@ export async function renderHome(root) {
         counts)),
   );
 
+  // Nobody who cannot read the counts should be asked to watch them fail.
+  //
+  // `overview` is instructor and above, so a cadet — or anyone signed out —
+  // was refused, landed in the catch below, and got a red "Not reachable"
+  // badge and "The database could not be read" on the one screen that exists
+  // to reassure them the app is working.
+  //
+  // That sat dormant while cadets landed on /student. Stage 7 made it
+  // universal: joining now lands on /home, so every cadet who joins by link
+  // met an error panel on first open. Found 4 Nov, by reading rather than by
+  // any test — every cadet check navigates straight to #/student, and the
+  // four #/home visits in the browser suite are all staff.
+  //
+  // Tested as "holds a role that is not student", which is what `overview`
+  // means and what the server itself uses in readPeopleSummary. Not a panel
+  // check: `admin` implies no other role, so a database administrator with no
+  // teaching role would have been wrongly excluded.
+  const mayReadCounts = activeRoles().some((role) => role !== ROLES.student);
+  if (!mayReadCounts) {
+    // Nothing, deliberately. The doors above are what this screen is for, and
+    // a cadet has no use for detachment totals.
+    remount(counts);
+    return;
+  }
+
   // Counts are a live read, so keep them off the critical render path.
   try {
     // In proxy mode this device has no storage adapter, so db.stats() throws and
-    // the home screen told a cadet their database was unreadable — on the one
-    // screen that exists to reassure them the app is working. The Instructor
+    // the home screen told a cadet their database was unreadable. The Instructor
     // Panel already forks the same call; this is that fork, applied here too.
     const stats = canDoMaintenance()
       ? await db.stats()

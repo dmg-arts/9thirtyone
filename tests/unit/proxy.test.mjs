@@ -521,6 +521,31 @@ check('every frozen release declares the version in its own filename', () => {
   }
 });
 
+/**
+ * A snapshot usually records a version `Code.gs` has already left behind, so it
+ * normally differs from it. The exception is a snapshot taken *before* the
+ * paste, so there is an unambiguous artefact to send and to paste from — which
+ * is why `Code-1.4.0.gs` exists while `Code.gs` is still 1.4.0.
+ *
+ * That copy is only worth having if it cannot quietly go stale. Edit `Code.gs`
+ * and the staged file is no longer what ships, while still being named as
+ * though it were — and the one being emailed is the one nobody re-checks.
+ *
+ * Self-retiring: the moment `PROXY_VERSION` moves past a snapshot's version,
+ * that snapshot stops being compared and goes back to being an archive.
+ */
+check('a snapshot naming the live version is byte-identical to Code.gs', () => {
+  const live = /var PROXY_VERSION = '([^']+)'/.exec(SOURCE);
+  if (!live) throw new Error('Code.gs declares no PROXY_VERSION');
+  const staged = `Code-${live[1]}.gs`;
+  const files = readdirSync(RELEASES).filter((f) => f.endsWith('.gs'));
+  if (!files.includes(staged)) return;
+  if (readFileSync(new URL(staged, RELEASES), 'utf8') !== SOURCE) {
+    throw new Error(`${staged} has drifted from Code.gs — it is the file that gets `
+      + 'pasted, so re-copy it or delete it rather than shipping a stale one');
+  }
+});
+
 check('the rollback snapshot still matches the tag it claims to be', () => {
   // 1.3.1 is what Det 752 is running and what goes back in if 1.4.0 comes out.
   let tagged;

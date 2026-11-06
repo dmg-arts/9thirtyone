@@ -1,12 +1,22 @@
 # Previous proxy versions, kept for the record
 
 `../Code.gs` is the live file — the one that gets pasted, and the one the tests
-run. **These are the versions it used to be.** Nothing here is current by
-design; if a file here matches `Code.gs`, something has gone wrong.
+run. **These are the versions it used to be.**
+
+Normally nothing here matches `Code.gs`, because a snapshot is taken of the
+*outgoing* version. There is one deliberate exception, below.
 
 | File | What it is |
 |---|---|
 | `Code-1.3.1.gs` | **What Det 752 is running right now.** Byte-identical to `v1.3.1-beta.1`. Also the rollback text if 1.4.0 has to come out |
+| `Code-1.4.0.gs` | **The file pasted at Det 752 on 9 Nov 2026**, staged early and deliberately identical to `../Code.gs`. Build `a15f3d4d`, 2,602 lines. Staged because the paste is done from a laptop on the detachment's wifi, and `main` still serves 1.3.1 at the raw link the setup guide gives — see below. After the 9th this is simply what they are running, the role `Code-1.3.1.gs` holds today |
+
+**Why a copy of the current file is here at all.** `docs/SETUP-VALUES.md` points
+at `raw.githubusercontent.com/.../main/tools/proxy/Code.gs`, and the server half
+has not been merged to `main` — so that link serves **1.3.1**, the file being
+replaced. Pasting it would look like success: `doGet` would answer `1.3.1`, which
+reads as "the deployment has not rolled yet" rather than as the mistake it is.
+This snapshot is the unambiguous artefact to send and to paste from.
 
 ## The discipline
 

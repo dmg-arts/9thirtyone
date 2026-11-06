@@ -6,7 +6,7 @@ design; if a file here matches `Code.gs`, something has gone wrong.
 
 | File | What it is |
 |---|---|
-| `Code-1.3.1.gs` | **What Det 752 is running right now.** Byte-identical to `v1.3.1-beta.1`. Also the rollback text if 1.4.0 has to come out on 10 Nov |
+| `Code-1.3.1.gs` | **What Det 752 is running right now.** Byte-identical to `v1.3.1-beta.1`. Also the rollback text if 1.4.0 has to come out |
 
 ## The discipline
 

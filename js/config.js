@@ -220,7 +220,7 @@ export function setDirectSignIn(on) {
  *
  * `PROXY_VERSION` lives in the detachment's own Apps Script project and moves
  * only when somebody pastes a new `Code.gs`. The two halves of a release
- * therefore move at different times and by different hands: on 10 Nov the
+ * therefore move at different times and by different hands: on release day the
  * server is pasted first and the client follows, and a server rollback is two
  * clicks while a client rollback is a revert, a cache bump and a wait.
  *

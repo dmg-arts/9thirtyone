@@ -216,6 +216,36 @@ h1[tabindex="-1"]:focus { outline: none; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .appbar__spacer { flex: 1; }
+
+/* The way home, which beta feedback found too easy to miss as a bare icon.
+   The label follows the same rule as .conn__label below: hidden on a phone,
+   where the appbar is already carrying a brand, a queue pill and two controls,
+   and shown from 34rem up — which is every laptop the detachment uses. */
+.appbar__back { flex: none; gap: var(--sp-2); padding-inline: 0; width: 2.5rem; }
+.appbar__back-label { display: none; }
+@media (min-width: 34rem) {
+  /* Only here does it get a word and the room for one. Below this the appbar
+     is already carrying a brand, a queue pill and two controls, and the button
+     stays the same square it has always been — the first attempt at this let
+     the default .btn padding apply at every width and pushed the whole page
+     7px sideways on a phone. */
+  .appbar__back { padding-inline: var(--sp-3); width: auto; }
+  .appbar__back-label { display: inline; }
+}
+
+/* Staging only. Loud on purpose: this is the one thing distinguishing an
+   installed staging build from the detachment's real app on the same phone. */
+.appbar__staging {
+  flex: none;
+  padding: 2px var(--sp-2);
+  border-radius: 4px;
+  background: #b4005a;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
 .appbar__brand { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .appbar__mark {
   width: 2rem; height: 2rem; flex: none; border-radius: var(--radius-sm);

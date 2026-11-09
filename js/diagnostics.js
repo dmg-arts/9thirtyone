@@ -167,6 +167,16 @@ async function build() {
   return {
     appVersion: APP.version,
     schemaVersion: APP.schemaVersion,
+    // Which copy of the app this is. Without it a file from staging and a file
+    // from production are identical, which matters from 1.4 on: diagnostics
+    // becomes the release-gate artefact, and "the numbers improved" is worth
+    // nothing if nobody can tell which host produced them.
+    //
+    // Safe under this file's own contract. The origin is the app's public
+    // address, the same string for every detachment on it, and it addresses the
+    // publisher rather than anybody's data — unlike the proxy URL, which is a
+    // working endpoint and stays out.
+    origin: location.origin,
     shellCaches: caches,
     serviceWorker: worker,
   };
@@ -232,7 +242,11 @@ async function proxy() {
     roundTrips: rows.map((r) => ({
       action: r.action,
       ms: r.ms,
+      // `ok` is "the server answered". `accepted` is "the server said yes".
+      // A refused deleteRequest reads ok:true exactly like a completed one,
+      // which is how a refusal looked identical to a success on 30 Oct.
       ok: r.ok,
+      accepted: r.accepted === undefined ? null : r.accepted,
       sinceFirstMs: first ? Date.parse(r.at) - first : null,
     })),
   };

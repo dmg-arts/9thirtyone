@@ -319,7 +319,21 @@ export async function signInWithGoogle(profile, requiredRole = null, rawToken = 
     throw new Error('That account has been deactivated. Ask an administrator.');
   }
   if (requiredRole && !account.roles?.includes(requiredRole)) {
-    throw new Error(`${email} does not have ${ROLE_ACCESS[requiredRole] || requiredRole} access.`);
+    // This refusal is different in kind from the two above it, and the screen
+    // needs to be able to tell. A missing roster entry or a deactivated account
+    // is something only an administrator can fix. This one means the account is
+    // on the roster, correctly, holding roles that work — just not here. The
+    // only thing wrong is which view the person is standing in front of.
+    //
+    // Told apart only by a string, the sign-in screen matched all three as
+    // "roster refusal" and advised an instructor on the cadet gate to ask an
+    // administrator to add them as a cadet, which is both useless and wrong.
+    // So the roles the account *does* hold ride along on the error, and
+    // renderLogin uses them to offer the view that would have worked.
+    const refusal = new Error(
+      `${email} does not have ${ROLE_ACCESS[requiredRole] || requiredRole} access.`);
+    refusal.heldRoles = [...(account.roles || [])];
+    throw refusal;
   }
 
   // Keep the roster's display name in step with Google's, so a married name or

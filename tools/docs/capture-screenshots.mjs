@@ -82,6 +82,12 @@ const signInAs = (email, role = null) => page.evaluate(async ([e, r]) => {
 
 /* ---------- setup wizard ---------- */
 await page.goto(BASE, { waitUntil: 'networkidle' });
+// The fork now precedes the wizard — see askTheFork() in js/views/setup.js.
+// Captured too, because it is the first screen a cadet with a fresh icon sees
+// and the guides tell them what to tap on it.
+await page.waitForSelector('.btn--lg:has-text("I was sent a join link")');
+await shot('setup-0-fork');
+await page.click('.btn--lg:has-text("I am creating this detachment")');
 await page.waitForSelector('.wizard');
 await shot('setup-1-org');
 

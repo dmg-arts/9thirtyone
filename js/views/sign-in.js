@@ -13,12 +13,13 @@
  */
 
 import { el, icon, field, notice, toast, remount, spinner } from '../util.js';
-import { ROLES, isDirectSignIn } from '../config.js';
+import { ROLES, ROLE_LABELS, isDirectSignIn, effectiveRoles, mayHaveCardReader } from '../config.js';
 import { signInWithGoogle, signInAsDeveloper, hasAnyAccount } from '../auth.js';
 import { renderSignInButton } from '../google-identity.js';
 import { connection } from '../state.js';
 import { warmProxy } from '../storage/proxy.js';
 import { navigate } from '../router.js';
+import { PANELS } from '../panels.js';
 
 // Keyed by every role that can reach this screen. The Cadre Panel calls
 // renderLogin with ROLES.cadre and the commander's space with ROLES.commander
@@ -40,6 +41,30 @@ const DENIED_HELP = {
     + 'database administrator.',
   [ROLES.admin]: 'Ask an existing administrator to add this account.',
 };
+
+/**
+ * The view this account could have signed into.
+ *
+ * Only for the refusal that is purely about which gate the person is standing
+ * at: the roster accepted them, holding roles that work, and this screen asked
+ * for a different one. Ordered most capable first, so a cadre member is offered
+ * the Cadre Panel rather than the instructor one their role also implies.
+ *
+ * Reads `effectiveRoles` rather than the roster's literal list, so the door
+ * offered here is one Home would also show them once they are through it.
+ * Returns null for an account holding nothing routable, which falls back to the
+ * ordinary refusal rather than offering a door that leads nowhere.
+ */
+function doorFor(heldRoles) {
+  const held = effectiveRoles(heldRoles);
+  const doors = [
+    [ROLES.cadre, PANELS.cadre.path, 'the Cadre Panel'],
+    [ROLES.instructor, PANELS.instructor.path, 'the Instructor Panel'],
+    [ROLES.student, '/student', 'your feedback'],
+  ];
+  const match = doors.find(([r]) => held.includes(r));
+  return match ? { path: match[1], title: match[2] } : null;
+}
 
 /**
  * Renders the gate and calls `onSuccess(account)` once the signed-in email
@@ -69,7 +94,27 @@ export async function renderLogin(root, role, title, onSuccess) {
   // evidence for, and the real message above it was read as noise.
   const isRosterRefusal = (message) => /roster|does not have|deactivated/i.test(message);
 
-  const fail = (message) => {
+  const fail = (message, err = null) => {
+    // An account refused only for holding the wrong role is not a failure the
+    // person can act on by asking anyone. Say which view does work and put the
+    // button to it right here, rather than reporting a dead end and leaving them
+    // to guess that another panel would have let them in.
+    const held = err?.heldRoles;
+    const door = held?.length ? doorFor(held) : null;
+    if (door) {
+      const labels = held.map((r) => ROLE_LABELS[r] || r).join(', ');
+      remount(error, notice('warn', 'Wrong sign-in for this account',
+        el('p', {}, message),
+        el('p', { class: 'field__hint' },
+          `This account is on the roster as ${labels}, so nothing needs to change `
+          + '\u2014 it just cannot sign in on this screen.'),
+        el('button', {
+          type: 'button', class: 'btn btn--primary',
+          onclick: () => navigate(door.path),
+        }, `Go to ${door.title}`)));
+      error.hidden = false;
+      return;
+    }
     remount(error, notice('danger', 'Not signed in',
       el('p', {}, message),
       isRosterRefusal(message) ? el('p', { class: 'field__hint' }, DENIED_HELP[role]) : null));
@@ -104,6 +149,68 @@ export async function renderLogin(root, role, title, onSuccess) {
    * watching. The message escalates because the right thing to think at three
    * seconds ("it is working") differs from at fifteen ("it is waking, wait").
    */
+  /*
+   * A sign-in that has gone quiet, and the one cause we cannot see.
+   *
+   * Windows offers a CAC to Google's sign-in page. The reader light flashes and
+   * sign-in simply waits — it does not fail, does not time out, and says
+   * nothing. Det 752's commander sat through that on 26 Oct and only got in by
+   * pulling the card out.
+   *
+   * Nothing here detects a card. There is no browser API for it, and the ones
+   * that come close need a device-permission prompt mid-sign-in on a government
+   * laptop, which is worse than the bug. What this detects is the *shape*:
+   *
+   *   GIS loaded cleanly  (a content blocker breaks at script load, and
+   *                        google-identity.js already catches and names that)
+   *   + the chooser took focus
+   *   + nothing came back for twelve seconds
+   *   + the device plausibly has a reader
+   *
+   * which leaves the card as the leading remaining cause. The notice says
+   * "likely", never "detected", and offers a second possibility, because being
+   * wrong in a reassuring voice is how people stop reading these.
+   *
+   * The click itself is invisible: Google renders its button in a cross-origin
+   * iframe, so there is no event to attach to. Losing focus is the proxy, and
+   * it fails open — if it never fires, nothing is shown and the screen behaves
+   * exactly as it does today.
+   *
+   * `startProgress` cannot do this job: it runs inside `accept`, which only
+   * happens once Google has handed back a credential, so during the stall it is
+   * not on screen at all.
+   */
+  const stall = el('div', {});
+  let stallTimer = null;
+  let engagedAt = 0;
+
+  const stopStallWatch = () => {
+    if (stallTimer) clearTimeout(stallTimer);
+    stallTimer = null;
+    window.removeEventListener('blur', onEngage);
+    document.removeEventListener('visibilitychange', onEngage);
+    remount(stall);
+  };
+
+  function onEngage() {
+    if (engagedAt || !mayHaveCardReader(navigator.userAgent, navigator.maxTouchPoints)) return;
+    engagedAt = Date.now();
+    stallTimer = setTimeout(() => {
+      remount(stall, notice('warn', 'Sign-in has not come back',
+        el('p', {}, 'If this computer has a CAC reader, take the card out and try again. '
+          + 'Windows offers it to Google\'s sign-in page, the reader light flashes, and '
+          + 'sign-in waits there without saying so.'),
+        el('p', { class: 'field__hint' }, '9ThirtyOne never uses your CAC — your Google '
+          + 'account is the only identity it wants. If there is no reader attached, check '
+          + 'that a content blocker is not switched on for this site.')));
+    }, STALL_AFTER_MS);
+  }
+
+  function watchForStall() {
+    window.addEventListener('blur', onEngage);
+    document.addEventListener('visibilitychange', onEngage);
+  }
+
   const progress = el('div', { class: 'stack-sm', hidden: true });
   let ticking = null;
 
@@ -141,7 +248,7 @@ export async function renderLogin(root, role, title, onSuccess) {
     try {
       finish(await signInWithGoogle(profile, role, rawToken, { onSlow }));
     } catch (err) {
-      fail(err.message);
+      fail(err.message, err);
     } finally {
       // In a finally, not after the await: a refusal has to clear the spinner
       // too, or the screen says it is still signing in underneath the reason it
@@ -160,6 +267,9 @@ export async function renderLogin(root, role, title, onSuccess) {
         el('span', { class: 'role-card__icon' }, icon(role === ROLES.student ? 'student' : 'lock'))),
       buttonHost,
       progress,
+      // After the button and before the error: a stall is not a failure, and
+      // putting it where errors go would make every slow sign-in look broken.
+      stall,
       error,
       el('p', { class: 'field__hint' },
         'This app issues no password of its own. Whether you can get in is decided by your '
@@ -218,13 +328,23 @@ export async function renderLogin(root, role, title, onSuccess) {
   try {
     await renderSignInButton(buttonHost, {
       clientId,
-      onCredential: (profile, raw) => accept(profile, raw),
-      onError: (err) => fail(err.message),
+      onCredential: (profile, raw) => { stopStallWatch(); accept(profile, raw); },
+      onError: (err) => { stopStallWatch(); fail(err.message, err); },
     });
+    watchForStall();
   } catch (err) {
     remount(buttonHost, notice('danger', 'Could not start Google sign-in', el('p', {}, err.message)));
   }
 }
+
+/**
+ * How long a sign-in may sit after the account chooser takes focus.
+ *
+ * Long enough that somebody reading the chooser is not interrupted, short
+ * enough to arrive while they are still wondering. Det 752's commander waited
+ * through this with a flashing reader light and no explanation.
+ */
+const STALL_AFTER_MS = 12000;
 
 /**
  * The developer-mode fallback: type an email, get signed in as it.
@@ -252,7 +372,7 @@ function developerSignIn(role, finish, fail, startProgress, stopProgress) {
     try {
       finish(await signInAsDeveloper(input.value, role));
     } catch (err) {
-      fail(err.message);
+      fail(err.message, err);
     } finally {
       stopProgress();
       button.disabled = false;

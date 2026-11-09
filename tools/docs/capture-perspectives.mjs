@@ -112,6 +112,8 @@ const PEOPLE = {
 
 async function seed(page) {
   await page.goto(BASE, { waitUntil: 'networkidle' });
+  // The fork precedes the wizard now; this helper is always the installer.
+  await page.click('.btn--lg:has-text("I am creating this detachment")');
   await page.waitForSelector('.wizard');
   await page.fill('.wizard input[type=text]', 'AFROTC Detachment 025');
   await page.click('.wizard .btn--primary');

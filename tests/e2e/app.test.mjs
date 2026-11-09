@@ -88,12 +88,21 @@ const signInFails = (email, role = null) => page.evaluate(async ([e, r]) => {
   catch (err) { return err.message; }
 }, [email, role]);
 
+const setFlag = (on) => page.evaluate((v) => {
+  if (v) localStorage.setItem('nine31.directsignin.v1', '1');
+  else localStorage.removeItem('nine31.directsignin.v1');
+}, on);
+
 const ADMIN_EMAIL = 'capt.reyes@det025.edu';
 const STUDENT_EMAIL = 'mia.alvarez@gmail.com';
 
 await page.goto(BASE, { waitUntil: 'networkidle' });
 
 await step('setup completes', async () => {
+  // The setup wizard no longer renders until the install-or-join fork is
+  // answered — see askTheFork() in js/views/setup.js. Every test that drives
+  // setup is the installer, so each one says so.
+  await page.click('.btn--lg:has-text("I am creating this detachment")');
   await page.waitForSelector('.wizard');
   await page.fill('.wizard input[type=text]', 'Det 025');
   await page.click('.wizard .btn--primary');
@@ -251,6 +260,24 @@ await step('a feedback form is issued', async () => {
   await page.waitForSelector('.list__item', { timeout: 10000 });
 });
 
+/* ---------- an answered request offers Close, not Delete ---------- */
+
+await step('an unanswered request still offers Delete', async () => {
+  // The editor does not know the answer count when it renders, so Delete
+  // starts disabled and is corrected asynchronously. Waiting on it being
+  // enabled is the assertion: a test that only checked the button existed
+  // would pass on the provisional one, before anything had been decided.
+  await page.goto(`${BASE}#/instructor?tab=requests`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.list__item', { timeout: 10000 });
+  await page.click('.list__item');
+  await page.waitForSelector('.qrow', { timeout: 10000 });
+
+  await page.waitForSelector('.btn--danger:has-text("Delete"):not([disabled])', { timeout: 10000 });
+  if (await page.$('.btn:has-text("Close")')) {
+    throw new Error('Close was offered on a request nobody has answered');
+  }
+});
+
 /* ---------- cadet sign-in ---------- */
 await step('the student page requires a sign-in', async () => {
   await page.evaluate(() => sessionStorage.clear());
@@ -263,6 +290,93 @@ await step('the student page requires a sign-in', async () => {
 await step('an instructor cannot sign in through the student door', async () => {
   const msg = await signInFails(ADMIN_EMAIL, 'student');
   if (!/does not have student access/i.test(msg)) throw new Error(`message was: ${msg}`);
+});
+
+await step('the wrong door names the right one instead of advising an administrator', async () => {
+  // The refusal above is correct and was always correct. What was wrong was what
+  // the screen did with it: `isRosterRefusal` matched the role-mismatch message
+  // along with the genuinely unfixable ones, so an instructor on the cadet gate
+  // was told to "ask your cadre - cadets are added to the roster by an
+  // administrator". Wrong on both counts, and the first thing a real detachment
+  // sent an email about.
+  //
+  // Driven through the UI and asserted against the rendered view on purpose.
+  // signInWithGoogle's behaviour never changed, so a test that reads its error
+  // would pass against the bug — the whole defect lived in the view.
+  // The local backend has no Client ID, so the only way to put a real roster
+  // refusal on screen here is the direct sign-in box. Cleared in a finally: a
+  // throw above it would otherwise leave the flag on for every later step.
+  await setFlag(true);
+  try {
+    await page.evaluate(() => sessionStorage.clear());
+    await page.goto(`${BASE}#/student`, { waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForSelector('.page-title:has-text("Cadet sign-in")', { timeout: 8000 });
+
+    await page.fill('input[type=email]', ADMIN_EMAIL);
+    await page.click('.btn:has-text("Sign in without Google")');
+    // Not '.notice--warn': the "Google sign-in is not configured" notice on this
+    // screen is already one, so that selector matched before the click had
+    // rendered anything and the assertion read the old page.
+    await page.waitForSelector('.notice__title:has-text("Wrong sign-in for this account")',
+      { timeout: 8000 });
+
+    const shown = await page.textContent('#view');
+    if (/added to the roster by an administrator/i.test(shown)) {
+      throw new Error('still sending a role mismatch to an administrator');
+    }
+    if (!/Go to the Instructor Panel/.test(shown)) {
+      throw new Error(`no working door offered; screen read: ${shown.slice(0, 300)}`);
+    }
+
+    // And it has to actually go somewhere: an offer to a view that then refuses
+    // them too would be a worse dead end than the one it replaced.
+    await page.click('.btn--primary:has-text("Go to the Instructor Panel")');
+    await page.waitForSelector('.page-title:has-text("Instructor Panel")', { timeout: 8000 });
+  } finally {
+    // Both of these are restorations, not cleanup for its own sake. The flag
+    // would otherwise stay on for every later step, and the following step
+    // reloads whatever page this one left behind — walking out on the
+    // Instructor Panel made the cadet's own feedback list fail to appear, and
+    // took nine unrelated steps down with it.
+    await setFlag(false);
+    await page.goto(`${BASE}#/student`, { waitUntil: 'networkidle' });
+  }
+});
+
+await step('a cadet landing on Home is not told the database is unreadable', async () => {
+  // The fault stage 7 made universal. `overview` is instructor and above, so a
+  // cadet was refused, fell into the catch, and got a red "Not reachable"
+  // badge and "The database could not be read" — on the screen that exists to
+  // reassure them the app is working. Joining now lands on /home, so that was
+  // the first thing every cadet saw.
+  //
+  // Nothing caught it because every other cadet check goes straight to
+  // #/student, and all four #/home visits in this suite are staff.
+  await signInAs(STUDENT_EMAIL, 'Mia Alvarez', 'student');
+  await page.goto(`${BASE}#/home`, { waitUntil: 'networkidle' });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.role-card', { timeout: 10000 });
+  // Long enough that a counts read would have resolved and painted.
+  await page.waitForTimeout(1500);
+
+  const shown = await page.textContent('#view');
+  if (/database could not be read/i.test(shown)) {
+    throw new Error('a cadet is still told the database is unreadable');
+  }
+  if (/Not reachable/i.test(shown)) {
+    throw new Error('a cadet still sees the Not reachable badge');
+  }
+  try {
+    // And the doors are still there — the screen must not have gone blank.
+    if (!/Cadet/.test(shown)) throw new Error('the cadet door vanished with the counts');
+  } finally {
+    // The next step reloads whatever page this one left behind and expects the
+    // student list. Fourth time in this suite that a check has moved the route
+    // and reported its neighbours as broken; the rule is simply that a step
+    // which moves identity or route puts both back.
+    await page.goto(`${BASE}#/student`, { waitUntil: 'networkidle' });
+  }
 });
 
 await step('the cadet signs in and sees their feedback', async () => {
@@ -328,6 +442,34 @@ await step('student submits and is receipted', async () => {
   await page.waitForSelector('dialog.modal', { timeout: 8000 });
   await page.click('dialog .btn--primary');
   await page.waitForSelector('.empty__title:has-text("Feedback submitted")', { timeout: 10000 });
+});
+
+await step('once answered, the editor offers Close and withdraws Delete', async () => {
+  // The client half of stage 3b. Placed after the suite's own submit rather
+  // than submitting by hand: an earlier draft rolled its own and swallowed the
+  // failure, so it asserted against a request nobody had actually answered.
+  //
+  // The server refuses the delete either way. This is about not offering a
+  // button that always fails, and offering the one they actually want.
+  await signInAs(ADMIN_EMAIL, 'Capt Reyes', 'instructor');
+  await page.goto(`${BASE}#/instructor?tab=requests`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.list__item', { timeout: 10000 });
+  await page.click('.list__item');
+  await page.waitForSelector('.qrow', { timeout: 10000 });
+
+  try {
+    await page.waitForSelector('.btn:has-text("Close")', { timeout: 10000 });
+    if (await page.$('.btn--danger:has-text("Delete")')) {
+      throw new Error('Delete is still offered on a request that has been answered');
+    }
+  } finally {
+    // Both of these, because this step changed both. The next check expects to
+    // be the cadet, on the student screen, mid-flow — and a step that moves
+    // identity or route without putting them back reports its neighbours as
+    // broken, which has now happened three times in this suite.
+    await signInAs(STUDENT_EMAIL, 'Mia Alvarez', 'student');
+    await page.goto(`${BASE}#/student`, { waitUntil: 'networkidle' });
+  }
 });
 
 await step('a second submission is blocked at the form', async () => {
@@ -1033,18 +1175,33 @@ await step('an unconfigured device can be joined by pasting the link', async () 
   try {
     await page.goto(`${BASE}#/setup`, { waitUntil: 'networkidle' });
     await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForSelector('.wizard', { timeout: 10000 });
+    // The fork, which is the first thing an unconfigured device now sees.
+    // Both doors must be offered — the bug being fixed was somebody not
+    // noticing one of them.
+    await page.waitForSelector('.btn--lg:has-text("I was sent a join link")', { timeout: 10000 });
+    const doors = await page.textContent('#view');
+    if (!/creating this detachment/i.test(doors)) {
+      throw new Error('the installer door is missing, so the fork is not a choice');
+    }
 
-    const offered = await page.textContent('#view');
-    if (!/sent a join link/i.test(offered)) {
-      throw new Error('an unconfigured device was not offered the join-link path');
+    await page.click('.btn--lg:has-text("I was sent a join link")');
+
+    // Asserted on the paste box appearing, not on the words "sent a join
+    // link" — those are now the text of the button that was just clicked, so
+    // matching them would pass before anything happened.
+    await page.waitForSelector('input.mono', { timeout: 10000 });
+    if (await page.$('.wizard')) {
+      throw new Error('the wizard rendered on the join branch, which is the whole mistake');
     }
 
     // Pasted the way it arrives — a whole line out of a message, not a tidy URL.
     await page.fill('.mono',
       'Join here: https://example.org/#/join?c=724504040762-abcdefghijklmnopqrstuvwxyz012345'
       + '&f=1AbCdEfGhIjKlMnOpQrStUvWxYz01234567&n=Det%20025 thanks');
-    await page.click('button:has-text("Join")');
+    // Not :has-text("Join") — Playwright matches a substring case-insensitively,
+    // so that also matches "I was sent a join link", the fork button still
+    // sitting above the paste box.
+    await page.click('button:has-text("Join this detachment")');
 
     // Waits on the route, not on `.page-title` — that exists on the setup screen
     // too, so waiting for it returns instantly and asserts nothing.
@@ -1067,6 +1224,39 @@ await step('an unconfigured device can be joined by pasting the link', async () 
   }
 });
 
+await step('the installer door is not one-way', async () => {
+  // The fork only helps if choosing wrongly is cheap. Before this, `Back` on
+  // step 2 returned to step 0, which with fork already set renders the wizard
+  // rather than the question — so a misclick stranded somebody in a setup they
+  // did not want, which is the exact cost this stage exists to remove.
+  const kept = await page.evaluate(() => {
+    const keep = {
+      conn: localStorage.getItem('nine31.connection.v1'),
+      done: localStorage.getItem('nine31.setup.complete'),
+    };
+    localStorage.removeItem('nine31.connection.v1');
+    localStorage.removeItem('nine31.setup.complete');
+    return keep;
+  });
+  try {
+    await page.goto(`${BASE}#/setup`, { waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.click('.btn--lg:has-text("I am creating this detachment")');
+    await page.waitForSelector('.wizard', { timeout: 10000 });
+
+    // Back out, from the first step of the wizard.
+    await page.click('.wizard .btn--ghost:has-text("I was sent a join link")');
+    await page.waitForSelector('.btn--lg:has-text("I am creating this detachment")', { timeout: 10000 });
+    if (await page.$('.wizard')) throw new Error('the wizard is still showing after backing out');
+  } finally {
+    await page.evaluate((k) => {
+      if (k.conn) localStorage.setItem('nine31.connection.v1', k.conn);
+      if (k.done) localStorage.setItem('nine31.setup.complete', k.done);
+    }, kept);
+    await page.goto(`${BASE}#/home`, { waitUntil: 'networkidle' });
+  }
+});
+
 await step('pasting something that is not a join link is refused', async () => {
   const kept = await page.evaluate(() => {
     const keep = {
@@ -1080,10 +1270,14 @@ await step('pasting something that is not a join link is refused', async () => {
   try {
     await page.goto(`${BASE}#/setup`, { waitUntil: 'networkidle' });
     await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForSelector('.wizard', { timeout: 10000 });
+    await page.click('.btn--lg:has-text("I was sent a join link")');
+    await page.waitForSelector('input.mono', { timeout: 10000 });
 
     await page.fill('.mono', 'https://9thirtyone.app/');
-    await page.click('button:has-text("Join")');
+    // Not :has-text("Join") — Playwright matches a substring case-insensitively,
+    // so that also matches "I was sent a join link", the fork button still
+    // sitting above the paste box.
+    await page.click('button:has-text("Join this detachment")');
     await page.waitForSelector('.notice--warn', { timeout: 10000 });
 
     // Refused, and nothing written: a half-applied link is the failure the join
@@ -3095,11 +3289,6 @@ await step('mobile: anchored scale does not overflow', async () => {
 
 /** The access toggle specifically, not the first checkbox on the page. */
 const ACCESS_TOGGLE = 'section:has(> .section-title:text-is("Access")) input[type=checkbox]';
-
-const setFlag = (on) => page.evaluate((v) => {
-  if (v) localStorage.setItem('nine31.directsignin.v1', '1');
-  else localStorage.removeItem('nine31.directsignin.v1');
-}, on);
 
 await step('the access flag grants no roles by itself', async () => {
   // This is the whole point of 0.16. The flag used to make every role check

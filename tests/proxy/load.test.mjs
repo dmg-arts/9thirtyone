@@ -31,7 +31,7 @@
  */
 
 import {
-  createProxy, validToken, seedRoster, account, ops, resetOps,
+  createProxy, validToken, seedRoster, account, ops, resetOps, net,
 } from './harness.mjs';
 
 let failures = 0;
@@ -174,6 +174,119 @@ check('one cadet’s whole drill night is two posts and one token verification',
   console.log(`       one cadet: ${cost} Drive operations, ${proxy.fetches.length} token verification`);
 });
 
+/*
+ * The baseline stage 2 will be judged against, recorded before it is moved.
+ *
+ * Stage 2 replaces sequential `getFilesByName` reads with batched Drive REST
+ * calls over `UrlFetchApp`. That will make `ops()` fall sharply, and `ops()`
+ * alone cannot tell a genuine saving from the same work relocated onto a
+ * surface it does not count. So both numbers are pinned here while the old
+ * implementation is still the one running: afterwards, a drop in operations is
+ * only real if these have not blown up to pay for it.
+ *
+ * The assertions are ceilings rather than equalities. An exact count would fail
+ * on every unrelated change and be relaxed until it meant nothing.
+ */
+/*
+ * The cost stage 2 moved, held to a shape rather than a number.
+ *
+ * Before stage 2 this asserted one outbound request per cadet, because every
+ * read was Apps Script's own Drive binding and the only thing leaving the
+ * script was one tokeninfo verification. Stage 2 reads through Drive REST, so
+ * outbound calls are now the main cost and an exact count would be rewritten
+ * every time a folder is added — until it meant nothing.
+ *
+ * What matters is that a cadet's outbound cost is **flat in the size of the
+ * detachment**. One list call plus one fetchAll per folder read is O(folders);
+ * a regression to one call per document would be O(responses), invisible in
+ * ops() and fatal at a real detachment's scale. So the test grows the data and
+ * asserts the call count does not follow.
+ */
+check('reading every response is a fixed number of outbound calls, not one per document', () => {
+  // THE stage 2 invariant, and the only one ops() cannot see.
+  //
+  // allResponses is the screen that took 49.1s client-side on 15 Oct and ~50s
+  // measured server-side against real Drive on 28 Oct. Stage 2 makes it one
+  // list call plus one fetchAll per folder, so the outbound cost is O(folders)
+  // and flat in the amount of feedback. A regression to one fetch per document
+  // is O(responses) — identical in ops(), identical in behaviour, and fatal at
+  // a detachment's real size.
+  //
+  // An earlier version of this test used a cadet's bundle and proved nothing:
+  // a cadet bundle deliberately carries no responses, so growing the response
+  // count could not move the number either way. It passed against a
+  // deliberately regressed build, which is the only reason it was caught.
+  const cost = (responses) => {
+    const proxy = detachment(responses + 2);
+    for (let i = 0; i < responses; i++) submit(proxy, cadet(i));
+    resetOps();
+    const out = proxy.post({ action: 'allResponses', idToken: as('instructor') });
+    if (!out.ok) throw new Error(`allResponses was refused: ${out.error}`);
+    const n = net();
+    return { batches: n.batches, calls: n.calls, ops: ops(), rows: (out.responses || []).length };
+  };
+
+  const small = cost(5);
+  const large = cost(40);
+
+  if (large.rows <= small.rows) {
+    throw new Error(`the larger detachment returned ${large.rows} responses, not more than ${small.rows} `
+      + '— the test is not reading what it thinks it is');
+  }
+
+  // Batches flat: one list plus one fetchAll per folder, whatever is in them.
+  if (large.batches > small.batches) {
+    throw new Error(`round trips grew with the data: ${small.batches} at ${small.rows} responses `
+      + `-> ${large.batches} at ${large.rows}. That is a per-document loop, and ops() cannot see it.`);
+  }
+
+  // Requests do grow, and that is the quota cost stage 2 moved onto UrlFetch.
+  // Asserted as a shape, not a budget: roughly one per document, never more.
+  if (large.calls > large.rows * 2 + 20) {
+    throw new Error(`${large.calls} requests for ${large.rows} responses — more than one per document`);
+  }
+
+  console.log(`       allResponses: ${small.batches} round trips at ${small.rows} responses, `
+    + `${large.batches} at ${large.rows} — flat; requests ${small.calls} -> ${large.calls}`);
+});
+
+/*
+ * Stage 2c, held to the shape it fixed.
+ *
+ * readFolderDocs resolves a path from the root with one DriveApp lookup per
+ * segment. Called once per request folder, that made path-walking 43% of
+ * allResponses and — worse — made it grow with the number of requests a
+ * detachment accumulates over a term: 15 lookups at 6 requests, 43 at 20.
+ *
+ * The callers already held those folders. Now they pass them. The assertion is
+ * that the Apps Script surface stays flat as requests multiply, because that is
+ * the property that was missing, not the absolute number.
+ */
+check('reading every response does not walk more paths as requests accumulate', () => {
+  const cost = (requests) => {
+    const proxy = detachment(12);
+    for (let r = 0; r < requests; r++) {
+      proxy.root.put(['requests'], `req_${r}.json`, {
+        id: `req_${r}`, formId: 'form_1', title: `R${r}`, status: 'open',
+        asClass: 'AS200', anonymous: true, space: 'shared', assignedUsernames: [],
+      });
+      proxy.root.put(['responses', `req_${r}`], 'cadet00.json',
+        { id: `resp_${r}`, requestId: `req_${r}`, answers: { q1: 7 } });
+    }
+    resetOps();
+    const out = proxy.post({ action: 'allResponses', idToken: as('instructor') });
+    if (!out.ok) throw new Error(`allResponses was refused: ${out.error}`);
+    return ops();
+  };
+
+  const [six, twenty] = [cost(6), cost(20)];
+  if (twenty > six) {
+    throw new Error(`Apps Script calls grew with requests: ${six} at 6 -> ${twenty} at 20. `
+      + 'That is readFolderDocs re-resolving a path its caller already holds.');
+  }
+  console.log(`       allResponses: ${six} Apps Script calls at 6 requests, ${twenty} at 20 — flat`);
+});
+
 check('a whole flight submitting costs what forty-five of one cadet costs', () => {
   const proxy = detachment();
   resetOps();
@@ -212,44 +325,62 @@ check('a refused action costs one roster read and no more', () => {
   console.log(`       a refusal costs ${cost} operations — a full users.json read`);
 });
 
-/**
- * The one that actually gets expensive, also pinned rather than fixed.
+/*
+ * By-instructor, which used to be the expensive one.
  *
- * `requestInPeopleScope` calls `findByUsername` for each request it evaluates,
- * and `findByUsername` re-reads the whole roster every time. At twenty requests
- * that is twenty downloads of a fifty-four-person `users.json` inside a single
- * execution, and it grows with the term.
+ * This check previously asserted that the cost grew *linearly* with requests
+ * and watched for it growing faster. That was the right test for a known
+ * inefficiency being tolerated: `requestInPeopleScope` called `findByUsername`
+ * per request and each one re-read the whole roster, and the per-request forms
+ * read did the same, so twenty requests meant twenty downloads of users.json
+ * and twenty form lookups inside one execution.
  *
- * It only bites on the middle tier — a cadre looking at instructors. A
- * commander is 'all' and returns before the read; an instructor is 'own' and
- * never reaches it. So it is a staff-side cost, not a drill-night one, which is
- * why it is documented here rather than fixed in a hurry.
+ * Stages 2b and 2c removed both. The roster is read once and passed down, the
+ * per-request response folders are read in a single query across all of them,
+ * and a space's forms are read in one pass. So the assertion changes from
+ * "linear, and no worse" to **flat**, which is a stronger claim and the one
+ * worth defending: a regression to per-request work would be invisible in
+ * behaviour and would only show up at a detachment with a term's worth of
+ * requests behind it.
  */
-check('By-instructor grows linearly with requests, and is watched for growing faster', () => {
+check('By-instructor costs the same whether a term holds five requests or twenty', () => {
   const cost = (requests) => {
     const proxy = detachment(1);
     for (let i = 0; i < requests; i++) {
       proxy.root.put(['requests'], `req_${i}.json`, {
-        id: `req_${i}`, formId: 'form_1', title: `R${i}`, status: 'open',
+        id: `req_${i}`, formId: `form_${i}`, title: `R${i}`, status: 'open',
         asClass: 'AS200', anonymous: false, space: 'shared',
         assignedUsernames: [], subject: 'teach',
       });
+      // A form each, not one shared form. The old fixture reused `form_1` and
+      // so could not see the per-form read at all.
+      proxy.root.put(['forms'], `form_${i}.json`, { id: `form_${i}`, name: `F${i}`, sections: [] });
+      // Responses too. Without them `responsesHome` has no subfolders, the
+      // per-request read never runs, and this check measures a path it is not
+      // about — which is exactly how an earlier draft passed against a
+      // deliberately reverted build.
+      proxy.root.put(['responses', `req_${i}`], 'cadet00.json',
+        { id: `resp_${i}`, requestId: `req_${i}`, answers: { q1: 7 } });
     }
     resetOps();
     const out = proxy.post({ action: 'people', idToken: as('cadre') });
     if (!out.ok) throw new Error(`the people action was refused: ${out.error}`);
-    return ops();
+    return { ops: ops(), batches: net().batches };
   };
 
-  const [five, twenty] = [cost(5), cost(20)];
-  const perRequest = (twenty - five) / 15;
+  const five = cost(5);
+  const twenty = cost(20);
 
-  // Five per request, three of which are the roster being downloaded again.
-  if (perRequest > 6) {
-    throw new Error(`${perRequest} operations per request, budget 6 — the roster read may have grown`);
+  if (twenty.ops > five.ops) {
+    throw new Error(`Apps Script calls grew with requests: ${five.ops} at 5 -> ${twenty.ops} at 20 `
+      + '— something is reading per request again');
   }
-  console.log(`       By-instructor: ${perRequest} operations per request, `
-    + `${Math.round((3 / perRequest) * 100)}% of it re-reading the roster`);
+  if (twenty.batches > five.batches) {
+    throw new Error(`round trips grew with requests: ${five.batches} at 5 -> ${twenty.batches} at 20 `
+      + '— the per-folder read is back');
+  }
+  console.log(`       By-instructor: ${five.ops} Apps Script calls and ${five.batches} round trips `
+    + `at 5 requests, ${twenty.ops} and ${twenty.batches} at 20 — flat`);
 });
 
 console.log(failures

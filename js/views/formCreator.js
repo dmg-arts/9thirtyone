@@ -22,7 +22,7 @@ import {
   currentSchoolYear, currentSemester, schoolYears, SPACES, ROLES } from '../config.js';
 import {
   saveForm, saveRequest, deleteRequest, loadForms, loadRequests, getRequest, getForm,
-  writeAudit, loadRoster,
+  writeAudit, loadRoster, loadResponsesFor,
 } from '../data-source.js';
 import { spaceChoicesFor, spaceHint } from '../spaces.js';
 import { panelFor } from '../panels.js';
@@ -498,24 +498,94 @@ async function drawCreator(root, params, panel) {
   }
 
   function actionsRow() {
+    // The destructive slot. What belongs here depends on whether anybody has
+    // answered, which this screen does not know when it renders — so it starts
+    // as Delete and is corrected asynchronously rather than making the whole
+    // editor wait on a read that costs about four seconds cold.
+    const slot = el('span', {});
+
+    const confirmAndDelete = async (answers) => {
+      // The old confirmation said "Its responses are deleted with it. This
+      // cannot be undone." For a request with answers that is now false on both
+      // counts, and it was the first thing a user read before the server
+      // refused them. For one without, it promised to delete things that do
+      // not exist.
+      const ok = await confirmDialog('Delete this feedback request?',
+        answers
+          ? `It holds ${pluralize(answers, 'answer')}, which would go with it. This cannot be undone.`
+          : 'Nobody has answered it, so nothing is lost. This cannot be undone.',
+        { confirmLabel: 'Delete', danger: true });
+      if (!ok) return;
+
+      try {
+        await deleteRequest(editingId);
+      } catch (err) {
+        // Caught here rather than left to the global unhandledrejection
+        // listener, which turns it into a six-second toast — the wrong
+        // affordance for "your delete was refused", and too short for the
+        // sentence. A dialog waits to be dismissed.
+        // modal, not confirmDialog: a refusal needs one button, and
+        // confirmDialog always adds Cancel — which here would offer a choice
+        // about something that has already been decided.
+        await modal({
+          title: 'Not deleted',
+          body: err.message,
+          actions: [{ label: 'I see', value: true, autofocus: true }],
+        });
+        return;
+      }
+      await writeAudit({
+        action: AUDIT.requestDeleted,
+        summary: `Deleted "${draft.eventName || editingId}"`,
+        target: draft.feedbackId || editingId,
+      });
+      resetFormDraft();
+      toast('Deleted.', 'ok');
+      navigate(`${panel.path}?tab=requests`);
+    };
+
+    const closeButton = (answers) => el('button', {
+      type: 'button', class: 'btn',
+      onclick: async () => {
+        const ok = await confirmDialog('Close this feedback request?',
+          `It keeps its ${pluralize(answers, 'answer')} and stays in the list, but stops `
+          + 'accepting new ones. You can reopen it by issuing it again.',
+          { confirmLabel: 'Close it' });
+        if (ok) await save('closed');
+      },
+    }, icon('lock'), 'Close');
+
+    if (editingId) {
+      // Delete, until we know better. Disabled meanwhile: offering it and then
+      // taking it away mid-click is worse than a moment of nothing.
+      const provisional = el('button', {
+        type: 'button', class: 'btn btn--danger', disabled: true,
+      }, icon('trash'), 'Delete');
+      mount(slot, provisional);
+
+      loadResponsesFor(editingId).then(({ responses }) => {
+        const answers = (responses || []).length;
+        // An answered request cannot be deleted — the server refuses it, and
+        // showing a button that always fails is a worse way to say so. Closing
+        // is the thing they actually want, so that is what is offered.
+        remount(slot, answers
+          ? closeButton(answers)
+          : el('button', {
+            type: 'button', class: 'btn btn--danger',
+            onclick: () => confirmAndDelete(0),
+          }, icon('trash'), 'Delete'));
+      }).catch(() => {
+        // The count could not be read. Leave Delete enabled and let the server
+        // decide: being unable to count is not a reason to remove the control.
+        remount(slot, el('button', {
+          type: 'button', class: 'btn btn--danger',
+          onclick: () => confirmAndDelete(0),
+        }, icon('trash'), 'Delete'));
+      });
+    }
+
     return el('div', { class: 'row row--wrap row--end', style: { marginTop: 'var(--sp-5)' } },
-      editingId && el('button', {
-        type: 'button', class: 'btn btn--danger',
-        onclick: async () => {
-          if (!(await confirmDialog('Delete this feedback request?',
-            'Its responses are deleted with it. This cannot be undone.',
-            { confirmLabel: 'Delete', danger: true }))) return;
-          await deleteRequest(editingId);
-          await writeAudit({
-            action: AUDIT.requestDeleted,
-            summary: `Deleted "${draft.eventName || editingId}" and its responses`,
-            target: draft.feedbackId || editingId,
-          });
-          resetFormDraft();
-          toast('Deleted.', 'ok');
-          navigate(`${panel.path}?tab=requests`);
-        },
-      }, icon('trash'), 'Delete'),
+      slot,
       el('span', { class: 'spacer' }),
       el('button', { type: 'button', class: 'btn', onclick: saveAsTemplate },
         icon('clipboard'), 'Save as template'),
@@ -524,6 +594,7 @@ async function drawCreator(root, params, panel) {
       el('button', { type: 'button', class: 'btn btn--primary', onclick: () => save('open') },
         icon('send'), 'Issue to cadets'));
   }
+
 
   /** Stores just the questions, for reuse next term. */
   async function saveAsTemplate() {
@@ -648,7 +719,9 @@ async function drawCreator(root, params, panel) {
       resetFormDraft();
       toast(status === 'open'
         ? `${request.feedbackId} issued to cadets.`
-        : `${request.feedbackId} saved as a draft.`, 'ok');
+        : status === 'closed'
+          ? `${request.feedbackId} closed. It keeps its answers and takes no new ones.`
+          : `${request.feedbackId} saved as a draft.`, 'ok');
       return navigate(`${panel.path}?tab=requests`);
     } catch (err) {
       if (err.conflict) return resolveConflict(err, status);

@@ -14,9 +14,12 @@
  * against DriveApp and UrlFetchApp, neither of which exists here.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fingerprint } from '../../tools/proxy/stamp.mjs';
 
 const SOURCE = readFileSync(new URL('../../tools/proxy/Code.gs', import.meta.url), 'utf8');
+const RELEASES = new URL('../../tools/proxy/releases/', import.meta.url);
 const CLIENT = readFileSync(new URL('../../js/storage/proxy.js', import.meta.url), 'utf8');
 const CALLERS = readFileSync(new URL('../../js/data-source.js', import.meta.url), 'utf8');
 
@@ -57,6 +60,41 @@ check('every declared action is actually handled', () => {
   if (!/body\.action !== 'submit'/.test(SOURCE)) {
     throw new Error('the submit path is an implicit fall-through');
   }
+});
+
+/*
+ * An action can be declared and handled without any client calling it, and
+ * nothing here objects. That asymmetry is deliberate and is what makes a
+ * server-ahead release possible: on 10 Nov the proxy is pasted first and the
+ * client follows, so for a window measured in days the server must be able to
+ * answer things nothing asks for yet. A server->client assertion would make
+ * that state fail the suite and push the two halves into the same deploy,
+ * which is the arrangement this release is built to avoid.
+ *
+ * The risk the asymmetry leaves is an action half-added — declared but not
+ * handled, or handled but not declared — which the two checks above catch, or
+ * an inert action quietly deleted as dead code before its client arrives.
+ * This names the ones in flight so that deletion has to be deliberate.
+ */
+check('the inert actions are listed, and the list is still true', () => {
+  // Derived rather than hand-kept. The first version of this check held a
+  // literal list and told me to edit it the moment stage 5's client arrived,
+  // which is the right behaviour once — but a list somebody has to remember to
+  // update is a list that goes stale, and a stale one here would quietly stop
+  // guarding the thing it exists for.
+  //
+  // `submit` is excluded for the same reason as the check above: it is handled
+  // by an explicit guard rather than the dispatch chain.
+  const inert = [...declared].filter((a) => !requested.has(a) && a !== 'submit').sort();
+
+  // Every inert action must still be reachable: declared *and* handled. The
+  // hazard is one half-added, or one deleted as dead code before the client
+  // that calls it ships — which on 10 Nov is a window measured in days.
+  for (const action of inert) {
+    if (!handled.has(action)) throw new Error(`${action} is declared but never handled`);
+  }
+
+  console.log(`       inert in this build: ${inert.length ? inert.join(', ') : 'none'}`);
 });
 
 check('no action is declared with an empty role list', () => {
@@ -151,7 +189,12 @@ check('joining a proxy detachment never asks for Drive', () => {
   const connect = JOIN.indexOf('adapters.drive.connect');
   if (guard < 0) throw new Error('the join screen has no proxy branch');
   if (connect > 0 && connect < guard) throw new Error('Drive is reached before the proxy check');
-  if (!/return navigate\('\/student'\)/.test(JOIN.slice(guard, connect > 0 ? connect : undefined))) {
+  // What matters is that the proxy branch *returns* before anything can reach
+  // Drive. Where it returns to is a product decision and not this check's
+  // business: pinning it to '/student' meant that fixing the join landing on
+  // 23 Oct surfaced here as an OAuth scope regression, which is a false alarm
+  // in the one suite that should never cry wolf about scopes.
+  if (!/\breturn navigate\(/.test(JOIN.slice(guard, connect > 0 ? connect : undefined))) {
     throw new Error('the proxy branch falls through to the Drive path');
   }
 });
@@ -391,6 +434,131 @@ check('nothing keeps a second copy of the request timeout', () => {
   }
   if (bad.length) {
     throw new Error(`${bad.join('; ')} — omit the option and inherit TIMEOUT_MS`);
+  }
+});
+
+
+/* ------------------------------------------------------------------ *
+ * frozen releases
+ * ------------------------------------------------------------------ */
+
+/*
+ * `tools/proxy/releases/` holds snapshots named by the version they declare, so
+ * one can be pasted without checking out a branch. Two ways that goes wrong,
+ * and both are silent:
+ *
+ *   - a file named for a version that no longer holds it, which is pasted in
+ *     good faith and deploys something else entirely;
+ *   - the 1.3.1 snapshot drifting from the tag. That one is the rollback
+ *     artefact for 10 Nov. A rollback artefact that has quietly changed is
+ *     worse than not having one, because it is the thing you reach for when
+ *     something has already gone wrong and you are not in a mood to verify it.
+ */
+/*
+ * The build marker has to describe the file it is in.
+ *
+ * It exists so a redeploy can be confirmed when PROXY_VERSION has not moved,
+ * which is every build between releases. A stale marker is worse than none: it
+ * would answer "did the paste take" with the previous build's fingerprint, in
+ * the voice of a positive confirmation, at the moment that question matters
+ * most.
+ */
+/*
+ * Every Drive REST call asks for Shared Drive support.
+ *
+ * DriveApp resolved Shared Drives by itself. Stage 2 moved the enumeration to
+ * REST, which does not unless asked — and an unasked listing of a Shared Drive
+ * folder returns **empty rather than failing**, so a detachment would see every
+ * staff screen show nothing with no error anywhere to explain it.
+ *
+ * Source-level because the harness cannot model a Shared Drive: the fake has
+ * one tree and no concept of one. This checks the request is formed correctly;
+ * E13 of the fidelity pass confirmed against real Drive that the flags are
+ * harmless for a My Drive folder, which is what makes them safe to send always.
+ */
+check('every Drive REST call carries the Shared Drive flags', () => {
+  const calls = [...SOURCE.matchAll(/DRIVE_API \+ '([^']+)'/g)].map((m) => m[1]);
+  if (calls.length < 3) throw new Error(`only ${calls.length} Drive REST call sites found`);
+  const bare = [...SOURCE.matchAll(/url: DRIVE_API \+ [^;]+;/g)]
+    .map((m) => m[0])
+    .filter((line) => !line.includes('DRIVE_SCOPE_FLAGS'));
+  if (bare.length) throw new Error(`a REST call without the flags: ${bare[0].slice(0, 90)}`);
+  // The listings build their URL across lines, so count rather than parse.
+  const flagged = (SOURCE.match(/DRIVE_SCOPE_FLAGS/g) || []).length;
+  if (flagged < 4) {
+    throw new Error(`DRIVE_SCOPE_FLAGS appears ${flagged} times — one declaration plus `
+      + 'every call site, and there are at least three');
+  }
+});
+
+check('the build marker matches the file it is stamped into', () => {
+  // Synchronous on purpose. An earlier draft made this callback `async` to use
+  // a dynamic import, and `check` does not await — so the promise could never
+  // reject and the check printed ok against a deliberately wrong marker. A
+  // test that cannot fail is worse here than no test, because this one exists
+  // to be trusted on ship day.
+  const expected = fingerprint(SOURCE);
+  if (!expected) throw new Error('Code.gs has no BUILD line to check');
+  const found = /^var BUILD = '([^']*)';$/m.exec(SOURCE)[1];
+  if (found !== expected) {
+    throw new Error(`BUILD says ${found}, contents hash to ${expected} `
+      + '— run node tools/proxy/stamp.mjs');
+  }
+});
+
+check('every frozen release declares the version in its own filename', () => {
+  const files = readdirSync(RELEASES).filter((f) => f.endsWith('.gs'));
+  if (!files.length) throw new Error('no frozen releases at all');
+  for (const file of files) {
+    const named = /^Code-(.+)\.gs$/.exec(file);
+    if (!named) throw new Error(`${file} is not named Code-<version>.gs`);
+    const text = readFileSync(new URL(file, RELEASES), 'utf8');
+    const declared = /var PROXY_VERSION = '([^']+)'/.exec(text);
+    if (!declared) throw new Error(`${file} declares no PROXY_VERSION`);
+    if (declared[1] !== named[1]) {
+      throw new Error(`${file} declares ${declared[1]} — run node tools/proxy/snapshot.mjs`);
+    }
+  }
+});
+
+/**
+ * A snapshot usually records a version `Code.gs` has already left behind, so it
+ * normally differs from it. The exception is a snapshot taken *before* the
+ * paste, so there is an unambiguous artefact to send and to paste from — which
+ * is why `Code-1.4.0.gs` exists while `Code.gs` is still 1.4.0.
+ *
+ * That copy is only worth having if it cannot quietly go stale. Edit `Code.gs`
+ * and the staged file is no longer what ships, while still being named as
+ * though it were — and the one being emailed is the one nobody re-checks.
+ *
+ * Self-retiring: the moment `PROXY_VERSION` moves past a snapshot's version,
+ * that snapshot stops being compared and goes back to being an archive.
+ */
+check('a snapshot naming the live version is byte-identical to Code.gs', () => {
+  const live = /var PROXY_VERSION = '([^']+)'/.exec(SOURCE);
+  if (!live) throw new Error('Code.gs declares no PROXY_VERSION');
+  const staged = `Code-${live[1]}.gs`;
+  const files = readdirSync(RELEASES).filter((f) => f.endsWith('.gs'));
+  if (!files.includes(staged)) return;
+  if (readFileSync(new URL(staged, RELEASES), 'utf8') !== SOURCE) {
+    throw new Error(`${staged} has drifted from Code.gs — it is the file that gets `
+      + 'pasted, so re-copy it or delete it rather than shipping a stale one');
+  }
+});
+
+check('the rollback snapshot still matches the tag it claims to be', () => {
+  // 1.3.1 is what Det 752 is running and what goes back in if 1.4.0 comes out.
+  let tagged;
+  try {
+    tagged = execFileSync('git', ['show', 'v1.3.1-beta.1:tools/proxy/Code.gs'],
+      { cwd: new URL('../../', import.meta.url).pathname, encoding: 'utf8' });
+  } catch {
+    throw new Error('cannot read v1.3.1-beta.1 from git, so the snapshot cannot be verified');
+  }
+  const frozen = readFileSync(new URL('Code-1.3.1.gs', RELEASES), 'utf8');
+  if (frozen !== tagged) {
+    throw new Error('Code-1.3.1.gs has drifted from v1.3.1-beta.1 — it is the rollback '
+      + 'artefact and must be the bytes that were deployed');
   }
 });
 

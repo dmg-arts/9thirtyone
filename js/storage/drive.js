@@ -343,7 +343,19 @@ async function driveError(res) {
     if (body?.error?.message) message = body.error.message;
   } catch { /* body was not JSON */ }
   if (res.status === 403) message += ' — check that the Drive API is enabled and the account can edit this folder.';
-  if (res.status === 404) message += ' — the folder or file was not found. Confirm the folder link in Settings.';
+  if (res.status === 404) {
+    // NOT "confirm the folder link in Settings". That sentence sent Det 752's
+    // commander back to the control that caused the fault: he had pasted the
+    // detachment's folder link there, and `drive.file` means a browser can only
+    // open files it created itself, so re-pasting a correct link produces the
+    // same 404 for ever. The link was never wrong.
+    //
+    // The view decides what to offer — see `needsSubmissionServer` — because
+    // only it knows whether this device has a submission server. This says what
+    // happened and stops prescribing a cure it cannot diagnose.
+    message += ' — this browser cannot open that folder. It can only open folders it '
+      + 'created itself.';
+  }
   return new Error(message);
 }
 

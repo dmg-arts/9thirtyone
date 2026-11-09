@@ -36,7 +36,7 @@ and no shared database, and writes only to storage the detachment controls.
 | `9ThirtyOne-Setup-Guide.pdf` | Whoever installs it | 28 pages: creating the detachment's Google account, opening the app, the wizard, the submission server, the roster, join links, a verification checklist, and troubleshooting. There is no Cloud setup any more. |
 | `9ThirtyOne-User-Introduction.pdf` | **Frozen at Beta 1.3.0 — not maintained.** Superseded by the demo deck | 8 slides: why and how on one slide, then what instructors, cadre and commanders do, what a cadet sees, and a diagram of where an answer actually goes. |
 | `9ThirtyOne-Overview.pdf` | **Frozen — not maintained.** Superseded by the demo deck | The same argument on one landscape page — why, how, both sides of the app, and the data-flow diagram. |
-| `9ThirtyOne-How-To-Guide.pdf` | Anyone using it | 21 pages, a chapter per role, every screen with its screenshot, and a closing matrix of what each role cannot reach. |
+| `9ThirtyOne-How-To-Guide.pdf` | Anyone using it | 22 pages, a chapter per role, every screen with its screenshot, and a closing matrix of what each role cannot reach. |
 | `ALPHA-TAGS.md` | The maintainer | Every release so far: the twelve alphas of 21–24 Aug 2026 and the betas since, with their commit SHAs and what each shipped. The tags themselves say a name and a line; this says why four of the alphas are one movement, and which releases were tagged only in hindsight. |
 | `9ThirtyOne-Introduction.pdf` | **Frozen at 31 Aug 2026 — not maintained, and do not hand it out.** It still describes a hand-made folder and a Cloud project, neither of which exists | 22 slides with speaker notes: why it exists, what it does, how each role uses it, and the anonymity and safety design. |
 | `9ThirtyOne USER Installation Guide.pdf` | A cadet or cadre member installing the app on their own device | 3 pages: the join link, content blockers, and adding the app to a home screen on each platform, with a troubleshooting table. Built from `tools/docs/user-install-guide.html` since 20 Oct &mdash; it used to be hand-made in Pages and was the one document nothing could rebuild or grep. |
@@ -667,6 +667,8 @@ js/
     wordcloud.js        SVG cloud plus its accessible table
   views/
     setup.js            first-run wizard, for whoever creates the detachment
+    join-card.js        the join-link paste box, shared by setup and by the
+                        error a wrongly-configured device is already showing
     join.js             the join-link screen everyone else gets instead
     invite.js           the full-screen join QR code
     sign-in.js          the Google sign-in gate, shared by all three roles

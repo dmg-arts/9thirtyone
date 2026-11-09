@@ -13,7 +13,7 @@
  * Bump CACHE_VERSION on release to roll users onto new assets.
  */
 
-const CACHE_VERSION = 'v55';
+const CACHE_VERSION = 'v57';
 const CACHE_NAME = `nine31-shell-${CACHE_VERSION}`;
 
 const SHELL = [
@@ -62,6 +62,7 @@ const SHELL = [
   './js/views/instructor.js',
   './js/views/people.js',
   './js/views/invite.js',
+  './js/views/join-card.js',
   './js/views/join.js',
   './js/views/settings.js',
   './js/views/sign-in.js',

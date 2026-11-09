@@ -31,6 +31,7 @@
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
 const SOURCE = readFileSync(new URL('../../service-worker.js', import.meta.url), 'utf8');
@@ -102,6 +103,68 @@ check('the cache version is a version, and rolls', () => {
   const m = /const CACHE_VERSION = '([^']+)'/.exec(SOURCE);
   if (!m) throw new Error('CACHE_VERSION is not declared as a literal');
   if (!/^v\d+$/.test(m[1])) throw new Error(`CACHE_VERSION is "${m[1]}", expected vN`);
+});
+
+/* ------------------------------------------------------------------ *
+ * the bump, enforced
+ * ------------------------------------------------------------------ */
+
+/**
+ * A shipped `SHELL` change on an unchanged `CACHE_VERSION` is the most
+ * expensive mistake this repo can make, and the only one that is invisible
+ * while it is happening.
+ *
+ * `activate` purges the old cache only when the cache *name* changes, and the
+ * name is built from CACHE_VERSION. Ship a changed module without a bump and
+ * stale-while-revalidate serves the old file once more before replacing it, so
+ * clients run a mixed build: new HTML (navigations are network-first) against
+ * old JS. Meanwhile `updateButton()` decides on `updatefound`, which never
+ * fires, so Settings reports "You are on the latest version" — the opposite of
+ * the truth. Nobody reports it because every screen says it is fine.
+ *
+ * So this compares the working tree against the last release tag: if any path
+ * the worker precaches has moved, CACHE_VERSION must have moved too. It is
+ * deliberately not "a bump in every commit" — the artifact is what ships, and
+ * one bump anywhere in a release satisfies the invariant for the whole release.
+ */
+const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
+
+check('a changed SHELL path since the last release carries a CACHE_VERSION bump', () => {
+  let tag;
+  try {
+    // Release tags only. A lightweight tag on a scratch commit would silently
+    // become the baseline and make this check compare against nothing.
+    tag = git('describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*');
+  } catch {
+    // No git, or no tags yet: say so rather than passing. A check that cannot
+    // run is not a check that passed, and this one is too easy to lose.
+    throw new Error('no release tag found, so the bump cannot be verified against one');
+  }
+
+  const released = /const CACHE_VERSION = '([^']+)'/.exec(git('show', `${tag}:service-worker.js`));
+  if (!released) throw new Error(`${tag} has no CACHE_VERSION to compare against`);
+
+  const current = /const CACHE_VERSION = '([^']+)'/.exec(SOURCE);
+
+  // Tracked changes plus untracked additions: a brand new module added to SHELL
+  // but not yet `git add`ed is invisible to diff, and is exactly the kind of
+  // file that arrives with a release.
+  const changed = new Set([
+    ...git('diff', '--name-only', tag, '--').split('\n'),
+    ...git('ls-files', '--others', '--exclude-standard').split('\n'),
+  ].filter(Boolean));
+
+  const moved = [...listed].filter((path) => changed.has(path));
+  // The worker itself is not in its own SHELL list, and a change to it rolls
+  // every client as surely as a changed module does.
+  if (changed.has('service-worker.js')) moved.push('service-worker.js');
+
+  if (moved.length && current[1] === released[1]) {
+    throw new Error(
+      `${moved.length} precached path(s) changed since ${tag} but CACHE_VERSION is still `
+      + `"${released[1]}". Clients would run a mixed build and Settings would call it current. `
+      + `Changed: ${moved.slice(0, 6).join(', ')}${moved.length > 6 ? ', …' : ''}`);
+  }
 });
 
 console.log(failures ? `\n${failures} shell check(s) failed.` : '\nThe offline shell is complete.');

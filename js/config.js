@@ -26,10 +26,41 @@
 export const GOOGLE_CLIENT_ID =
   '536562746421-uf9hu736m0bq0t41s0ck8h9fmu9ggkos.apps.googleusercontent.com';
 
+/**
+ * Whether this copy of the app is a staging build rather than the real one.
+ *
+ * Staging exists so 1.4 can be tested on real phones, which means it will be
+ * *installed* — an icon, no address bar, and at that point pixel-identical to
+ * production. The whole risk of having a staging host is somebody reading a
+ * stale staging screen as the live detachment, so staging has to announce
+ * itself somewhere that survives being installed.
+ *
+ * **Fail-safe by construction.** Production and local development are named;
+ * everything else is treated as staging. A host nobody listed gets marked,
+ * which is the harmless direction — the damaging one is an unrecognised host
+ * silently passing for production, and that cannot happen here. Adding a second
+ * production hostname is a deliberate edit to one array.
+ *
+ * Local hosts are exempt so the browser suite and day-to-day development are
+ * not run against a ribbon that is not what is being tested.
+ *
+ * Takes the hostname as an argument so it can be tested as a function rather
+ * than only observed in a browser.
+ */
+const PRODUCTION_HOSTS = ['9thirtyone.app', 'www.9thirtyone.app'];
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]', ''];
+
+export function isStagingHost(hostname = globalThis.location?.hostname ?? '') {
+  const host = String(hostname).toLowerCase();
+  if (PRODUCTION_HOSTS.includes(host)) return false;
+  if (LOCAL_HOSTS.includes(host)) return false;
+  return true;
+}
+
 export const APP = {
   name: '9ThirtyOne',
   shortName: '9ThirtyOne',
-  version: '1.3.1-beta.1',
+  version: '1.4.0-beta.1',
   /**
    * Bump when the on-disk record shape changes, and add a matching entry to
    * MIGRATIONS in js/migrations.js. The runner upgrades a detachment's existing
@@ -182,6 +213,84 @@ export function isDirectSignIn() {
 export function setDirectSignIn(on) {
   if (on) localStorage.setItem(LS.directSignIn, '1');
   else localStorage.removeItem(LS.directSignIn);
+}
+
+/**
+ * The oldest submission server this client can work against.
+ *
+ * `PROXY_VERSION` lives in the detachment's own Apps Script project and moves
+ * only when somebody pastes a new `Code.gs`. The two halves of a release
+ * therefore move at different times and by different hands: on release day the
+ * server is pasted first and the client follows, and a server rollback is two
+ * clicks while a client rollback is a revert, a cache bump and a wait.
+ *
+ * So the halves must be able to sit at different versions, and the client must
+ * be able to say which pairing it cannot work with. Without this, a 1.4 client
+ * against a rolled-back 1.3.1 server reports "That action is not implemented"
+ * — true, useless, and indistinguishable from a bug.
+ *
+ * **A minimum, never an equality.** A server *ahead* of its client is the
+ * normal state for days after a release and must keep working.
+ */
+export const MINIMUM_PROXY_VERSION = '1.4.0';
+
+/**
+ * Compares dotted versions numerically: '1.10.0' is above '1.9.0'.
+ *
+ * A string compare would call it below, which is the kind of wrong that waits
+ * nine releases and then breaks on the day nobody is expecting it.
+ */
+export function proxyVersionAtLeast(found, required = MINIMUM_PROXY_VERSION) {
+  const parts = (text) => String(text || '').split('.').map((n) => parseInt(n, 10) || 0);
+  const a = parts(found);
+  const b = parts(required);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0);
+  }
+  return true;
+}
+
+/**
+ * Whether this device plausibly has a smart-card reader attached.
+ *
+ * Not a detection — nothing in a browser can see a CAC, and the things that
+ * come close (WebUSB, WebHID) need a permission prompt for device access,
+ * which during sign-in on a government laptop is worse than the bug.
+ *
+ * This is a population test, not a hardware test. Det 752's staff sign in on
+ * USAF-issued Windows laptops with readers built into the keyboard; CACs are
+ * staff-held, and cadets are on phones or on Chrome. So Windows plus no touch
+ * points is the set of devices where the hint is worth offering, and a cadet on
+ * a Windows laptop who sees it reads a sentence that begins "if this computer
+ * has a card reader" and moves on.
+ *
+ * Takes its inputs so it can be tested without a browser.
+ */
+export function mayHaveCardReader(userAgent = '', touchPoints = 0) {
+  return /Windows/i.test(String(userAgent)) && Number(touchPoints) === 0;
+}
+
+/**
+ * Whether a connection points at a Drive folder it has no way to read.
+ *
+ * The unsupported state, stated once so every screen agrees about it: a
+ * `folderId` with no `proxyUrl`. The app holds `drive.file`, which grants
+ * access to files *it* created, so a browser that did not create the folder
+ * cannot open it however correct the link is. Only the installer's own browser
+ * is exempt, and only until the submission server is deployed — which the setup
+ * guide has made mandatory since the proxy shipped.
+ *
+ * Det 752's commander reached this by pasting the detachment's folder link into
+ * Settings. Drive answered 404, the app said "confirm the folder link in
+ * Settings", and that is a closed loop: the advice names the control that
+ * caused it. Recognising the shape is what lets the app say something true.
+ *
+ * A pure function over the record, deliberately — it lives here rather than in
+ * state.js so it can be tested without a browser, and takes the connection
+ * rather than reading it so there is no import cycle.
+ */
+export function needsSubmissionServer(conn) {
+  return Boolean(conn && conn.backend === BACKENDS.drive && conn.folderId && !conn.proxyUrl);
 }
 
 /**

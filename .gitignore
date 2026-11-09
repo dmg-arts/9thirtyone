@@ -24,3 +24,8 @@ docs/screens/
 # one is the thing that ships. Excluded from the docs/ count in
 # tests/unit/docs.test.mjs for the same reason.
 *.pages
+
+# Local beta operations. Names real people at a real detachment, so it stays
+# out of a public repository. Kept in the working tree so it is beside the
+# code it describes.
+beta-ops/

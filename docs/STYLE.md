@@ -146,6 +146,12 @@ side" as ordinary prose. That is correct. Do not reconcile them.
 
    Never say "no outside libraries" flat. A detachment's IT reviewer disproves it in five minutes and then has reason to doubt claims 1–5, which are true and matter far more.
 
+8. **Instructors read the whole shared space, and copy must not imply otherwise.** `allResponses` and `catalog` are open to the instructor role (`ACTIONS` in `tools/proxy/Code.gs`); only the By-instructor view is narrowed, server-side in `readPeople`. Confirmed open by decision on 23 Oct 2026, because a detachment's instructors are cadet upperclassmen teaching lowerclassmen and analysis is what the role is for — see the header of `js/people-scope.js`.
+
+   > Say: every instructor can read the detachment's shared feedback, and By instructor shows them their own results.
+
+   Never say an instructor sees "only the feedback they created", "only their own", or anything else that draws a wall between instructors. The cadre demo deck said "results for the feedback they created" on 22 Oct, which is how this guard came to be written: cadre would have repeated it to twelve cadet-instructors, and the first one to open Responses & analysis would have found it untrue. This is an overclaim of *confidentiality*, which is the expensive kind — a cadet who was told their words stayed with cadre has been misled about who reads them, and no later correction unreads it.
+
 ---
 
 ## 5. Out of scope

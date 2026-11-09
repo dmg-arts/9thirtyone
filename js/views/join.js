@@ -139,8 +139,24 @@ export async function renderJoin(root, { query }) {
       markSetupComplete(true);
       // A different folder means every cached record belongs to somewhere else.
       clearCache();
-      toast('Ready. Sign in to see your feedback.', 'ok');
-      return navigate('/student');
+      // Home, not /student, and the difference is larger than it looks.
+      //
+      // Nobody is signed in at this point — the join link carries a folder and a
+      // server, never an identity — so this code cannot know whether it is
+      // finishing a cadet's join or an instructor's. It used to assume cadet and
+      // send everyone to /student, where an instructor met a Cadet sign-in gate
+      // that refused their perfectly good account.
+      //
+      // It also set the default view of every installed app. iOS captures the
+      // *current* URL when you Add to Home Screen, and by then the join flow has
+      // already navigated here, so the saved icon was pinned to #/student for
+      // cadre and cadets alike.
+      //
+      // renderHome is the screen that already knows how to answer this: it reads
+      // activeRoles() after sign-in and shows only the panels the account can
+      // open. Landing there costs a cadet one tap and costs everyone else nothing.
+      toast('Ready. Sign in to get started.', 'ok');
+      return navigate('/home');
     }
 
     // Without a proxy there is nothing this device can legitimately reach.

@@ -18,10 +18,23 @@
  * It is **not** confidentiality. `allResponses` and `catalog` remain open to
  * instructors (`ACTIONS` in tools/proxy/Code.gs), so an instructor holding the
  * proxy URL can still fetch every response in the shared space and group it
- * themselves. Narrowing those actions would also narrow Responses & analysis,
- * which is a separate decision that has not been taken. Do not describe this
- * anywhere as instructors being unable to see each other's feedback — see
- * docs/STYLE.md §4.
+ * themselves. Do not describe this anywhere as instructors being unable to see
+ * each other's feedback — see docs/STYLE.md §4.
+ *
+ * **Decided 23 Oct 2026: it stays open, and this is not a gap left unattended.**
+ * Narrowing those two actions would take Responses & analysis away from
+ * instructors, and at a detachment the instructors *are* cadet upperclassmen who
+ * teach lowerclassmen. The seminar that trains them is the reason the instructor
+ * role exists separately from the student role one person holds alongside it, and
+ * analysis is the thing the role is for. So the tier here narrows the
+ * By-instructor view and nothing else, on purpose.
+ *
+ * What follows from that, and is the detachment's to say rather than the app's:
+ * feedback a cadet writes about an instructor is readable by the other
+ * instructors, who are their upperclassmen. The three-response threshold still
+ * governs when anonymous results appear at all, so this is about peers reading
+ * peers and not about anonymity failing. Anyone briefing cadets should say it
+ * plainly rather than implying a wall between instructors that does not exist.
  *
  * On a backend with no proxy there is no server to enforce anything, and this
  * runs in the browser as a lens only.

@@ -8,7 +8,7 @@ import { el, icon, field, notice, toast, spinner, clear, mount, remount, fmtDate
 import { connection, markSetupComplete } from '../state.js';
 import { db, adapters } from '../storage/index.js';
 import { navigate } from '../router.js';
-import { parseJoinParams } from '../join.js';
+import { joinLinkCard } from './join-card.js';
 
 const STEPS = ['Detachment', 'Storage', 'Connect', 'Finish'];
 
@@ -27,6 +27,8 @@ export function renderSetup(root, { rerun = false } = {}) {
       folderName: saved.folderName || '',
       connected: false,
       reused: false,
+      // Which door they came through. Null until asked — see askTheFork().
+      fork: rerun ? 'installer' : null,
       rerun,
     };
   }
@@ -37,64 +39,6 @@ export function resetSetupDraft() {
   draft = null;
 }
 
-/**
- * A way back for a device that has the app but not the detachment.
- *
- * This is the administrator's setup wizard and a cadet has no business on it —
- * but on iOS they land here routinely, and it is not their mistake. A
- * home-screen web app gets its own storage, separate from the browser that
- * installed it, so a cadet who joins in Safari and then adds the icon opens a
- * brand-new, unconfigured app.
- *
- * The link cannot carry them in on its own either. `start_url` in the manifest
- * fixes what the icon opens, and `renderJoin` navigates to `/student` the moment
- * a join succeeds — so the parameters have already gone from the address bar
- * before anyone reaches Add to Home Screen. Confirmed on a real iPhone, 19 Oct
- * 2026, in both Safari and Chrome.
- *
- * So the link has to be enterable by hand. It is the one thing a cadet already
- * has, it arrived by email, and joining with it is idempotent — the join screen
- * recognises a device that is already set up and offers to move on rather than
- * repeating itself.
- */
-function joinLinkCard() {
-  const input = el('input', {
-    class: 'input mono', type: 'text', placeholder: 'https://\u2026/#/join?c=\u2026&f=\u2026',
-    autocapitalize: 'off', autocorrect: 'off', spellcheck: false,
-    onkeydown: (e) => { if (e.key === 'Enter') apply(); },
-  });
-  const problem = el('div', {});
-
-  const apply = () => {
-    clear(problem);
-    const text = String(input.value || '').trim();
-    const marker = '#/join?';
-    const at = text.indexOf(marker);
-    // Cut at the first whitespace: people paste a line out of an email, not a
-    // tidy URL, and a trailing word would otherwise land inside the query.
-    const qs = at < 0 ? '' : text.slice(at + marker.length).split(/\s/)[0];
-
-    if (!qs || !parseJoinParams(new URLSearchParams(qs))) {
-      mount(problem, notice('warn', 'That does not look like a join link',
-        el('p', {}, 'A join link contains ' + '\u201c' + '#/join?' + '\u201d' + ' and is the whole address, '
-          + 'not just the part before it. Copy it again from the message it arrived in, or ask '
-          + 'whoever set the detachment up to send it again.')));
-      return;
-    }
-    navigate(`/join?${qs}`);
-  };
-
-  return el('section', { class: 'card stack' },
-    el('h2', { class: 'section-title' }, 'Were you sent a join link?'),
-    el('p', { class: 'muted' },
-      'If somebody sent you a link to join a detachment, paste it here. You do not need to set '
-      + 'anything up \u2014 this screen is for whoever creates the detachment, not for joining one.'),
-    field('Join link', input, { hint: 'It was emailed to you, and it can be used as often as you like.' }),
-    problem,
-    el('div', { class: 'row row--end' },
-      el('button', { type: 'button', class: 'btn btn--primary', onclick: apply },
-        icon('check'), 'Join')));
-}
 
 function draw(root) {
   clear(root);
@@ -118,17 +62,60 @@ function draw(root) {
     default: stepFinish(body, root); break;
   }
 
-  // Mounted as a sibling *before* the wizard, not inside it. Visually first,
-  // because the person who needs it is usually not the person the wizard is for
-  // — but outside `.wizard`, because the setup suite drives this screen through
-  // `.wizard input[type=text]` and `.wizard .btn--primary`, and a card inside it
-  // would silently steal both. The first run of this change broke setup itself.
+  // The fork, asked before anything else is shown.
   //
-  // Only on the first step: an administrator part-way through creating a
-  // detachment does not need a recovery path, and a rerun is somebody
-  // deliberately reconfiguring storage.
-  if (draft.step === 0 && !draft.rerun) mount(root, joinLinkCard());
+  // This used to be a card mounted above the wizard with exactly the right
+  // words on it — "this screen is for whoever creates the detachment, not for
+  // joining one". Det 752's commander scrolled past it on 26 Oct and worked
+  // through setup instead. A card above a form reads as a preamble to the
+  // form, and the form is the thing that looks like the task.
+  //
+  // So nothing else renders until the question is answered. Two people arrive
+  // here and only one of them should be setting anything up; making that a
+  // decision rather than a thing to notice is the entire fix.
+  if (draft.step === 0 && draft.fork !== 'installer') {
+    mount(root, askTheFork(root));
+    return;
+  }
   mount(root, wizard);
+}
+
+/**
+ * Which of the two people arriving here this is.
+ *
+ * Deliberately not a card beside the wizard. The wizard does not render at all
+ * until this is answered, because the failure being fixed is somebody not
+ * noticing a choice, and anything optional will be scrolled past by exactly the
+ * person it was put there for.
+ */
+function askTheFork(root) {
+  const host = el('div', { class: 'stack' });
+
+  mount(host, el('div', { class: 'card stack' },
+    el('div', { class: 'page-head' },
+      el('h1', { class: 'page-title' }, 'Setting up, or joining?'),
+      el('p', { class: 'page-sub' }, 'These are different things and only one of them is this screen.')),
+    el('div', { class: 'row row--wrap' },
+      el('button', {
+        type: 'button', class: 'btn btn--primary btn--lg',
+        onclick: () => { draft.fork = 'join'; draw(root); },
+      }, icon('check'), 'I was sent a join link'),
+      el('button', {
+        type: 'button', class: 'btn btn--lg',
+        onclick: () => { draft.fork = 'installer'; draw(root); },
+      }, icon('settings'), 'I am creating this detachment')),
+    el('p', { class: 'field__hint' },
+      'Almost everybody was sent a link. Creating a detachment is a one-time job for whoever '
+      + 'sets it up, and it needs a Google account that will own the data.')));
+
+  if (draft.fork === 'join') {
+    mount(host, joinLinkCard({
+      title: 'Paste your join link',
+      blurb: '',
+      action: 'Join this detachment',
+    }));
+  }
+  return host;
 }
 
 function stepper() {
@@ -171,7 +158,20 @@ function stepOrg(body, root) {
     onclick: () => { draft.step = 1; draw(root); },
   }, 'Continue');
 
-  mount(body, el('div', { class: 'row row--end', style: { marginTop: 'var(--sp-5)' } }, next));
+  // A way back out of the installer branch.
+  //
+  // Without this the fork is a one-way door: `Back` on step 2 returns to step
+  // 0, and step 0 with `fork === 'installer'` renders this wizard rather than
+  // the question, so a misclick strands somebody in a setup they did not want.
+  // For a stage whose entire premise is that the wrong door is expensive, that
+  // is the wrong shape. Omitted on a rerun, where the fork was never asked.
+  const wrongDoor = draft.rerun ? null : el('button', {
+    type: 'button', class: 'btn btn--ghost',
+    onclick: () => { draft.fork = null; draw(root); },
+  }, icon('arrowLeft'), 'I was sent a join link');
+
+  mount(body, el('div', { class: 'row row--between row--wrap', style: { marginTop: 'var(--sp-5)' } },
+    wrongDoor || el('span', {}), next));
   setTimeout(() => nameInput.focus(), 40);
 }
 

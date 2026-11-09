@@ -3,7 +3,7 @@
  * start the service worker.
  */
 
-import { APP } from './config.js';
+import { APP, isStagingHost } from './config.js';
 import { $, el, icon, toast, mount, remount } from './util.js';
 import { applySettings, connection, isConfigured } from './state.js';
 import { db } from './storage/index.js';
@@ -63,10 +63,20 @@ function buildAppBar() {
   const bar = $('#appbar');
   const conn = connection.get();
 
+  // Beta feedback, 2 Nov: too easy to miss. It was `btn--ghost`, which is the
+  // lowest-emphasis variant in the system — transparent background, transparent
+  // border — and `btn--icon`, which forces a square and leaves no room for a
+  // word. An arrow with no label beside a logo that is also clickable reads as
+  // decoration.
+  //
+  // Labelled "Home" rather than "Back" because it calls navigate('/home')
+  // unconditionally: it does not retrace a path, and for anyone who arrived by
+  // join link or deep link there is no back to go to. The aria-label already
+  // said "Back to home"; this just makes the screen say what it does.
   const back = el('button', {
-    type: 'button', class: 'btn btn--icon btn--ghost', 'aria-label': 'Back to home',
+    type: 'button', class: 'btn appbar__back', 'aria-label': 'Back to home',
     onclick: () => navigate('/home'),
-  }, icon('arrowLeft'));
+  }, icon('arrowLeft'), el('span', { class: 'appbar__back-label' }, 'Home'));
 
   const brand = el('button', {
     type: 'button', class: 'appbar__brand',
@@ -83,8 +93,18 @@ function buildAppBar() {
     el('span', { class: 'conn__label' }, 'checking'),
     el('span', { class: 'visually-hidden' }, 'Database connection status'));
 
+  // A persistent ribbon, not a dismissible toast. Staging is installed on real
+  // phones during 1.4, where it has an icon and no address bar and is otherwise
+  // indistinguishable from the live detachment's app. Anything that can be
+  // dismissed will be dismissed, and then the one signal that this is not real
+  // data is gone for the rest of the session.
+  const stagingRibbon = isStagingHost()
+    ? el('span', { class: 'appbar__staging', title: location.origin }, 'STAGING')
+    : null;
+
   remount(bar, 
     back, brand,
+    stagingRibbon,
     el('span', { class: 'appbar__spacer' }),
     buildQueuePill(),
     status,
@@ -311,6 +331,32 @@ if ('serviceWorker' in navigator) {
         });
       });
     }).catch((err) => console.warn('[sw] registration failed', err));
+
+    /*
+     * A new worker took over while this page was still running.
+     *
+     * `skipWaiting()` plus `clients.claim()` means a new worker activates
+     * immediately, and `activate` deletes the previous cache. This page keeps
+     * running against modules from a build that no longer exists — and it
+     * dynamic-imports several of them: migrations.js, storage/proxy.js,
+     * data-source.js. Reaching one after the rollover gets code from the new
+     * build into a page running the old one.
+     *
+     * Mid-submit, that costs a cadet their answers. Which is also why this
+     * asks rather than reloads: a reload during a submission loses exactly
+     * what it is meant to protect. The page keeps working until they say so.
+     */
+    let rolledOver = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (rolledOver) return;      // Fires again on every later claim.
+      rolledOver = true;
+      const notice = toast('This app has been updated in the background.', 'info', 0);
+      mount(notice, el('button', {
+        type: 'button', class: 'btn btn--sm',
+        style: { marginLeft: 'var(--sp-3)' },
+        onclick: () => window.location.reload(),
+      }, 'Reload now'));
+    });
   });
 }
 

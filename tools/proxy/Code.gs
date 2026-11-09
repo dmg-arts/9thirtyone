@@ -64,7 +64,24 @@
 // 1.2.0 is skipped deliberately: it was deployed, degraded a testbed twice for
 // reasons never found, and was withdrawn. No deployment should ever claim it
 // again, and a doGet reporting 1.1.0 is how a rollback from here is confirmed.
-var PROXY_VERSION = '1.3.1';
+var PROXY_VERSION = '1.4.0';
+
+/**
+ * A content fingerprint of this file, so a redeploy can be confirmed when the
+ * version has not moved.
+ *
+ * `PROXY_VERSION` only changes at release, so during a development cycle every
+ * build reports the same version and `doGet` cannot tell a fresh deployment
+ * from a stale one. That matters twice: while iterating on staging, and on
+ * ship day, when "did the paste actually take" is the question the whole
+ * sequence turns on and saving a file is not the same as deploying it.
+ *
+ * Maintained by `node tools/proxy/stamp.mjs`, and checked by
+ * `tests/unit/proxy.test.mjs` — so a Code.gs edited without re-stamping fails
+ * the suite rather than deploying a marker that quietly describes the previous
+ * build.
+ */
+var BUILD = 'a15f3d4d';
 
 /** Refuse anything larger; a submission is a few KB at most. */
 var MAX_BODY_BYTES = 96 * 1024;
@@ -155,7 +172,7 @@ function subjectOfRequest(request) {
  * built and sent the form, so withholding the answers reads as a fault rather
  * than a policy.
  */
-function requestInPeopleScope(root, request, account, tier) {
+function requestInPeopleScope(root, request, account, tier, users) {
   if (tier === 'all') return true;
   var me = String((account && account.username) || '').toLowerCase();
   if (tier === 'own') {
@@ -166,7 +183,24 @@ function requestInPeopleScope(root, request, account, tier) {
   if (!subject) return false;
   subject = String(subject).toLowerCase();
   if (subject === me) return true;
-  return isPlainInstructor(findByUsername(root, subject));
+  // `users` when the caller already read the roster. This is called once per
+  // request, and without it each call re-read users.json from Drive — two
+  // round trips per request, which profiling found was most of readPeople.
+  // Passed explicitly rather than memoised: 1.2.0 was withdrawn over a
+  // script-level memo and no mechanism was ever found, so nothing here keeps
+  // state between executions.
+  return isPlainInstructor(users
+    ? findInList_(users, subject)
+    : findByUsername(root, subject));
+}
+
+/** A roster lookup in a list already held, with no read behind it. */
+function findInList_(users, username) {
+  var wanted = String(username || '').toLowerCase();
+  for (var i = 0; i < users.length; i++) {
+    if (String(users[i].username || '').toLowerCase() === wanted) return users[i];
+  }
+  return null;
 }
 
 /** Every space this account may see, combined across the roles it holds. */
@@ -248,6 +282,8 @@ var ACTIONS = {
   // oversee, a commander gets everyone. The narrowing is the point of the
   // action — see peopleTierFor for what it does and does not guarantee.
   people:       ['instructor', 'cadre', 'commander', 'admin'],
+  // Inert in 1.4.0 — shipped ahead of the client that calls it.
+  peopleSummary: ['instructor', 'cadre', 'commander', 'admin'],
 
   saveForm:       ['instructor', 'cadre', 'commander', 'admin'],
   saveRequest:    ['instructor', 'cadre', 'commander', 'admin'],
@@ -335,6 +371,7 @@ function doGet() {
     ok: true,
     service: 'nine31-proxy',
     version: PROXY_VERSION,
+    build: BUILD,
     configured: Boolean(cfg.folderId && cfg.clientId),
   });
 }
@@ -415,6 +452,9 @@ function doPost(e) {
     }
     if (body.action === 'people') {
       return json({ ok: true, people: readPeople(root, account) });
+    }
+    if (body.action === 'peopleSummary') {
+      return json({ ok: true, summary: readPeopleSummary(root, account, body.spaces) });
     }
     if (body.action === 'roster') {
       return json({ ok: true, users: readRoster(root) });
@@ -1113,6 +1153,39 @@ function removeRequest(root, account, requestId) {
   // are different events, and the second one should cost one round trip to say.
   var doomed = countFolderFiles(findFolder(root, spacePath(located.space, 'responses', requestId)));
 
+  // Stage 3b. The one change in 1.4 that makes the server *stricter*, and so
+  // the one a 1.3.1 client can visibly trip over in the days between the paste
+  // and the client release.
+  //
+  // THE WORDING IS LOAD-BEARING. A 1.3.1 client puts `result.error` on screen
+  // verbatim — no heading, no wrapper, no retry. So this has to read as a
+  // whole thought to somebody who has just pressed Delete: what happened, why,
+  // that nothing was lost, and what to do instead. It names no version and no
+  // upgrade, because the same sentence is what a fully converged client shows
+  // six months from now, when there is no release to explain.
+  //
+  // There is deliberately no override for commanders or administrators. The
+  // escape hatch is to delete the responses first — `deleteResponse`, which is
+  // theirs alone and audits each one — and then the request. That is several
+  // deliberate acts instead of one click, which is the right price for
+  // discarding somebody's feedback.
+  if (doomed > 0) {
+    // Front-loaded on purpose. Observed on staging 30 Oct: a 1.3.1 client has
+    // no handler on this path, so the throw reaches the global
+    // unhandledrejection listener and becomes a **six-second toast**. The
+    // first wording ran to twenty-nine words, which is seven to nine seconds
+    // of reading — the most important sentence in the release was one nobody
+    // could finish. "Not deleted." is the whole verdict in two words, and it
+    // survives being half-read.
+    //
+    // The user has just clicked through a confirmation saying the responses
+    // would go with it, which in 1.3.1 is now false and cannot be corrected
+    // from here. That is why "Nothing has been changed" earns its place: it
+    // answers the alarm the previous screen just raised.
+    return fail('Not deleted. This request has answers and they would go with it. '
+      + 'Nothing has been changed — close the request instead to stop new answers.');
+  }
+
   trashFolder(findFolder(root, spacePath(located.space, 'responses', requestId)));
   trashFolder(findFolder(root, spacePath(located.space, 'receipts', requestId)));
   var result = removeRecord(root, spacePath(located.space, 'requests'), requestId);
@@ -1620,24 +1693,270 @@ function appendAudit(root, entry, account) {
  * arrive and these functions start filtering by folder.
  * ------------------------------------------------------------------ */
 
-/** Reads every JSON file in a folder, skipping the roll-up index files. */
+var DRIVE_API = 'https://www.googleapis.com/drive/v3/';
+
+/**
+ * Appended to every Drive REST call.
+ *
+ * DriveApp resolves Shared Drives on its own; the REST API does not unless
+ * asked, and an unasked listing of a Shared Drive folder comes back **empty
+ * rather than failing**. Det 752 runs in a personal My Drive inside a
+ * Workspace, so this changes nothing for them — E13 of the fidelity pass
+ * confirmed identical results with and without, against real Drive — but a
+ * detachment that puts its folder in a Shared Drive would see every staff
+ * screen silently show nothing at all.
+ *
+ * Free insurance against the one failure mode that converting the enumeration
+ * from DriveApp to REST actually introduced.
+ */
+var DRIVE_SCOPE_FLAGS = '&supportsAllDrives=true&includeItemsFromAllDrives=true';
+
+
+/**
+ * Lists the JSON records in a folder, by id, through Drive REST.
+ *
+ * One request per thousand children rather than one Apps Script call per file.
+ * `pageSize` is capped at 1000 by the API — measured, not assumed: 2000 is a
+ * 400 naming the range.
+ */
+function listRecordIds_(folderId) {
+  var token = ScriptApp.getOAuthToken();
+  var out = [];
+  var page = '';
+  var guard = 0;
+  do {
+    var url = DRIVE_API + 'files?q='
+      + encodeURIComponent("'" + folderId + "' in parents and trashed=false")
+      + '&pageSize=1000&fields=' + encodeURIComponent('files(id,name),nextPageToken')
+      + DRIVE_SCOPE_FLAGS
+      + (page ? '&pageToken=' + encodeURIComponent(page) : '');
+    var res = UrlFetchApp.fetch(url, {
+      headers: { Authorization: 'Bearer ' + token },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) {
+      throw new Error('Drive list failed (' + res.getResponseCode() + ')');
+    }
+    var body = JSON.parse(res.getContentText());
+    var rows = body.files || [];
+    for (var i = 0; i < rows.length; i++) {
+      var name = rows[i].name;
+      // Files beginning with an underscore are caches the app rebuilds for
+      // itself; sending them would only invite the client to trust them.
+      if (name.indexOf('_') === 0 || name.slice(-5) !== '.json') continue;
+      out.push(rows[i]);
+    }
+    page = body.nextPageToken || '';
+  } while (page && guard++ < 50);
+  return out;
+}
+
+/**
+ * Fetches record bodies concurrently, with one retry for rate limiting.
+ *
+ * **The retry accepts 429 AND 403-with-reason on purpose.** Rate limiting never
+ * triggered against real Drive, even at 107 concurrent requests, so which shape
+ * it arrives in is the one thing the fidelity pass could not settle. Handling
+ * only one of them would be indistinguishable from not retrying at all, and
+ * would only show up under exactly the load nobody can reproduce.
+ *
+ * Returns bodies positionally; a slot that could not be read is null, because
+ * one unreadable record must not take a whole listing down.
+ */
+function fetchRecordBodies_(items) {
+  if (!items.length) return [];
+  var token = ScriptApp.getOAuthToken();
+
+  function requestsFor(list) {
+    var reqs = [];
+    for (var i = 0; i < list.length; i++) {
+      reqs.push({
+        url: DRIVE_API + 'files/' + list[i].id + '?alt=media' + DRIVE_SCOPE_FLAGS,
+        headers: { Authorization: 'Bearer ' + token },
+        // Without this UrlFetchApp throws on any non-2xx, and every line of
+        // error handling below becomes unreachable. Measured, not assumed.
+        muteHttpExceptions: true
+      });
+    }
+    return reqs;
+  }
+
+  function isThrottled(res) {
+    var code = res.getResponseCode();
+    if (code === 429) return true;
+    if (code !== 403) return false;
+    try {
+      var errs = JSON.parse(res.getContentText()).error.errors || [];
+      for (var i = 0; i < errs.length; i++) {
+        if (errs[i].reason === 'rateLimitExceeded'
+          || errs[i].reason === 'userRateLimitExceeded') return true;
+      }
+    } catch (err) { /* not a JSON error body */ }
+    return false;
+  }
+
+  var out = new Array(items.length);
+  var responses = UrlFetchApp.fetchAll(requestsFor(items));
+
+  var retryAt = [];
+  for (var i = 0; i < responses.length; i++) {
+    if (responses[i].getResponseCode() === 200) out[i] = responses[i].getContentText();
+    else if (isThrottled(responses[i])) retryAt.push(i);
+    else out[i] = null;
+  }
+
+  if (retryAt.length) {
+    Utilities.sleep(1200);
+    var again = [];
+    for (var r = 0; r < retryAt.length; r++) again.push(items[retryAt[r]]);
+    var second = UrlFetchApp.fetchAll(requestsFor(again));
+    for (var k = 0; k < second.length; k++) {
+      out[retryAt[k]] = second[k].getResponseCode() === 200 ? second[k].getContentText() : null;
+    }
+  }
+  return out;
+}
+
+/**
+ * Reads every JSON file in a folder, skipping the roll-up index files.
+ *
+ * **The single chokepoint for every expensive read in this file** — requests,
+ * forms, responses, receipts, audit and the overview counts all arrive here, so
+ * this is the only place stage 2 had to change.
+ *
+ * Measured on staging, 28 Oct 2026, against 107 real documents: 468 ms per
+ * sequential read against 67 ms per document through fetchAll, a 7.0x
+ * improvement that takes `allResponses` from ~50 s against a 60 s timeout to
+ * ~7 s of reads. The sequential figure independently reproduces the 49.1 s
+ * measured client-side on 15 Oct, which is what makes the projection credible.
+ *
+ * **There is deliberately no fallback to the old sequential path.** A silent
+ * fallback would mean a detachment running 1.4.0 at 1.3.1 speed with nothing
+ * to say so — and the 1.2.0 withdrawal is already one unexplained degradation
+ * too many. If this breaks it must break loudly: the rollback is a deployment
+ * version revert, two clicks, exactly the bytes that were running.
+ */
 function readFolderDocs(root, segments) {
   var folder = findFolder(root, segments);
+  if (!folder) return [];
+  return readDocsInFolder(folder, segments.join('/'));
+}
+
+/**
+ * How many folders go into one `files.list` query.
+ *
+ * Drive's `q` has a length limit and the exact ceiling is not published, so
+ * this is deliberately conservative: twenty parents is roughly 700 characters
+ * of query, well inside anything plausible, and a detachment with more
+ * requests than that simply takes a second chunk. Chunking is not a fallback
+ * path that might rot — a 25-request term exercises it every time.
+ */
+var PARENTS_PER_QUERY = 20;
+
+/**
+ * Reads many folders in one round trip each, instead of one round trip each.
+ *
+ * Stage 2b. Measured on staging 29 Oct: after stage 2c, `allResponses` spent
+ * **88% of its 8.7 s** in per-request REST pairs — one list and one fetchAll
+ * for every request folder, at about 1.28 s a folder. Six requests, six pairs.
+ * The cost grew one pair per request, so a spring term heading for twenty
+ * requests was heading for ~27 s.
+ *
+ * Drive answers a query naming several parents at once, and returns each file's
+ * parent alongside it, so one list covers every folder and one `fetchAll`
+ * covers every document. The result is flat in the number of folders rather
+ * than linear: the same two round trips for six requests or sixty.
+ *
+ * Returns `{ folderId: [parsed, ...] }`. A folder with nothing in it is absent
+ * rather than empty, which callers must tolerate.
+ */
+function readDocsInFolders_(folderIds) {
+  var out = {};
+  if (!folderIds || !folderIds.length) return out;
+
+  var token = ScriptApp.getOAuthToken();
+  var wanted = [];
+
+  for (var start = 0; start < folderIds.length; start += PARENTS_PER_QUERY) {
+    var chunk = folderIds.slice(start, start + PARENTS_PER_QUERY);
+    var clauses = [];
+    for (var c = 0; c < chunk.length; c++) clauses.push("'" + chunk[c] + "' in parents");
+
+    var page = '';
+    var guard = 0;
+    do {
+      var url = DRIVE_API + 'files?q='
+        + encodeURIComponent('(' + clauses.join(' or ') + ') and trashed=false')
+        + '&pageSize=1000&fields='
+        + encodeURIComponent('files(id,name,parents),nextPageToken')
+        + DRIVE_SCOPE_FLAGS
+        + (page ? '&pageToken=' + encodeURIComponent(page) : '');
+      var res = UrlFetchApp.fetch(url, {
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true
+      });
+      if (res.getResponseCode() !== 200) {
+        throw new Error('Drive list failed (' + res.getResponseCode() + ')');
+      }
+      var body = JSON.parse(res.getContentText());
+      var rows = body.files || [];
+      for (var i = 0; i < rows.length; i++) {
+        var name = rows[i].name;
+        if (name.indexOf('_') === 0 || name.slice(-5) !== '.json') continue;
+        var owner = (rows[i].parents && rows[i].parents[0]) || '';
+        if (!owner) continue;
+        wanted.push({ id: rows[i].id, name: name, parent: owner });
+      }
+      page = body.nextPageToken || '';
+    } while (page && guard++ < 50);
+  }
+
+  if (!wanted.length) return out;
+
+  var bodies = fetchRecordBodies_(wanted);
+  for (var b = 0; b < bodies.length; b++) {
+    if (bodies[b] === null) {
+      console.warn('unreadable: ' + wanted[b].name);
+      continue;
+    }
+    try {
+      var parsed = JSON.parse(bodies[b]);
+      if (!out[wanted[b].parent]) out[wanted[b].parent] = [];
+      out[wanted[b].parent].push(parsed);
+    } catch (err) {
+      console.warn('unreadable: ' + wanted[b].name);
+    }
+  }
+  return out;
+}
+
+/**
+ * The same read, for a caller that already holds the folder.
+ *
+ * `readFolderDocs` resolves a path from the root with one DriveApp lookup per
+ * segment, every time it is called. Profiling on 29 Oct found that re-walking
+ * was **43% of allResponses** — more than the batched document reads it was
+ * fetching — because `readAllResponses` iterates folder objects and then threw
+ * them away to pass a path instead.
+ *
+ * `label` is for the unreadable-record warning only. It is never a lookup.
+ */
+function readDocsInFolder(folder, label) {
   var out = [];
   if (!folder) return out;
 
-  var files = folder.getFiles();
-  while (files.hasNext()) {
-    var file = files.next();
-    var name = file.getName();
-    // Files beginning with an underscore are caches the app rebuilds for
-    // itself; sending them would only invite the client to trust them.
-    if (name.indexOf('_') === 0 || name.slice(-5) !== '.json') continue;
+  var items = listRecordIds_(folder.getId());
+  var bodies = fetchRecordBodies_(items);
+  for (var i = 0; i < bodies.length; i++) {
+    if (bodies[i] === null) {
+      console.warn('unreadable: ' + label + '/' + items[i].name);
+      continue;
+    }
     try {
-      out.push(JSON.parse(file.getBlob().getDataAsString('UTF-8')));
+      out.push(JSON.parse(bodies[i]));
     } catch (err) {
       // One unreadable record must not take the whole listing down.
-      console.warn('unreadable: ' + segments.join('/') + '/' + name);
+      console.warn('unreadable: ' + label + '/' + items[i].name);
     }
   }
   return out;
@@ -1725,6 +2044,161 @@ function locateRequest(root, requestId) {
  * feedback is comfortably inside Apps Script's response limit, but this is the
  * first thing that will need paging if a detachment runs for years.
  */
+
+/**
+ * Counts the records in many folders without reading any of them.
+ *
+ * The same OR-query `readDocsInFolders_` uses, stopping after the listing.
+ * A count needs names, not bodies, and the bodies are the expensive part —
+ * about 67 ms per document against roughly 500 ms for a whole listing. This is
+ * what lets `peopleSummary` answer in a couple of round trips where `people`
+ * takes sixteen.
+ *
+ * Returns `{ folderId: n }`, absent rather than zero for an empty folder.
+ */
+function countDocsInFolders_(folderIds) {
+  var out = {};
+  if (!folderIds || !folderIds.length) return out;
+  var token = ScriptApp.getOAuthToken();
+
+  for (var start = 0; start < folderIds.length; start += PARENTS_PER_QUERY) {
+    var chunk = folderIds.slice(start, start + PARENTS_PER_QUERY);
+    var clauses = [];
+    for (var c = 0; c < chunk.length; c++) clauses.push("'" + chunk[c] + "' in parents");
+
+    var page = '';
+    var guard = 0;
+    do {
+      var url = DRIVE_API + 'files?q='
+        + encodeURIComponent('(' + clauses.join(' or ') + ') and trashed=false')
+        + '&pageSize=1000&fields='
+        + encodeURIComponent('files(name,parents),nextPageToken')
+        + DRIVE_SCOPE_FLAGS
+        + (page ? '&pageToken=' + encodeURIComponent(page) : '');
+      var res = UrlFetchApp.fetch(url, {
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true
+      });
+      if (res.getResponseCode() !== 200) {
+        throw new Error('Drive count failed (' + res.getResponseCode() + ')');
+      }
+      var body = JSON.parse(res.getContentText());
+      var rows = body.files || [];
+      for (var i = 0; i < rows.length; i++) {
+        var name = rows[i].name;
+        if (name.indexOf('_') === 0 || name.slice(-5) !== '.json') continue;
+        var owner = (rows[i].parents && rows[i].parents[0]) || '';
+        if (!owner) continue;
+        out[owner] = (out[owner] || 0) + 1;
+      }
+      page = body.nextPageToken || '';
+    } while (page && guard++ < 50);
+  }
+  return out;
+}
+
+/**
+ * The By-instructor landing: who is in scope, and how much there is of each.
+ *
+ * **Inert in 1.4.0.** No client calls it until stage 5 ships in the client
+ * release. It is here early so the server can go first on the day: a 1.4
+ * client reaching a 1.3.1 server would get "That action is not implemented",
+ * and the window between the paste and the client rollout is measured in days.
+ *
+ * It answers the question `people` answers, at a fraction of the cost, by not
+ * reading a single response. Opening the screen becomes two or three round
+ * trips; the full read happens when somebody picks an instructor.
+ *
+ * **Built by whitelist, never by deletion.** Every field below is named. A
+ * roster record carries an email and whatever an administrator typed into it,
+ * and a summary that spread the record and removed a few keys would leak the
+ * next field somebody adds. Compare `readRoster`, which returns records whole
+ * to screens that are entitled to them.
+ */
+function readPeopleSummary(root, account, wanted) {
+  var tier = peopleTierFor(account);
+  var spaces = spacesFor(account);
+
+  // Narrowed to the panel that asked, because a count cannot be narrowed
+  // afterwards the way a list can: `people` returns records the client filters
+  // by space, and this returns totals, which are already summed by the time
+  // they arrive. A cadre panel showing detachment counts would be quietly
+  // wrong rather than visibly wrong.
+  //
+  // **Intersected, never trusted.** The client names which of its spaces it
+  // wants; anything outside what this account may see is dropped. An empty or
+  // absent list means all of them, which is what the deployed 1.4.0 did before
+  // this parameter existed.
+  if (wanted && wanted.length) {
+    var allowed = [];
+    for (var w = 0; w < wanted.length; w++) {
+      for (var a = 0; a < spaces.length; a++) {
+        if (spaces[a] === wanted[w]) allowed.push(spaces[a]);
+      }
+    }
+    spaces = allowed;
+  }
+
+  var roster = readRoster(root);
+
+  var subjects = {};
+  var folderIds = [];
+  var folderOwner = {};
+
+  for (var s = 0; s < spaces.length; s++) {
+    var rows = readFolderDocs(root, spacePath(spaces[s], 'requests'));
+    var receiptsHome = findFolder(root, spacePath(spaces[s], 'responses'));
+    var byRequest = {};
+    if (receiptsHome) {
+      var all = receiptsHome.getFolders();
+      while (all.hasNext()) {
+        var child = all.next();
+        byRequest[child.getName()] = child.getId();
+      }
+    }
+    for (var i = 0; i < rows.length; i++) {
+      if (!requestInPeopleScope(root, rows[i], account, tier, roster)) continue;
+      var who = String(subjectOfRequest(rows[i]) || '').toLowerCase();
+      if (!who) continue;
+      if (!subjects[who]) subjects[who] = { requests: 0, responses: 0 };
+      subjects[who].requests += 1;
+      var fid = byRequest[rows[i].id];
+      if (fid) {
+        folderIds.push(fid);
+        folderOwner[fid] = who;
+      }
+    }
+  }
+
+  var counts = countDocsInFolders_(folderIds);
+  for (var f = 0; f < folderIds.length; f++) {
+    var owner = folderOwner[folderIds[f]];
+    subjects[owner].responses += counts[folderIds[f]] || 0;
+  }
+
+  // The staff this tier may see, named field by field.
+  var staff = [];
+  var me = String((account && account.username) || '').toLowerCase();
+  for (var u = 0; u < roster.length; u++) {
+    var user = roster[u];
+    var name = String(user.username || '').toLowerCase();
+    var held = user.roles || [];
+    var isStaff = false;
+    for (var h = 0; h < held.length; h++) if (held[h] !== 'student') isStaff = true;
+    if (!isStaff) continue;
+    if (tier !== 'all' && name !== me && !(tier === 'instructors' && isPlainInstructor(user))) continue;
+    staff.push({
+      username: user.username,
+      name: user.name,
+      roles: user.roles,
+      requests: (subjects[name] && subjects[name].requests) || 0,
+      responses: (subjects[name] && subjects[name].responses) || 0
+    });
+  }
+
+  return { tier: tier, staff: staff };
+}
+
 /**
  * The By-instructor view: requests, their forms, their responses, and the staff
  * they are about — all narrowed to this account's people tier.
@@ -1749,33 +2223,78 @@ function readPeople(root, account) {
   var responses = [];
   var formIds = {};
 
+  // Once, at the top. Every scope decision below needs it and there is one
+  // roster.
+  var roster = readRoster(root);
+
   for (var s = 0; s < spaces.length; s++) {
     var rows = readFolderDocs(root, spacePath(spaces[s], 'requests'));
+    // The parent of every per-request responses folder in this space. Resolved
+    // once so each request below is a single lookup inside it rather than a
+    // walk from the root.
+    var responsesHome = findFolder(root, spacePath(spaces[s], 'responses'));
+    // Two passes: decide which requests are in scope, then read all of their
+    // responses together. The single-pass version looked up and read one
+    // folder per request, which is the cost stage 2b exists to remove.
+    var inScope = [];
     for (var i = 0; i < rows.length; i++) {
-      if (!requestInPeopleScope(root, rows[i], account, tier)) continue;
+      if (!requestInPeopleScope(root, rows[i], account, tier, roster)) continue;
       rows[i].space = spaces[s];
       requests.push(rows[i]);
       formIds[rows[i].formId] = spaces[s];
+      inScope.push(rows[i]);
+    }
 
-      var found = readFolderDocs(root, spacePath(spaces[s], 'responses', rows[i].id));
-      for (var r = 0; r < found.length; r++) {
-        found[r].space = spaces[s];
-        responses.push(found[r]);
+    if (responsesHome && inScope.length) {
+      var folderIds = [];
+      var subsByRequest = {};
+      var all = responsesHome.getFolders();
+      while (all.hasNext()) {
+        var child = all.next();
+        subsByRequest[child.getName()] = child.getId();
+      }
+      for (var q = 0; q < inScope.length; q++) {
+        var fid = subsByRequest[inScope[q].id];
+        if (fid) folderIds.push(fid);
+      }
+
+      var grouped = readDocsInFolders_(folderIds);
+      for (var g = 0; g < folderIds.length; g++) {
+        var found = grouped[folderIds[g]] || [];
+        for (var r = 0; r < found.length; r++) {
+          found[r].space = spaces[s];
+          responses.push(found[r]);
+        }
       }
     }
   }
 
-  // Only the forms the surviving requests actually render with.
-  for (var id in formIds) {
-    if (!Object.prototype.hasOwnProperty.call(formIds, id)) continue;
-    var form = readJson(root, spacePath(formIds[id], 'forms'), id + '.json');
-    if (form) {
-      form.space = formIds[id];
-      forms.push(form);
+  // Only the forms the surviving requests actually render with — but read a
+  // space's forms folder once rather than one readJson per form.
+  //
+  // Each readJson was a path walk plus a lookup plus a download, about three
+  // round trips, once per distinct form. That grew with the term exactly as
+  // the responses did, and the profiler missed it because its fixture gave
+  // every request the same form. Reading the folder fetches forms that are not
+  // needed, which is the right trade: an unwanted document costs bytes inside
+  // a batch, a wanted one costs a round trip of its own.
+  var spacesWithForms = {};
+  for (var fid in formIds) {
+    if (!Object.prototype.hasOwnProperty.call(formIds, fid)) continue;
+    spacesWithForms[formIds[fid]] = true;
+  }
+  for (var space in spacesWithForms) {
+    if (!Object.prototype.hasOwnProperty.call(spacesWithForms, space)) continue;
+    var available = readFolderDocs(root, spacePath(space, 'forms'));
+    for (var a = 0; a < available.length; a++) {
+      var candidate = available[a];
+      if (formIds[candidate.id] !== space) continue;
+      candidate.space = space;
+      forms.push(candidate);
     }
   }
 
-  var users = readRoster(root);
+  var users = roster;
   var staff = [];
   for (var u = 0; u < users.length; u++) {
     var user = users[u];
@@ -1801,10 +2320,17 @@ function readAllResponses(root, account) {
   for (var s = 0; s < spaces.length; s++) {
     var parent = findFolder(root, spacePath(spaces[s], 'responses'));
     if (!parent) continue;
+    // Collect the folders first, then read them all in one pass. Reading them
+    // as they are enumerated cost one list and one fetchAll each — 88% of this
+    // function's time, and growing with every request a term adds.
+    var ids = [];
     var subs = parent.getFolders();
-    while (subs.hasNext()) {
-      var sub = subs.next();
-      var rows = readFolderDocs(root, spacePath(spaces[s], 'responses', sub.getName()));
+    while (subs.hasNext()) ids.push(subs.next().getId());
+    if (!ids.length) continue;
+
+    var byFolder = readDocsInFolders_(ids);
+    for (var f = 0; f < ids.length; f++) {
+      var rows = byFolder[ids[f]] || [];
       for (var i = 0; i < rows.length; i++) {
         rows[i].space = spaces[s];
         out.push(rows[i]);

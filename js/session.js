@@ -12,10 +12,38 @@
  */
 
 import { LS } from './config.js';
+import { connection } from './state.js';
 import { forgetGoogleSession } from './google-identity.js';
 
 /** Long enough for a drill weekend, short enough not to outlive the day. */
 const SESSION_MS = 8 * 60 * 60 * 1000;
+
+/**
+ * Whether the ID token is the thing keeping this session alive.
+ *
+ * In proxy mode it is. Every read sends the raw token for the script to
+ * re-verify, which is the whole point of the proxy, so a session that has lost
+ * its token can do precisely nothing. In direct and local mode it is not: Drive
+ * is reached with a separate access token that has its own silent renewal, and
+ * the ID token is only ever used to find out who signed in.
+ *
+ * Read from `state.js` rather than calling `data-source.js`'s `usingProxy()`,
+ * which is this same expression. data-source imports this module, so importing
+ * it back would be a cycle; state.js imports nothing but config.
+ */
+const boundToCredential = () => Boolean(connection.get().proxyUrl);
+
+/**
+ * When this session stops being usable, as far as its credential is concerned.
+ *
+ * `Infinity` when the credential is not load-bearing, and when it carries no
+ * expiry at all: the email sign-in supplies neither a token nor an `exp`, and
+ * cutting a session short on the strength of a missing field would be a guess.
+ */
+function credentialUntil(credential) {
+  if (!credential.idTokenExp || !boundToCredential()) return Infinity;
+  return credential.idTokenExp * 1000;
+}
 
 /**
  * @param {object} account
@@ -36,7 +64,29 @@ export function startSession(account, credential = {}) {
     asClass: account.asClass || '',
     idToken: credential.idToken || null,
     idTokenExp: credential.idTokenExp || null,
-    until: Date.now() + SESSION_MS,
+    /*
+     * A session may not outlive the credential it needs.
+     *
+     * SESSION_MS was aspirational. A Google ID token lasts an hour, nothing
+     * here renews one, and `auto_select` is off in google-identity.js, so in
+     * proxy mode the other seven hours were a window where `currentUser()`
+     * reported a healthy session while every read threw "Your sign-in has
+     * expired. Sign in again." The gates are `hasRole()`, which reads the roles
+     * below and never the token, so the app went on showing the person signed
+     * in, told them to sign in again, and rendered nothing to do it with.
+     *
+     * Det 752 sat in that state on 9 Nov 2026: the diagnostics file shows eight
+     * sign-ins in six minutes, every one of them accepted by the proxy, none of
+     * them reaching the screen that was refusing. sign-in.js has called this an
+     * "expired-token deadlock" since the day its mislabelling was fixed; this is
+     * the deadlock itself.
+     *
+     * Capping `until` closes it through the path that already works. The session
+     * ages out, `currentUser()`'s own expiry branch signs it out, `hasRole()`
+     * goes false, and the gate renders a sign-in button like it does for anyone
+     * else arriving cold.
+     */
+    until: Math.min(Date.now() + SESSION_MS, credentialUntil(credential)),
   }));
   announceIdentityChange();
 }

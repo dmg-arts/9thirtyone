@@ -932,8 +932,13 @@ await step('a device-only install still disconnects to an empty Client ID', asyn
  * rather than a raw server error — the same seam the proxy-mode lockout lived
  * in. `currentUser()` returning null on the second is the shared-office-laptop
  * guarantee: a tab left open all day stops being signed in.
+ *
+ * The two clocks are now only independent in direct and local mode, and the
+ * first two steps below say which mode they are describing. In proxy mode the
+ * session is capped at the credential, because there the credential is the only
+ * thing it has — see the third step, and `credentialUntil` in js/session.js.
  */
-await step('an expired ID token is withheld while the session survives', async () => {
+await step('in direct mode an expired ID token is withheld while the session survives', async () => {
   const result = await page.evaluate(async () => {
     const s = await import('/js/session.js');
     const key = 'nine31.session.v1';
@@ -953,6 +958,118 @@ await step('an expired ID token is withheld while the session survives', async (
   // But the person is still signed in — only the credential aged out, and the
   // app can re-acquire one without making them start over.
   if (result.user !== 'x') throw new Error(`the session was dropped too: ${result.user}`);
+});
+
+await step('in proxy mode a session does not outlive the ID token it needs', async () => {
+  /*
+   * The other half of the pair above, and the state Det 752 was left in.
+   *
+   * The step above is right about direct mode: Drive is reached with a separate
+   * access token that renews silently, so an aged-out ID token there costs
+   * nothing. Its comment then claims the app "can re-acquire one without making
+   * them start over", and in proxy mode nothing ever does — `auto_select` is
+   * off, no code path renews a credential, and the only way to get one is the
+   * button on the gate.
+   *
+   * So the eight-hour session became a seven-hour window in which the chrome
+   * said signed in, every read threw "Your sign-in has expired. Sign in again",
+   * and no screen offered a sign-in: the gates are `hasRole()`, which reads the
+   * roles and never the token. The 9 Nov 2026 diagnostics file carries eight
+   * sign-ins in six minutes, every one accepted by the proxy, none of them
+   * reaching the screen doing the refusing.
+   */
+  const result = await page.evaluate(async () => {
+    const s = await import('/js/session.js');
+    const a = await import('/js/auth.js');
+    const state = await import('/js/state.js');
+    const key = 'nine31.session.v1';
+    const saved = sessionStorage.getItem(key);
+    const original = state.connection.get().proxyUrl;
+    try {
+      state.connection.set({ proxyUrl: `${location.origin}/manifest.json` });
+      s.startSession(
+        { id: 'usr_x', email: 'x@y.z', username: 'x', name: 'X', roles: ['instructor'] },
+        { idToken: 'tok-stale', idTokenExp: Math.floor(Date.now() / 1000) - 60 });
+      return {
+        user: s.currentUser()?.username || null,
+        token: s.currentIdToken(),
+        // The seam that decides whether any of this reaches a screen. Every
+        // gate in the app is `hasRole()`, and it reads the session's roles.
+        role: a.hasRole('instructor'),
+      };
+    } finally {
+      state.connection.set({ proxyUrl: original || '' });
+      if (saved) sessionStorage.setItem(key, saved); else sessionStorage.removeItem(key);
+    }
+  });
+  if (result.user !== null) {
+    throw new Error(`the session outlived the credential it needs: ${result.user}`);
+  }
+  if (result.token !== null) throw new Error(`a stale token was handed out: ${result.token}`);
+  // Without this the change is invisible to every screen in the app.
+  if (result.role !== false) {
+    throw new Error('hasRole still reported the role, so the gate would be skipped');
+  }
+});
+
+await step('a staff member whose token aged out is offered a sign-in, not a dead end', async () => {
+  /*
+   * The defect as the person met it, driven through the UI.
+   *
+   * The state check above is not enough on its own: the bug was never that the
+   * session held a dead token — it was that a screen skipped its own gate on
+   * the strength of the roles beside it and then refused every read behind it.
+   * A test that reads `currentUser()` would have passed against that.
+   *
+   * The connection goes through localStorage rather than `connection.set` alone
+   * because this step navigates, and the reload has to find proxy mode still on.
+   * `manifest.json` is a local file that genuinely exists and is genuinely JSON,
+   * so the app bar's health check reaches something real instead of logging a
+   * failed request.
+   */
+  const CONN = 'nine31.connection.v1';
+  const original = await page.evaluate(async ([key]) => {
+    const conn = JSON.parse(localStorage.getItem(key));
+    const was = conn.proxyUrl || '';
+    conn.proxyUrl = `${location.origin}/manifest.json`;
+    localStorage.setItem(key, JSON.stringify(conn));
+    const state = await import('/js/state.js');
+    state.connection.set({ proxyUrl: conn.proxyUrl });
+
+    const s = await import('/js/session.js');
+    s.startSession(
+      {
+        id: 'usr_y', email: 'capt.reyes@det025.edu', username: 'capt.reyes',
+        name: 'Capt Reyes', roles: ['instructor', 'admin'],
+      },
+      { idToken: 'tok-stale', idTokenExp: Math.floor(Date.now() / 1000) - 60 });
+    return was;
+  }, [CONN]);
+
+  try {
+    await page.goto(`${BASE}#/admin`, { waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'networkidle' });
+    // The gate, in either of its two shapes: this card is rendered before
+    // renderLogin branches on whether a Client ID is configured.
+    await page.waitForSelector('text=This app issues no password of its own',
+      { timeout: 10000 });
+    const shown = await page.textContent('#view');
+    if (/sign-in has expired/i.test(shown)) {
+      throw new Error('told to sign in again on a screen that offers no sign-in');
+    }
+  } finally {
+    // Restorations, not tidiness. Proxy mode left on would route every later
+    // step at a manifest file, and the dead session would gate them all.
+    await page.evaluate(async ([key, was]) => {
+      const conn = JSON.parse(localStorage.getItem(key));
+      conn.proxyUrl = was;
+      localStorage.setItem(key, JSON.stringify(conn));
+      const state = await import('/js/state.js');
+      state.connection.set({ proxyUrl: was });
+      sessionStorage.removeItem('nine31.session.v1');
+    }, [CONN, original]);
+    await page.goto(`${BASE}#/student`, { waitUntil: 'networkidle' });
+  }
 });
 
 await step('a live ID token is handed over', async () => {
